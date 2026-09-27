@@ -9,8 +9,14 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.core.deps import get_account_service
-from app.core.security import Argon2SeedHasher, JwtTokenIssuer, generate_mnemonic, is_valid_mnemonic
+from app.core.deps import get_account_rate_limiter, get_account_service
+from app.core.rate_limit import SlidingWindowRateLimiter
+from app.core.security import (
+    Argon2SeedHasher,
+    JwtTokenIssuer,
+    generate_mnemonic,
+    is_valid_mnemonic,
+)
 from app.domain.accounts import (
     InvalidCredentialsError,
     InvalidMnemonicError,
@@ -162,6 +168,10 @@ def _override_app(service: AccountService) -> FastAPI:
         return service
 
     application.dependency_overrides[get_account_service] = override
+    application.dependency_overrides[get_account_rate_limiter] = lambda: SlidingWindowRateLimiter(
+        limit=1000,
+        window_seconds=60,
+    )
     return application
 
 
@@ -246,6 +256,44 @@ async def test_login_wrong_phrase_is_401() -> None:
         )
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid recovery phrase"
+
+
+@pytest.mark.asyncio
+async def test_login_hides_whether_the_phrase_checksum_passed() -> None:
+    """A broken phrase and a valid unknown phrase return the same status and detail."""
+    service, _users = _service()
+    application = _override_app(service)
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        broken = await client.post(
+            "/api/v1/accounts/login",
+            json={"mnemonic": "not a recovery phrase"},
+        )
+        unknown = await client.post(
+            "/api/v1/accounts/login",
+            json={"mnemonic": generate_mnemonic()},
+        )
+    assert broken.status_code == 401
+    assert unknown.status_code == 401
+    assert broken.json()["detail"] == unknown.json()["detail"] == "Invalid recovery phrase"
+
+
+@pytest.mark.asyncio
+async def test_account_create_is_rate_limited() -> None:
+    """Repeated account creation from one address is refused."""
+    service, _users = _service()
+    application = _override_app(service)
+    limiter = SlidingWindowRateLimiter(limit=2, window_seconds=60)
+    application.dependency_overrides[get_account_rate_limiter] = lambda: limiter
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first = await client.post("/api/v1/accounts", json={})
+        second = await client.post("/api/v1/accounts", json={})
+        third = await client.post("/api/v1/accounts", json={})
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert third.status_code == 429
+    assert third.json()["detail"] == "Rate limit exceeded"
 
 
 async def test_me_without_token_is_401() -> None:

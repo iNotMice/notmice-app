@@ -36,6 +36,10 @@ class VisionNotConfiguredError(UploadError):
     """The selected Vision provider has no API key or is not implemented."""
 
 
+class VisionTimeoutError(UploadError):
+    """The Vision provider did not answer before the configured deadline."""
+
+
 class VisionExtractionError(UploadError):
     """The Vision provider failed after retries."""
 

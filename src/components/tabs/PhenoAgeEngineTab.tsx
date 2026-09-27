@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   TrendingDown,
   TrendingUp,
-  Download,
   Save,
   CheckCircle,
   HelpCircle,
@@ -55,6 +54,9 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
   };
 
   const handleSave = () => {
+    if (!calculation.isValid) {
+      return;
+    }
     onSaveToHistory();
     setSavedNotification(true);
     setTimeout(() => setSavedNotification(false), 3000);
@@ -115,7 +117,8 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
 
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 rounded font-['Inter'] text-xs font-bold bg-[#006947] hover:bg-[#00855b] text-[#ffffff] shadow-sm transition-all cursor-pointer"
+            disabled={!calculation.isValid}
+            className="flex items-center gap-2 px-4 py-2 rounded font-['Inter'] text-xs font-bold bg-[#006947] hover:bg-[#00855b] text-[#ffffff] shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
             <span>{savedNotification ? copy.saved : copy.save}</span>
@@ -235,7 +238,11 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
           <div className="mt-4 pt-3 border-t border-[#f1f5f9] flex items-center justify-between text-xs text-[#565e74]">
             <span>{copy.decelerationStatus}</span>
             <span className="font-['Inter'] font-semibold text-[#006947]">
-              {isDecelerated ? copy.highProtection : copy.attentionNeeded}
+              {!calculation.isValid
+                ? '…'
+                : isDecelerated
+                  ? copy.highProtection
+                  : copy.attentionNeeded}
             </span>
           </div>
         </div>

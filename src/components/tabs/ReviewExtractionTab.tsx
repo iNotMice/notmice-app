@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TabType, LabPanelData } from '../../types';
 import { PHENOAGE_BIOMARKERS } from '../../data/phenoAgeData';
 import { confirmLabExtraction } from '../../api/uploads';
@@ -55,6 +55,22 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
 
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+
+  useEffect(() => {
+    setLocalValues({ ...currentPanel.biomarkers });
+    setVerifiedMap({
+      albumin: true,
+      creatinine: true,
+      glucose: true,
+      crp: true,
+      lymphocyte: true,
+      mcv: true,
+      rdw: true,
+      alp: true,
+      wbc: true,
+    });
+    setConfirmError(null);
+  }, [currentPanel]);
 
   const confirmedMarkers = PHENOAGE_BIOMARKERS.map((bio) => ({
     rawName: bio.name,
@@ -323,9 +339,13 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
 
                         {/* Confidence Score */}
                         <td className="py-3.5 px-3 font-['JetBrains_Mono'] text-[11px]">
-                          <span className="bg-[#4edea3]/20 text-[#006947] px-1.5 py-0.5 rounded font-semibold">
-                            {currentPanel.confidenceScores[bio.id] ?? 98.8}%
-                          </span>
+                          {typeof currentPanel.confidenceScores[bio.id] === 'number' ? (
+                            <span className="bg-[#4edea3]/20 text-[#006947] px-1.5 py-0.5 rounded font-semibold">
+                              {currentPanel.confidenceScores[bio.id]}%
+                            </span>
+                          ) : (
+                            <span className="text-[#94a3b8]">—</span>
+                          )}
                         </td>
 
                         {/* Verification Toggle */}

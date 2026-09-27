@@ -23,17 +23,6 @@ export interface BiomarkerDefinition {
   step: number;
 }
 
-export interface BiomarkerValue {
-  id: string;
-  name: string;
-  loinc: string;
-  value: number;
-  unit: string;
-  confidence: number;
-  status: 'optimal' | 'normal' | 'borderline' | 'elevated' | 'critical';
-  verified: boolean;
-}
-
 export interface TokenUsageNotice {
   tokensUsed: number;
   tokensLimit: number;
@@ -53,6 +42,8 @@ export interface LabPanelData {
   confidenceScores: Record<string, number>;
   verified: boolean;
   hash: string;
+  /** Canonical marker ids that belong to this panel. Empty on the tutorial example. */
+  focusMarkerIds: string[];
   extractToken?: string;
   parserVersion?: string;
   extractedMarkers?: ExtractedMarker[];
@@ -97,7 +88,12 @@ export interface HistoricalTestRecord {
   delta: number;
   labSource: string;
   biomarkers: Record<string, number>;
+  /** SHA-256 of a confirmed laboratory file. Empty for a session-only engine snapshot. */
   hash: string;
+  /** Canonical marker ids from the panel. Not the full default biomarker map. */
+  markerIds: string[];
+  /** True when the row exists only in this browser session and is not stored on the account. */
+  sessionOnly: boolean;
 }
 
 export interface AccountState {

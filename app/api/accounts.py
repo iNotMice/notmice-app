@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.core.deps import get_account_service
+from app.core.config import get_settings
+from app.core.deps import get_account_rate_limiter, get_account_service
+from app.core.rate_limit import SlidingWindowRateLimiter, resolve_client_key
 from app.domain.accounts import (
     AccountError,
     AccountNotFoundError,
@@ -31,14 +33,40 @@ router = APIRouter(prefix="/api/v1/accounts", tags=["accounts"])
 _bearer = HTTPBearer(auto_error=False)
 
 
-def _http_for(exc: AccountError) -> HTTPException:
-    """Map domain errors to HTTP responses without leaking identifiers."""
-    if isinstance(exc, InvalidMnemonicError):
-        return HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid recovery phrase",
+async def enforce_account_rate_limit(
+    request: Request,
+    response: Response,
+    limiter: Annotated[SlidingWindowRateLimiter, Depends(get_account_rate_limiter)],
+) -> None:
+    """Limit account creation and login by client IP. Argon2 makes each login expensive."""
+    settings = get_settings()
+    key = resolve_client_key(
+        real_ip=request.headers.get("x-real-ip"),
+        client_host=request.client.host if request.client is not None else None,
+        trust_proxy=settings.trust_proxy_headers,
+    )
+    decision = await limiter.hit(key)
+    response.headers["X-RateLimit-Limit"] = str(decision.limit)
+    response.headers["X-RateLimit-Remaining"] = str(decision.remaining)
+    if not decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded",
+            headers={
+                "Retry-After": str(decision.retry_after_seconds),
+                "X-RateLimit-Limit": str(decision.limit),
+                "X-RateLimit-Remaining": "0",
+            },
         )
-    if isinstance(exc, InvalidCredentialsError):
+
+
+def _http_for(exc: AccountError) -> HTTPException:
+    """Map domain errors to HTTP responses without leaking identifiers.
+
+    A malformed phrase and a valid unknown phrase share one status and one detail
+    so the response does not say whether the checksum passed.
+    """
+    if isinstance(exc, (InvalidMnemonicError, InvalidCredentialsError)):
         return HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid recovery phrase",
@@ -71,6 +99,7 @@ async def get_current_user(
 )
 async def create_account(
     account_service: Annotated[AccountService, Depends(get_account_service)],
+    _: Annotated[None, Depends(enforce_account_rate_limit)],
     payload: Annotated[AccountCreateRequest | None, Body()] = None,
 ) -> AccountCreatedResponse:
     """Create a pseudonymous participant. The BIP-39 phrase is returned once."""
@@ -96,6 +125,7 @@ async def create_account(
 async def login(
     payload: AccountLoginRequest,
     account_service: Annotated[AccountService, Depends(get_account_service)],
+    _: Annotated[None, Depends(enforce_account_rate_limit)],
 ) -> AccountSessionResponse:
     """Sign in with the 12-word recovery phrase."""
     try:

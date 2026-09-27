@@ -41,10 +41,13 @@ class Settings(BaseSettings):
     gemini_user_daily_calls: int = 8
     gemini_ip_daily_calls: int = 12
     gemini_budget_warn_ratio: float = 0.8
+    gemini_timeout_seconds: int = 60
     claude_api_key: str = ""
     claude_model: str = "claude-sonnet-5"
     max_upload_bytes: int = 15_728_640
     extract_session_ttl_seconds: int = 1_800
+    account_rate_limit: int = 20
+    account_rate_limit_window_seconds: int = 60
     dataset_rate_limit: int = 60
     dataset_rate_limit_window_seconds: int = 60
     news_rate_limit: int = 30

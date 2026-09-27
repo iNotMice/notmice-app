@@ -47,6 +47,7 @@ class SlidingWindowRateLimiter:
             key: Caller identity, typically an IP address.
         """
         now = self._now()
+        self._forget_expired(now)
         window_start = now - self.window_seconds
         bucket = self._events.get(key)
         if bucket is None:
@@ -54,6 +55,10 @@ class SlidingWindowRateLimiter:
             self._events[key] = bucket
         while bucket and bucket[0] <= window_start:
             bucket.popleft()
+        if not bucket:
+            self._events.pop(key, None)
+            bucket = deque()
+            self._events[key] = bucket
         if len(bucket) >= self.limit:
             retry_after = int(bucket[0] + self.window_seconds - now)
             if retry_after < 1:
@@ -71,6 +76,18 @@ class SlidingWindowRateLimiter:
             remaining=self.limit - len(bucket),
             retry_after_seconds=0,
         )
+
+    def _forget_expired(self, now: float) -> None:
+        """Drop keys whose newest hit is already outside the window.
+
+        A refusal keeps its bucket, because those timestamps are still inside the window.
+        """
+        window_start = now - self.window_seconds
+        stale = [
+            key for key, bucket in self._events.items() if not bucket or bucket[-1] <= window_start
+        ]
+        for key in stale:
+            del self._events[key]
 
 
 def resolve_client_key(

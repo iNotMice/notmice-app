@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Terminal as TerminalIcon, Play, RefreshCw, Cpu, Database } from 'lucide-react';
+import { X, Terminal as TerminalIcon, Play } from 'lucide-react';
 
 interface TerminalModalProps {
   isOpen: boolean;

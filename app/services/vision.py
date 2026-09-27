@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
@@ -17,6 +19,7 @@ from app.domain.uploads import (
     RawLabExtraction,
     VisionExtractionError,
     VisionNotConfiguredError,
+    VisionTimeoutError,
 )
 from app.services.gemini_budget import GEMINI_MAX_ATTEMPTS
 
@@ -169,9 +172,10 @@ class GeminiExtractionProvider:
 
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(self, api_key: str, model: str, timeout_seconds: float = 60) -> None:
         self._api_key = api_key
         self.model_id = model
+        self._timeout_seconds = timeout_seconds
 
     def _require_key(self) -> None:
         """Fail closed when the process has no Gemini key."""
@@ -213,7 +217,7 @@ class GeminiExtractionProvider:
         tally = UsageTally()
         try:
             panel = await self._retry(contents, media_resolution, tally)
-        except VisionNotConfiguredError:
+        except (VisionNotConfiguredError, VisionTimeoutError):
             raise
         except VisionExtractionError as exc:
             raise VisionExtractionError(
@@ -233,13 +237,13 @@ class GeminiExtractionProvider:
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(GEMINI_MAX_ATTEMPTS),
             wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
-            retry=retry_if_exception_type((VisionExtractionError, TimeoutError, ConnectionError)),
+            retry=retry_if_exception_type((VisionExtractionError, ConnectionError)),
             reraise=True,
         ):
             with attempt:
                 try:
                     panel, tokens = await self._once(contents, media_resolution)
-                except VisionNotConfiguredError:
+                except (VisionNotConfiguredError, VisionTimeoutError):
                     raise
                 except VisionExtractionError as exc:
                     tally.add(exc.tokens_used)
@@ -276,10 +280,12 @@ class GeminiExtractionProvider:
             thinking_config=types.ThinkingConfig(thinking_budget=0),
             media_resolution=cast(Any, media_resolution),
         )
-        response = await client.aio.models.generate_content(
-            model=self.model_id,
-            contents=cast(Any, contents),
-            config=config,
+        response = await self._bounded(
+            client.aio.models.generate_content(
+                model=self.model_id,
+                contents=cast(Any, contents),
+                config=config,
+            )
         )
         tokens = usage_token_count(getattr(response, "usage_metadata", None))
         parsed = response.parsed
@@ -292,6 +298,13 @@ class GeminiExtractionProvider:
             return RawLabExtraction.model_validate_json(text), tokens
         raise VisionExtractionError("Gemini returned an empty extraction", tokens_used=tokens)
 
+    async def _bounded(self, call: Awaitable[Any]) -> Any:
+        """Wait for one Gemini call and turn a deadline miss into ``VisionTimeoutError``."""
+        try:
+            return await asyncio.wait_for(call, timeout=self._timeout_seconds)
+        except TimeoutError as exc:
+            raise VisionTimeoutError("Gemini extraction timed out") from exc
+
 
 def build_extraction_provider(
     *,
@@ -300,6 +313,7 @@ def build_extraction_provider(
     gemini_model: str,
     claude_api_key: str,
     claude_model: str,
+    gemini_timeout_seconds: float = 60,
 ) -> ExtractionProvider:
     """Return the configured provider. Claude is intentionally unimplemented.
 
@@ -309,10 +323,15 @@ def build_extraction_provider(
         gemini_model: Gemini model id.
         claude_api_key: Reserved for the Claude adapter.
         claude_model: Reserved Claude model id.
+        gemini_timeout_seconds: Deadline for one Gemini call, in seconds.
     """
     name = provider.strip().lower()
     if name == "gemini":
-        return GeminiExtractionProvider(api_key=gemini_api_key, model=gemini_model)
+        return GeminiExtractionProvider(
+            api_key=gemini_api_key,
+            model=gemini_model,
+            timeout_seconds=gemini_timeout_seconds,
+        )
     if name == "claude":
         return ClaudeExtractionProvider(api_key=claude_api_key, model=claude_model)
     raise VisionNotConfiguredError(f"Unknown VISION_PROVIDER: {provider}")

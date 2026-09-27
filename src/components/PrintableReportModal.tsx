@@ -371,9 +371,11 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
             </p>
             <div className="pt-2 text-[10px] text-[#64748b] border-t border-[#dce9ff] flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <span>{copy.citation}</span>
-              <span className="font-['JetBrains_Mono'] font-bold text-[#006194]">
-                {fill(copy.documentId, { id: latest.hash?.slice(0, 8) || 'VERIFIED' })}
-              </span>
+              {latest.hash.length === 64 && (
+                <span className="font-['JetBrains_Mono'] font-bold text-[#006194]">
+                  {fill(copy.documentId, { id: latest.hash.slice(0, 12) })}
+                </span>
+              )}
             </div>
           </div>
 

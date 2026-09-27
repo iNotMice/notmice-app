@@ -118,7 +118,7 @@ class ConfirmRequest(BaseModel):
     lab_name: str | None = Field(default=None, max_length=255)
     collected_at: date | None = None
     chronological_age: float | None = None
-    markers: list[ConfirmedMarkerInput] = Field(min_length=1)
+    markers: list[ConfirmedMarkerInput] = Field(min_length=1, max_length=40)
 
 
 class OwnedMarkerView(BaseModel):

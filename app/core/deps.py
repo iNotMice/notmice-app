@@ -33,6 +33,7 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 _extract_sessions: InMemoryExtractSessionStore | None = None
 _vision_provider: ExtractionProvider | None = None
 _public_rate_limiter: SlidingWindowRateLimiter | None = None
+_account_rate_limiter: SlidingWindowRateLimiter | None = None
 _news_rate_limiter: SlidingWindowRateLimiter | None = None
 _news_service: NewsService | None = None
 _gemini_budget: GeminiTokenBudget | None = None
@@ -111,6 +112,7 @@ def get_vision_provider() -> ExtractionProvider:
             gemini_model=settings.gemini_model,
             claude_api_key=settings.claude_api_key,
             claude_model=settings.claude_model,
+            gemini_timeout_seconds=settings.gemini_timeout_seconds,
         )
     return _vision_provider
 
@@ -158,6 +160,18 @@ def get_news_rate_limiter() -> SlidingWindowRateLimiter:
             window_seconds=settings.news_rate_limit_window_seconds,
         )
     return _news_rate_limiter
+
+
+def get_account_rate_limiter() -> SlidingWindowRateLimiter:
+    """Return the process-wide limiter for account create and login."""
+    global _account_rate_limiter
+    if _account_rate_limiter is None:
+        settings = get_settings()
+        _account_rate_limiter = SlidingWindowRateLimiter(
+            limit=settings.account_rate_limit,
+            window_seconds=settings.account_rate_limit_window_seconds,
+        )
+    return _account_rate_limiter
 
 
 def get_public_rate_limiter() -> SlidingWindowRateLimiter:

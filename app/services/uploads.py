@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -25,6 +26,7 @@ from app.domain.uploads import (
     RawMarker,
     VisionExtractionError,
     VisionNotConfiguredError,
+    VisionTimeoutError,
     map_marker,
     parse_collected_at,
     parser_version_for,
@@ -34,7 +36,7 @@ from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GeminiTokenBudget
 from app.services.loinc_dictionary import load_loinc_dictionary
 from app.services.media import sha256_hex, sniff_mime_type
-from app.services.pdf_text import extract_pdf_text, has_selectable_text
+from app.services.pdf_text import MIN_SELECTABLE_TEXT_CHARS, extract_pdf_text
 from app.services.vision import ExtractionProvider
 
 logger = structlog.get_logger(__name__)
@@ -59,6 +61,9 @@ class LabResultStore(Protocol):
 
     async def list_confirmed(self, user_id: UUID) -> tuple[OwnedLabPanel, ...]:
         """Return confirmed panels for ``user_id``, oldest first."""
+
+    async def delete_confirmed(self, user_id: UUID) -> int:
+        """Delete confirmed panels owned by ``user_id``. The account itself stays."""
 
 
 class UploadService:
@@ -102,15 +107,17 @@ class UploadService:
         mime_type = sniff_mime_type(payload)
         digest = sha256_hex(payload)
         text: str | None = None
-        if mime_type == "application/pdf" and has_selectable_text(payload):
-            text = extract_pdf_text(payload)
+        if mime_type == "application/pdf":
+            extracted_text = await asyncio.to_thread(extract_pdf_text, payload)
+            if len(extracted_text) >= MIN_SELECTABLE_TEXT_CHARS:
+                text = extracted_text
         hold = self._budget.reserve(user_id, client_key)
         try:
             if text is not None:
                 parsed = await self._vision.extract_from_text(text)
             else:
                 parsed = await self._vision.extract_from_media(payload, mime_type)
-        except VisionNotConfiguredError:
+        except (VisionNotConfiguredError, VisionTimeoutError):
             self._budget.release(hold)
             raise
         except VisionExtractionError as exc:
@@ -186,9 +193,7 @@ class UploadService:
             lab_name if lab_name is not None else session.panel.lab_name
         )
         stored_age = usable_chronological_age(
-            chronological_age
-            if chronological_age is not None
-            else session.panel.chronological_age
+            chronological_age if chronological_age is not None else session.panel.chronological_age
         )
         reject_pii(
             {
@@ -223,6 +228,15 @@ class UploadService:
             user_id: Authenticated owner.
         """
         return await self._lab_results.list_confirmed(user_id)
+
+    async def delete_confirmed(self, user_id: UUID) -> None:
+        """Delete this account's confirmed panels. The account and phrase hash stay.
+
+        Args:
+            user_id: Authenticated owner.
+        """
+        removed = await self._lab_results.delete_confirmed(user_id)
+        logger.info("lab_results_deleted", removed=removed)
 
 
 def _label_without_personal_text(value: str | None) -> str | None:

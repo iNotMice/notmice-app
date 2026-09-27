@@ -27,7 +27,7 @@ interface DataSovereigntyTabProps {
   isAuthenticated: boolean;
   isPublic: boolean;
   onTogglePublic: (isPublic: boolean) => void;
-  onPurgeMemory: () => void;
+  onPurgeMemory: () => void | Promise<void>;
   onOpenSeedPhrase: () => void;
   setActiveTab: (tab: TabType) => void;
 }
@@ -52,6 +52,8 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   const [datasetLoading, setDatasetLoading] = useState(true);
   const [series, setSeries] = useState<PublicTimeseries | null>(null);
   const [seriesNote, setSeriesNote] = useState<string | null>(null);
+  const [purgeBusy, setPurgeBusy] = useState(false);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -133,6 +135,21 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
       });
   };
 
+  const handlePurge = () => {
+    setPurgeError(null);
+    setPurgeBusy(true);
+    void Promise.resolve(onPurgeMemory())
+      .then(() => {
+        setDatasetReload((value) => value + 1);
+      })
+      .catch(() => {
+        setPurgeError(copy.purgeFailed);
+      })
+      .finally(() => {
+        setPurgeBusy(false);
+      });
+  };
+
   return (
     <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
       {/* Header */}
@@ -156,12 +173,18 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
 
         <div className="flex items-center gap-3">
           <button
-            onClick={onPurgeMemory}
-            className="flex items-center gap-2 px-4 py-2.5 rounded font-['Inter'] text-xs font-bold bg-[#fff1f2] hover:bg-[#ffe4e6] text-[#ba1a1a] border border-[#fecdd3] transition-colors cursor-pointer"
+            onClick={handlePurge}
+            disabled={purgeBusy}
+            className="flex items-center gap-2 px-4 py-2.5 rounded font-['Inter'] text-xs font-bold bg-[#fff1f2] hover:bg-[#ffe4e6] text-[#ba1a1a] border border-[#fecdd3] transition-colors cursor-pointer disabled:opacity-60"
           >
             <Trash2 className="w-4 h-4" />
-            <span>{copy.purge}</span>
+            <span>{isAuthenticated ? copy.purgeAccount : copy.purgeLocal}</span>
           </button>
+          {purgeError && (
+            <p className="text-xs text-[#ba1a1a]" role="alert">
+              {purgeError}
+            </p>
+          )}
         </div>
       </div>
 

@@ -6,7 +6,6 @@ import { useI18n } from '../i18n/I18nProvider';
 interface ProofModalProps {
   isOpen: boolean;
   onClose: () => void;
-  hash: string;
   biomarkers: Record<string, number>;
   phenoAge: number;
   chronologicalAge: number;

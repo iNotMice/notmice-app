@@ -78,6 +78,20 @@ def test_reject_sensitive_output_blocks_internal_ids() -> None:
         reject_sensitive_output({"document_sha256": "a" * 64})
 
 
+def test_reject_sensitive_output_blocks_email_in_a_value() -> None:
+    """Public rows are scanned for emails, not only forbidden key names."""
+    with pytest.raises(PIIValidationError, match="email"):
+        reject_sensitive_output({"raw_name": "patient@example.com", "value": 1.0})
+    reject_sensitive_output(
+        {
+            "raw_name": "Serum Albumin",
+            "lab_name": "Quest Diagnostics",
+            "value": 46.2,
+            "unit": "g/L",
+        }
+    )
+
+
 def test_reject_sensitive_output_allows_public_id() -> None:
     """The pseudonymous public id is the identifier the dataset is allowed to show."""
     reject_sensitive_output(

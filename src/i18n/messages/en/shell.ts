@@ -6,6 +6,7 @@ export const shell = {
   researchProtocol: 'Research Protocol',
   tutorialExample: 'Tutorial example',
   notPatientPanel: 'Not a patient panel • Levine 2018 weights',
+  levineWeights: 'Levine 2018 weights',
   optimal: 'Optimal',
   normal: 'Normal',
   elevated: 'Elevated',

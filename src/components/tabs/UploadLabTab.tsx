@@ -68,6 +68,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
       confidenceScores: { ...preset.confidence },
       verified: false,
       hash: `demo-${presetKey}`,
+      focusMarkerIds: Object.keys(preset.values),
     };
 
     onLoadPanel(newPanel);
@@ -99,10 +100,12 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
       PHENOAGE_BIOMARKERS.forEach((item) => {
         confidenceScores[item.id] = 0;
       });
+      const focusMarkerIds: string[] = [];
       for (const marker of extracted.markers) {
         if (marker.canonicalId) {
           biomarkers[marker.canonicalId] = marker.value;
           confidenceScores[marker.canonicalId] = marker.confidence;
+          focusMarkerIds.push(marker.canonicalId);
         }
       }
 
@@ -122,6 +125,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
         parserVersion: extracted.parserVersion,
         extractedMarkers: extracted.markers,
         tokenUsage: extracted.tokenUsage,
+        focusMarkerIds,
       };
       onLoadPanel(newPanel);
       setActiveTab('review-extraction');

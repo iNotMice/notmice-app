@@ -213,6 +213,16 @@ export async function fetchOwnLabResults(token: string): Promise<OwnLabResult[]>
   }));
 }
 
+export async function deleteOwnLabResults(token: string): Promise<void> {
+  const response = await fetch(apiUrl('/api/v1/uploads/results'), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error('Could not delete saved panels');
+  }
+}
+
 export async function confirmLabExtraction(
   token: string,
   input: {

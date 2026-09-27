@@ -9,13 +9,17 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from pydantic import ValidationError
 
-from app.core.deps import get_account_service, get_upload_service
+from app.core.deps import get_account_rate_limiter, get_account_service, get_upload_service
+from app.core.rate_limit import SlidingWindowRateLimiter
 from app.core.security import Argon2SeedHasher, JwtTokenIssuer
 from app.domain.accounts import UserRecord
 from app.domain.enums import MappingStatus
+from app.domain.schemas import ConfirmedMarkerInput, ConfirmRequest
 from app.domain.uploads import (
     ConfirmedLabResult,
+    ExtractedPanel,
     ExtractSessionNotFoundError,
     GeminiBudgetExhaustedError,
     MappedMarker,
@@ -24,6 +28,7 @@ from app.domain.uploads import (
     RawLabExtraction,
     RawMarker,
     VisionNotConfiguredError,
+    VisionTimeoutError,
     map_marker,
 )
 from app.main import create_app
@@ -35,6 +40,7 @@ from app.services.media import sha256_hex
 from app.services.uploads import UploadService
 from app.services.vision import (
     ClaudeExtractionProvider,
+    GeminiExtractionProvider,
     ProviderExtraction,
     build_extraction_provider,
 )
@@ -173,6 +179,15 @@ class InMemoryLabStore:
     async def list_confirmed(self, user_id: UUID) -> tuple[OwnedLabPanel, ...]:
         return tuple(panel for owner, panel in self._owners if owner == user_id)
 
+    async def delete_confirmed(self, user_id: UUID) -> int:
+        removed_hashes = {
+            panel.document_sha256 for owner, panel in self._owners if owner == user_id
+        }
+        before = len(self._owners)
+        self._owners = [(owner, panel) for owner, panel in self._owners if owner != user_id]
+        self.saved = [row for row in self.saved if row.document_sha256 not in removed_hashes]
+        return before - len(self._owners)
+
 
 def _account_service() -> AccountService:
     return AccountService(
@@ -218,6 +233,10 @@ def _app(account_service: AccountService, upload_service: UploadService) -> Fast
 
     application.dependency_overrides[get_account_service] = override_accounts
     application.dependency_overrides[get_upload_service] = override_uploads
+    application.dependency_overrides[get_account_rate_limiter] = lambda: SlidingWindowRateLimiter(
+        limit=1000,
+        window_seconds=60,
+    )
     return application
 
 
@@ -258,8 +277,21 @@ async def test_claude_extract_raises_not_configured() -> None:
 
 
 @pytest.mark.asyncio
-async def test_text_pdf_uses_pdfplumber_path_and_drops_bytes() -> None:
-    """Selectable PDF text is sent to extract_from_text; the panel has SHA-256, not the file."""
+async def test_text_pdf_uses_pdfplumber_path_and_drops_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Selectable PDF text is parsed once, then sent to extract_from_text."""
+    from app.services import pdf_text as pdf_text_module
+    from app.services import uploads as uploads_module
+
+    calls = {"n": 0}
+    real = pdf_text_module.extract_pdf_text
+
+    def counted(payload: bytes) -> str:
+        calls["n"] += 1
+        return real(payload)
+
+    monkeypatch.setattr(uploads_module, "extract_pdf_text", counted)
     service, vision, _labs = _upload_bundle()
     user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
     payload = _text_pdf(
@@ -268,6 +300,7 @@ async def test_text_pdf_uses_pdfplumber_path_and_drops_bytes() -> None:
     digest = sha256_hex(payload)
     session = (await service.extract(user.id, payload, client_key="203.0.113.10")).session
     assert vision.text_calls == 1
+    assert calls["n"] == 1
     assert vision.media_calls == 0
     assert session.panel.document_sha256 == digest
     assert session.panel.markers[0].canonical_id == "albumin"
@@ -581,3 +614,149 @@ async def test_extract_http_budget_is_429_without_global_figures() -> None:
     assert body["warning"] is True
     assert set(body) == {"detail", "tokens_used", "tokens_limit", "warning"}
     assert vision.media_calls == 0
+
+
+def test_put_drops_expired_extract_sessions() -> None:
+    """A later extract forgets sessions whose TTL has already elapsed."""
+    clock = {"now": datetime(2026, 1, 1, tzinfo=UTC)}
+    store = InMemoryExtractSessionStore(ttl_seconds=60, now=lambda: clock["now"])
+    user = uuid4()
+    panel = ExtractedPanel(
+        document_sha256="a" * 64,
+        parser_version="test",
+        lab_name=None,
+        collected_at=None,
+        chronological_age=None,
+        markers=(),
+    )
+    first = store.put(user, panel)
+    clock["now"] = datetime(2026, 1, 1, 0, 2, tzinfo=UTC)
+    store.put(user, panel)
+    with pytest.raises(ExtractSessionNotFoundError):
+        store.get(first.token, user)
+
+
+def test_confirm_request_rejects_more_than_forty_markers() -> None:
+    """A confirm payload cannot carry an unbounded marker list."""
+    row = ConfirmedMarkerInput(raw_name="Serum Albumin", value=46.0, unit="g/L")
+    ConfirmRequest(extract_token="token-ok1", markers=[row] * 40)
+    with pytest.raises(ValidationError):
+        ConfirmRequest(extract_token="token-ok1", markers=[row] * 41)
+
+
+@pytest.mark.asyncio
+async def test_vision_timeout_releases_the_budget_hold() -> None:
+    """A Gemini deadline returns the reserved tokens so the next extract can run."""
+
+    class TimeoutVision:
+        name = "gemini"
+        model_id = "fake-timeout"
+
+        async def extract_from_text(self, text: str) -> ProviderExtraction:
+            del text
+            raise VisionTimeoutError("timed out")
+
+        async def extract_from_media(self, payload: bytes, mime_type: str) -> ProviderExtraction:
+            del payload, mime_type
+            raise VisionTimeoutError("timed out")
+
+    budget = GeminiTokenBudget(
+        daily_token_budget=2_000_000,
+        user_daily_token_budget=100_000,
+        ip_daily_token_budget=150_000,
+        call_token_reserve=16_000,
+        user_daily_calls=1,
+        ip_daily_calls=12,
+        warn_ratio=0.8,
+    )
+    user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x11" * 32
+    timed_out = UploadService(
+        vision=TimeoutVision(),
+        sessions=InMemoryExtractSessionStore(ttl_seconds=60),
+        lab_results=InMemoryLabStore(),
+        max_upload_bytes=1_000_000,
+        budget=budget,
+    )
+    with pytest.raises(VisionTimeoutError):
+        await timed_out.extract(user.id, jpeg, client_key="203.0.113.10")
+    follow_up = UploadService(
+        vision=FakeVision(),
+        sessions=InMemoryExtractSessionStore(ttl_seconds=60),
+        lab_results=InMemoryLabStore(),
+        max_upload_bytes=1_000_000,
+        budget=budget,
+    )
+    completed = await follow_up.extract(user.id, jpeg, client_key="203.0.113.10")
+    assert completed.session.panel.markers
+
+
+@pytest.mark.asyncio
+async def test_gemini_call_deadline_raises_timeout() -> None:
+    """One hung generate_content becomes VisionTimeoutError instead of waiting forever."""
+    import asyncio
+
+    provider = GeminiExtractionProvider("test-key", "fake-model", timeout_seconds=0.01)
+
+    async def hang() -> None:
+        await asyncio.sleep(1)
+
+    with pytest.raises(VisionTimeoutError):
+        await provider._bounded(hang())
+
+
+@pytest.mark.asyncio
+async def test_delete_results_removes_only_the_caller() -> None:
+    """DELETE /results drops the signed-in account's panels and leaves the account in place."""
+    accounts = _account_service()
+    uploads, _vision, labs = _upload_bundle()
+    application = _app(accounts, uploads)
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x55" * 32
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        created = await client.post("/api/v1/accounts", json={})
+        token = created.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        extracted = await client.post(
+            "/api/v1/uploads/extract",
+            headers=headers,
+            files={"file": ("panel.jpg", jpeg, "image/jpeg")},
+        )
+        body = extracted.json()
+        confirmed = await client.post(
+            "/api/v1/uploads/confirm",
+            headers=headers,
+            json={
+                "extract_token": body["extract_token"],
+                "lab_name": "Quest Diagnostics",
+                "markers": [{"raw_name": "Serum Albumin", "value": 46.1, "unit": "g/L"}],
+            },
+        )
+        assert confirmed.status_code == 200
+        assert len(labs.saved) == 1
+        deleted = await client.delete("/api/v1/uploads/results", headers=headers)
+        assert deleted.status_code == 204
+        listed = await client.get("/api/v1/uploads/results", headers=headers)
+        assert listed.status_code == 200
+        assert listed.json()["results"] == []
+        assert labs.saved == []
+        me = await client.get("/api/v1/accounts/me", headers=headers)
+        assert me.status_code == 200
+
+
+def test_rate_limiter_forgets_expired_keys() -> None:
+    """An address that has left the window does not keep a bucket forever."""
+    clock = {"now": 0.0}
+    limiter = SlidingWindowRateLimiter(limit=1, window_seconds=10, now=lambda: clock["now"])
+
+    async def run() -> None:
+        first = await limiter.hit("203.0.113.8")
+        assert first.allowed is True
+        clock["now"] = 11.0
+        second = await limiter.hit("203.0.113.9")
+        assert second.allowed is True
+        assert "203.0.113.8" not in limiter._events
+
+    import asyncio
+
+    asyncio.run(run())

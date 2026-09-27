@@ -6,7 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -126,3 +126,19 @@ class LabResultRepository:
                 )
             )
         return tuple(panels)
+
+    async def delete_confirmed(self, user_id: UUID) -> int:
+        """Delete this account's lab panels. Biomarkers and provenance follow the foreign keys.
+
+        Args:
+            user_id: Owner. Other accounts are not touched.
+
+        Returns:
+            Number of lab_results rows removed.
+        """
+        count = await self._session.scalar(
+            select(func.count()).select_from(LabResult).where(LabResult.user_id == user_id)
+        )
+        await self._session.execute(delete(LabResult).where(LabResult.user_id == user_id))
+        await self._session.flush()
+        return int(count or 0)

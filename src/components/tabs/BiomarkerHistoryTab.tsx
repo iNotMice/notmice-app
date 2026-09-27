@@ -4,7 +4,6 @@ import { PHENOAGE_BIOMARKERS } from '../../data/phenoAgeData';
 import {
   Calendar,
   TrendingDown,
-  Plus,
   Trash2,
   ExternalLink,
   LineChart as LineChartIcon,
@@ -39,7 +38,6 @@ import {
 
 interface BiomarkerHistoryTabProps {
   history: HistoricalTestRecord[];
-  onAddHistory: (record: HistoricalTestRecord) => void;
   onDeleteHistory: (id: string) => void;
   onSelectRecord: (record: HistoricalTestRecord) => void;
   setActiveTab: (tab: TabType) => void;
@@ -47,7 +45,6 @@ interface BiomarkerHistoryTabProps {
 
 export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   history,
-  onAddHistory,
   onDeleteHistory,
   onSelectRecord,
   setActiveTab,
@@ -56,11 +53,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   const copy = m.history;
   const [selectedBiomarker, setSelectedBiomarker] = useState<string>('crp');
   const [chartViewMode, setChartViewMode] = useState<'both' | 'delta'>('both');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [newDate, setNewDate] = useState('2025-11-20');
-  const [newChronoAge, setNewChronoAge] = useState(42.5);
-  const [newLabSource, setNewLabSource] = useState('Quest Diagnostics');
 
   const activeBioDef = PHENOAGE_BIOMARKERS.find((b) => b.id === selectedBiomarker);
 
@@ -87,7 +80,6 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
         albumin: record.biomarkers?.albumin ?? 0,
         glucose: record.biomarkers?.glucose ?? 0,
         rdw: record.biomarkers?.rdw ?? 0,
-        hash: record.hash,
       };
     });
   }, [copy.months, history]);
@@ -134,8 +126,13 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   const padding = { top: 20, right: 30, bottom: 40, left: 45 };
 
   // Calculate points for Biological Age vs Chrono Age chart
-  const minAge = Math.min(...history.map((h) => Math.min(h.chronologicalAge, h.phenoAge))) - 1;
-  const maxAge = Math.max(...history.map((h) => Math.max(h.chronologicalAge, h.phenoAge))) + 1;
+  const hasHistory = history.length > 0;
+  const minAge = hasHistory
+    ? Math.min(...history.map((h) => Math.min(h.chronologicalAge, h.phenoAge))) - 1
+    : 0;
+  const maxAge = hasHistory
+    ? Math.max(...history.map((h) => Math.max(h.chronologicalAge, h.phenoAge))) + 1
+    : 1;
 
   const getX = (index: number) => {
     if (history.length <= 1) return padding.left;
@@ -155,9 +152,9 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   };
 
   // Biomarker specific chart calculations
-  const bioValues = history.map((h) => h.biomarkers[selectedBiomarker] ?? 0);
-  const minBio = Math.min(...bioValues) * 0.85;
-  const maxBio = Math.max(...bioValues) * 1.15 || 1;
+  const bioValues = hasHistory ? history.map((h) => h.biomarkers[selectedBiomarker] ?? 0) : [];
+  const minBio = hasHistory ? Math.min(...bioValues) * 0.85 : 0;
+  const maxBio = hasHistory ? Math.max(...bioValues) * 1.15 || 1 : 1;
   const getBioY = (val: number) => {
     const range = maxBio - minBio || 1;
     return (
@@ -167,24 +164,8 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
     );
   };
 
-  const handleAddNew = (e: React.FormEvent) => {
-    e.preventDefault();
-    const latest = history[history.length - 1];
-    const newRecord: HistoricalTestRecord = {
-      id: `hist-${Date.now()}`,
-      date: newDate,
-      chronologicalAge: newChronoAge,
-      phenoAge: Math.round((newChronoAge - 5.0) * 10) / 10,
-      delta: -5.0,
-      labSource: newLabSource,
-      biomarkers: { ...latest.biomarkers, crp: 0.72, albumin: 47.0 },
-      hash: `0x${Math.random().toString(16).slice(2, 6)}...${Math.random()
-        .toString(16)
-        .slice(2, 6)}`,
-    };
-    onAddHistory(newRecord);
-    setShowAddModal(false);
-  };
+  const hasSessionSnapshot = history.some((row) => row.sessionOnly);
+  const hasConfirmed = history.some((row) => !row.sessionOnly);
 
   return (
     <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
@@ -203,7 +184,11 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
             {copy.title}
           </h1>
           <p className="font-['Inter'] text-sm text-[#3f4850] mt-1 max-w-2xl">
-            {history.length === 0 ? copy.emptyLead : copy.sessionLead}
+            {history.length === 0
+              ? copy.emptyLead
+              : hasSessionSnapshot
+                ? copy.sessionSnapshotLead
+                : copy.sessionLead}
           </p>
         </div>
 
@@ -215,14 +200,6 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
           >
             <FileDown className="w-4 h-4 text-[#006194]" />
             <span>{copy.export}</span>
-          </button>
-
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-['Inter'] text-xs font-bold bg-[#006194] hover:bg-[#007bb9] text-[#ffffff] shadow-sm transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{copy.addDate}</span>
           </button>
         </div>
       </div>
@@ -487,7 +464,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                   <Area
                     type="monotone"
                     dataKey="delta"
-                    fill="url(#deltaGradient)"
+                    fill="url(#deltaFillGradient)"
                     stroke="none"
                     name={copy.varianceArea}
                   />
@@ -545,6 +522,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
 
           {/* SVG Chart Container */}
           <div className="w-full overflow-x-auto">
+            {hasHistory ? (
             <svg
               viewBox={`0 0 ${chartWidth} ${chartHeight}`}
               className="w-full h-auto min-w-[500px]"
@@ -636,6 +614,9 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                 );
               })}
             </svg>
+            ) : (
+              <p className="font-['Inter'] text-sm text-[#565e74] py-8">{copy.noPanels}</p>
+            )}
           </div>
         </div>
 
@@ -673,6 +654,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
 
           {/* SVG for Specific Biomarker */}
           <div className="w-full">
+            {hasHistory ? (
             <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto">
               {/* Line */}
               <polyline
@@ -716,6 +698,9 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                 );
               })}
             </svg>
+            ) : (
+              <p className="font-['Inter'] text-sm text-[#565e74] py-8">{copy.noPanels}</p>
+            )}
           </div>
         </div>
       </div>
@@ -727,9 +712,16 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
             <span className="font-['Inter'] text-sm font-bold text-[#0b1c30]">
               {fill(copy.registry, { count: history.length })}
             </span>
-            <span className="font-['JetBrains_Mono'] text-xs text-[#006947] font-semibold bg-[#e6f4ea] px-2 py-0.5 rounded border border-[#b7e1cd]">
-              {copy.inMemory}
-            </span>
+            {hasConfirmed && (
+              <span className="font-['JetBrains_Mono'] text-xs text-[#006947] font-semibold bg-[#e6f4ea] px-2 py-0.5 rounded border border-[#b7e1cd]">
+                {copy.confirmedBadge}
+              </span>
+            )}
+            {hasSessionSnapshot && (
+              <span className="font-['JetBrains_Mono'] text-xs text-[#004b73] font-semibold bg-[#cce5ff] px-2 py-0.5 rounded border border-[#dce9ff]">
+                {copy.sessionOnly}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -752,7 +744,6 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                 <th className="py-3 px-3">{copy.colChrono}</th>
                 <th className="py-3 px-3">{copy.colPheno}</th>
                 <th className="py-3 px-3">{copy.colVariance}</th>
-                <th className="py-3 px-3">{copy.colProof}</th>
                 <th className="py-3 px-4 text-right">{copy.colActions}</th>
               </tr>
             </thead>
@@ -763,7 +754,16 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                     <Calendar className="w-3.5 h-3.5 text-[#006194]" />
                     <span>{record.date}</span>
                   </td>
-                  <td className="py-3.5 px-3 text-[#3f4850]">{record.labSource}</td>
+                  <td className="py-3.5 px-3 text-[#3f4850]">
+                    <div className="flex flex-col gap-1">
+                      <span>{record.labSource}</span>
+                      {record.sessionOnly && (
+                        <span className="font-['JetBrains_Mono'] text-[10px] text-[#004b73] font-semibold">
+                          {copy.sessionOnly}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-3.5 px-3 font-['JetBrains_Mono'] text-[#565e74]">
                     {record.chronologicalAge.toFixed(1)}y
                   </td>
@@ -781,9 +781,6 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                       {record.delta > 0 ? `+${record.delta}` : record.delta} yrs
                     </span>
                   </td>
-                  <td className="py-3.5 px-3 font-['JetBrains_Mono'] text-[#565e74]">
-                    {record.hash}
-                  </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -795,7 +792,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                       >
                         {copy.loadEngine}
                       </button>
-                      {history.length > 1 && (
+                      {(record.sessionOnly || history.length > 1) && (
                         <button
                           onClick={() => onDeleteHistory(record.id)}
                           className="p-1 rounded text-[#ba1a1a] hover:bg-[#fff1f2] transition-colors cursor-pointer"
@@ -812,71 +809,6 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
           </table>
         </div>
       </div>
-
-      {/* Add Date Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0b1c30]/50 backdrop-blur-xs animate-in fade-in">
-          <form
-            onSubmit={handleAddNew}
-            className="bg-[#ffffff] rounded-xl border border-[#cbd5e1] shadow-2xl max-w-md w-full p-6 space-y-4"
-          >
-            <h3 className="font-['Inter'] text-lg font-bold text-[#0b1c30]">
-              {copy.addTitle}
-            </h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[#565e74] font-medium mb-1">{copy.bloodDate}</label>
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#cbd5e1] rounded font-['JetBrains_Mono']"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[#565e74] font-medium mb-1">
-                  {copy.chronoField}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={newChronoAge}
-                  onChange={(e) => setNewChronoAge(parseFloat(e.target.value) || 40)}
-                  className="w-full px-3 py-2 border border-[#cbd5e1] rounded font-['JetBrains_Mono']"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[#565e74] font-medium mb-1">{copy.labSource}</label>
-                <input
-                  type="text"
-                  value={newLabSource}
-                  onChange={(e) => setNewLabSource(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#cbd5e1] rounded font-['Inter']"
-                  placeholder={copy.labPlaceholder}
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 border border-[#cbd5e1] rounded text-xs font-semibold text-[#565e74] hover:bg-[#eff4ff]"
-              >
-                {copy.cancel}
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-[#006194] text-white rounded text-xs font-semibold hover:bg-[#007bb9]"
-              >
-                {copy.savePanel}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Printable Clinical PDF Report Modal */}
       <PrintableReportModal

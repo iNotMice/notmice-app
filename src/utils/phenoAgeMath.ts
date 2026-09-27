@@ -58,15 +58,3 @@ export function displayBiomarkerScores(
     };
   });
 }
-
-export function generateCryptoHash(data: unknown): string {
-  const str = typeof data === 'string' ? data : JSON.stringify(data);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  const hex = Math.abs(hash).toString(16).padStart(8, '0');
-  return `0x${hex}8fbc${Math.abs(hash * 31).toString(16).slice(0, 6)}`;
-}

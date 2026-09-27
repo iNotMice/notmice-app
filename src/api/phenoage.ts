@@ -1,8 +1,5 @@
 /** PhenoAge API client. The Levine formula stays on the server. */
 
-export const PHENOAGE_DISCLAIMER =
-  'PhenoAge is a research index (Levine et al., Aging 2018), not a medical service, diagnosis, or treatment recommendation.';
-
 export interface PhenoAgeScore {
   chronologicalAge: number;
   phenoAge: number;

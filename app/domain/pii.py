@@ -168,16 +168,19 @@ def reject_pii(payload: object, *, _path: str = "$") -> None:
 
 
 def reject_sensitive_output(payload: object, *, _path: str = "$") -> None:
-    """Reject PII keys and internal identifiers on a public response.
+    """Reject PII keys, internal identifiers, and obvious PII values on a public response.
+
+    Email, phone, and free-text personal names use the same rules as ``reject_pii``.
 
     Args:
         payload: Mapping, sequence, or scalar about to be returned.
         _path: JSON-path used in error messages.
 
     Raises:
-        PIIValidationError: If a forbidden key is present at any depth.
+        PIIValidationError: If a forbidden key or value is present at any depth.
     """
     _reject_keys(payload, SENSITIVE_OUTPUT_KEYS, label="Forbidden sensitive key", _path=_path)
+    _reject_content(payload, parent_key=None, _path=_path)
 
 
 def _reject_keys(

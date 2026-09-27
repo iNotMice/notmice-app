@@ -3,9 +3,11 @@ import { useI18n } from '../i18n/I18nProvider';
 
 interface StatusRibbonProps {
   biomarkers: Record<string, number>;
+  tutorial: boolean;
+  labName: string;
 }
 
-export const StatusRibbon: React.FC<StatusRibbonProps> = ({ biomarkers }) => {
+export const StatusRibbon: React.FC<StatusRibbonProps> = ({ biomarkers, tutorial, labName }) => {
   const { m } = useI18n();
   const crp = biomarkers['crp'] ?? 0.8;
   const alb = biomarkers['albumin'] ?? 46.2;
@@ -20,11 +22,11 @@ export const StatusRibbon: React.FC<StatusRibbonProps> = ({ biomarkers }) => {
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#006194]"></span>
           <span className="font-['JetBrains_Mono'] text-[11px] text-[#3f4850] font-semibold uppercase tracking-wider">
-            {m.shell.tutorialExample}
+            {tutorial ? m.shell.tutorialExample : labName}
           </span>
           <span className="text-[#3f4850] font-mono text-[11px]">•</span>
           <span className="font-['Inter'] text-[12px] text-[#0b1c30] font-semibold">
-            {m.shell.notPatientPanel}
+            {tutorial ? m.shell.notPatientPanel : m.shell.levineWeights}
           </span>
         </div>
 

@@ -3,7 +3,9 @@ export const sovereignty = {
   stageMeta: 'Data Sovereignty & Open Science',
   title: 'Data Sovereignty & Public Sharing',
   lead: 'Confirmed biomarker rows stay on a pseudonymous id. Original lab files are not stored. Turn sharing on to include those rows in the public CC0 dataset.',
-  purge: 'Purge Memory State',
+  purgeLocal: 'Clear this screen',
+  purgeAccount: 'Delete saved panels',
+  purgeFailed: 'Saved panels could not be deleted. This screen was left unchanged.',
   exportTitle: 'Public dataset export',
   exportLead:
     'CSV, Parquet, and the datasheet are built on the server from opted-in rows in Postgres. Names, dates of birth, and internal ids are not in these files.',

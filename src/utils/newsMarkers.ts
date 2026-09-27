@@ -19,8 +19,12 @@ export function markerTags(title: string, snippet: string): BiomarkerId[] {
 }
 
 export function cardMatchesPanel(
-  tags: readonly BiomarkerId[],
-  panel: Record<string, number>,
+  tags: readonly string[],
+  markerIds: readonly string[],
 ): boolean {
-  return tags.some((id) => Object.prototype.hasOwnProperty.call(panel, id));
+  if (markerIds.length === 0) {
+    return false;
+  }
+  const mine = new Set(markerIds);
+  return tags.some((id) => mine.has(id));
 }

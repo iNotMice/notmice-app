@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TabType, LabPanelData, HistoricalTestRecord, AccountState, PhenoAgeCalculation } from './types';
 import { INITIAL_BIOMARKERS } from './data/phenoAgeData';
-import { fetchOwnLabResults } from './api/uploads';
+import { deleteOwnLabResults, fetchOwnLabResults } from './api/uploads';
 import { isBiomarkerId } from './i18n/biomarkerIds';
 import { fetchPhenoAge, PhenoAgeScore } from './api/phenoage';
-import { displayBiomarkerScores, displayPercentile, generateCryptoHash } from './utils/phenoAgeMath';
+import { displayBiomarkerScores, displayPercentile } from './utils/phenoAgeMath';
 import {
   clearStoredToken,
   createAccount,
@@ -56,7 +56,7 @@ function panelFromHistory(record: HistoricalTestRecord): LabPanelData {
     id: record.id,
     labName: record.labSource,
     testDate: record.date,
-    sourceType: 'pdf',
+    sourceType: record.sessionOnly ? 'manual' : 'pdf',
     fileName: record.labSource,
     chronologicalAge: record.chronologicalAge,
     gender: 'male',
@@ -64,6 +64,7 @@ function panelFromHistory(record: HistoricalTestRecord): LabPanelData {
     confidenceScores: {},
     verified: true,
     hash: record.hash,
+    focusMarkerIds: record.markerIds,
   };
 }
 
@@ -80,6 +81,7 @@ function tutorialPanel(): LabPanelData {
     confidenceScores: {},
     verified: false,
     hash: '',
+    focusMarkerIds: [],
   };
 }
 
@@ -94,6 +96,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [phenoAgeScore, setPhenoAgeScore] = useState<PhenoAgeScore | null>(null);
+  const [phenoAgeLoading, setPhenoAgeLoading] = useState(true);
   const [phenoAgeError, setPhenoAgeError] = useState<string | null>(null);
 
   // Modals state
@@ -135,17 +138,23 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    setPhenoAgeLoading(true);
     const timer = window.setTimeout(() => {
       void fetchPhenoAge(chronologicalAge, biomarkers, controller.signal)
         .then((score) => {
+          if (controller.signal.aborted) {
+            return;
+          }
           setPhenoAgeScore(score);
           setPhenoAgeError(null);
+          setPhenoAgeLoading(false);
         })
         .catch((err: unknown) => {
-          if (err instanceof DOMException && err.name === 'AbortError') {
+          if (controller.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
             return;
           }
           setPhenoAgeError(err instanceof Error ? err.message : getActiveI18n().messages.shell.phenoAgeFailed);
+          setPhenoAgeLoading(false);
         });
     }, 200);
     return () => {
@@ -156,7 +165,7 @@ export default function App() {
 
   const phenoAgeCalculation = useMemo<PhenoAgeCalculation>(() => {
     const biomarkerScores = displayBiomarkerScores(biomarkers);
-    if (!phenoAgeScore) {
+    if (!phenoAgeScore || phenoAgeLoading) {
       return {
         chronologicalAge,
         phenoAge: 0,
@@ -180,11 +189,7 @@ export default function App() {
       activeCount: Object.keys(biomarkers).length,
       disclaimer: m.shell.disclaimer,
     };
-  }, [biomarkers, chronologicalAge, m.shell.disclaimer, phenoAgeScore]);
-
-  const activeHash = useMemo(() => {
-    return generateCryptoHash({ chronologicalAge, biomarkers });
-  }, [chronologicalAge, biomarkers]);
+  }, [biomarkers, chronologicalAge, m.shell.disclaimer, phenoAgeLoading, phenoAgeScore]);
 
   const handleLoadPanel = (panel: LabPanelData) => {
     setCurrentPanel(panel);
@@ -201,9 +206,11 @@ export default function App() {
       const records: HistoricalTestRecord[] = [];
       for (const panel of panels) {
         const saved: Record<string, number> = {};
+        const markerIds: string[] = [];
         for (const marker of panel.markers) {
           if (marker.canonicalId && isBiomarkerId(marker.canonicalId)) {
             saved[marker.canonicalId] = marker.value;
+            markerIds.push(marker.canonicalId);
           }
         }
         const panelBiomarkers = { ...INITIAL_BIOMARKERS, ...saved };
@@ -226,9 +233,11 @@ export default function App() {
           labSource: panel.labName ?? getActiveI18n().messages.shell.unknownLaboratory,
           biomarkers: panelBiomarkers,
           hash: panel.documentSha256,
+          markerIds,
+          sessionOnly: false,
         });
       }
-      setHistory(records);
+      setHistory((prev) => [...records, ...prev.filter((row) => row.sessionOnly)]);
       const latest = records[records.length - 1];
       handleLoadPanel(panelFromHistory(latest));
     } catch {
@@ -241,15 +250,19 @@ export default function App() {
       return;
     }
     const today = new Date().toISOString().split('T')[0];
+    const messages = getActiveI18n().messages;
     const newRecord: HistoricalTestRecord = {
-      id: `hist-${Date.now()}`,
+      id: `session-${Date.now()}`,
       date: today,
       chronologicalAge,
       phenoAge: phenoAgeCalculation.phenoAge,
       delta: phenoAgeCalculation.ageDelta,
-      labSource: currentPanel.labName,
+      labSource:
+        currentPanel.sourceType === 'demo' ? messages.history.sessionSnapshot : currentPanel.labName,
       biomarkers: { ...biomarkers },
-      hash: activeHash,
+      hash: currentPanel.hash.length === 64 ? currentPanel.hash : '',
+      markerIds: [...currentPanel.focusMarkerIds],
+      sessionOnly: true,
     };
     setHistory((prev) => [...prev, newRecord]);
   };
@@ -257,13 +270,18 @@ export default function App() {
   const handleSelectHistoricalRecord = (record: HistoricalTestRecord) => {
     setChronologicalAge(record.chronologicalAge);
     setBiomarkers({ ...record.biomarkers });
+    setCurrentPanel(panelFromHistory(record));
   };
 
   const handleDeleteHistory = (id: string) => {
     setHistory((prev) => prev.filter((h) => h.id !== id));
   };
 
-  const handlePurgeMemory = () => {
+  const handlePurgeMemory = async () => {
+    const token = account?.accessToken;
+    if (token) {
+      await deleteOwnLabResults(token);
+    }
     setBiomarkers({ ...INITIAL_BIOMARKERS });
     setChronologicalAge(42.0);
     setHistory([]);
@@ -368,7 +386,11 @@ export default function App() {
       {/* Main Content Pane */}
       <main className="w-full pt-20 flex-1 bg-[#f8f9ff]">
         {/* Live Biological Biomarker Status Ribbon */}
-        <StatusRibbon biomarkers={biomarkers} />
+        <StatusRibbon
+          biomarkers={biomarkers}
+          tutorial={currentPanel.sourceType === 'demo'}
+          labName={currentPanel.labName}
+        />
 
         {/* Tab 1: Overview / Landing */}
         {activeTab === 'overview-landing' && (
@@ -436,7 +458,6 @@ export default function App() {
         {activeTab === 'biomarker-history' && (
           <BiomarkerHistoryTab
             history={history}
-            onAddHistory={(rec) => setHistory((prev) => [...prev, rec])}
             onDeleteHistory={handleDeleteHistory}
             onSelectRecord={handleSelectHistoricalRecord}
             setActiveTab={setActiveTab}
@@ -459,7 +480,9 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'research-news' && <ResearchNewsTab biomarkers={biomarkers} />}
+        {activeTab === 'research-news' && (
+          <ResearchNewsTab markerIds={currentPanel.focusMarkerIds} />
+        )}
 
         {activeTab === 'user-instructions' && <UserInstructionsTab setActiveTab={setActiveTab} />}
       </main>
@@ -471,7 +494,6 @@ export default function App() {
       <ProofModal
         isOpen={isProofModalOpen}
         onClose={() => setIsProofModalOpen(false)}
-        hash={activeHash}
         biomarkers={biomarkers}
         phenoAge={phenoAgeCalculation.phenoAge}
         chronologicalAge={chronologicalAge}

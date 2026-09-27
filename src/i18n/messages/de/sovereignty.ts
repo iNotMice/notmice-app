@@ -3,7 +3,9 @@ export const sovereignty = {
   stageMeta: 'Datensouveränität und offene Wissenschaft',
   title: 'Datensouveränität und öffentliches Teilen',
   lead: 'Bestätigte Biomarkerzeilen bleiben an einer pseudonymen Kennung. Originale Labordateien werden nicht gespeichert. Schalten Sie das Teilen ein, damit diese Zeilen in den öffentlichen CC0-Datensatz aufgenommen werden.',
-  purge: 'Speicherzustand löschen',
+  purgeLocal: 'Diesen Bildschirm leeren',
+  purgeAccount: 'Gespeicherte Panels löschen',
+  purgeFailed: 'Die gespeicherten Panels konnten nicht gelöscht werden. Dieser Bildschirm blieb unverändert.',
   exportTitle: 'Export des öffentlichen Datensatzes',
   exportLead:
     'CSV, Parquet und das Datenblatt werden auf dem Server aus freigegebenen Zeilen in Postgres erzeugt. Namen, Geburtsdaten und interne Kennungen stehen nicht in diesen Dateien.',

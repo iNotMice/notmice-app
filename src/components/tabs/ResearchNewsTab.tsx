@@ -8,7 +8,7 @@ type NewsFilter = 'all' | NewsKind | 'mine';
 type LoadStatus = 'loading' | 'ready' | 'failed';
 
 interface ResearchNewsTabProps {
-  biomarkers: Record<string, number>;
+  markerIds: readonly string[];
 }
 
 function formatPublished(value: string | null, locale: string): string | null {
@@ -27,7 +27,7 @@ function formatPublished(value: string | null, locale: string): string | null {
   }).format(parsed);
 }
 
-export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ biomarkers }) => {
+export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) => {
   const { locale, m } = useI18n();
   const copy = m.news;
   const [feed, setFeed] = useState<NewsFeed | null>(null);
@@ -68,7 +68,7 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ biomarkers }) 
     if ((filter === 'paper' || filter === 'biohacking') && card.kind !== filter) {
       return false;
     }
-    if (filter === 'mine' && !cardMatchesPanel(tags, biomarkers)) {
+    if (filter === 'mine' && !cardMatchesPanel(tags, markerIds)) {
       return false;
     }
     return true;
