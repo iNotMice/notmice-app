@@ -36,7 +36,7 @@ from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GeminiTokenBudget
 from app.services.loinc_dictionary import load_loinc_dictionary
 from app.services.media import sha256_hex, sniff_mime_type
-from app.services.pdf_text import MIN_SELECTABLE_TEXT_CHARS, extract_pdf_text
+from app.services.pdf_text import prepare_selectable_pdf
 from app.services.vision import ExtractionProvider
 
 logger = structlog.get_logger(__name__)
@@ -108,9 +108,16 @@ class UploadService:
         digest = sha256_hex(payload)
         text: str | None = None
         if mime_type == "application/pdf":
-            extracted_text = await asyncio.to_thread(extract_pdf_text, payload)
-            if len(extracted_text) >= MIN_SELECTABLE_TEXT_CHARS:
-                text = extracted_text
+            prepared = await asyncio.to_thread(prepare_selectable_pdf, payload)
+            if prepared is not None:
+                if not prepared.model_text.strip():
+                    raise NoMarkersError
+                logger.info(
+                    "pdf_page_redacted",
+                    page_count=prepared.page_count,
+                    dropped_lines=prepared.dropped_lines,
+                )
+                text = prepared.model_text
         hold = self._budget.reserve(user_id, client_key)
         try:
             if text is not None:

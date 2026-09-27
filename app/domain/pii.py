@@ -242,6 +242,24 @@ def contains_personal_text(value: str, *, parent_key: str) -> bool:
     return False
 
 
+def contains_contact_text(value: str) -> bool:
+    """Return True when ``value`` contains an email address or a phone number.
+
+    Args:
+        value: One line or field, not yet stored.
+    """
+    return bool(_EMAIL_RE.search(value) or _contains_phone(value))
+
+
+def contains_person_name(value: str) -> bool:
+    """Return True when ``value`` contains a 2-3 word name that is not a lab label.
+
+    Args:
+        value: One line or field, not yet stored.
+    """
+    return _contains_person_name(value)
+
+
 def _contains_phone(value: str) -> bool:
     """Return True when ``value`` contains a 10-15 digit phone-shaped number."""
     return _match_has_phone_digits(_PHONE_RE, value)

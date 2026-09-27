@@ -23,6 +23,7 @@ from app.domain.uploads import (
     ExtractSessionNotFoundError,
     GeminiBudgetExhaustedError,
     MappedMarker,
+    NoMarkersError,
     OwnedLabPanel,
     OwnedMarker,
     RawLabExtraction,
@@ -47,21 +48,45 @@ from app.services.vision import (
 from app.tests.test_accounts import InMemoryUserStore
 
 
-def _text_pdf(line: str) -> bytes:
-    """Return a one-page PDF with selectable text, never written to disk."""
-    escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-    content = f"BT /F1 12 Tf 50 720 Td ({escaped}) Tj ET"
-    content_bytes = content.encode("latin-1")
+def _pdf_stream(lines: list[str]) -> str:
+    """Return a Helvetica content stream. The lines must be Latin-1."""
+    commands = ["BT /F1 11 Tf 50 740 Td"]
+    for index, line in enumerate(lines):
+        if index:
+            commands.append("0 -16 Td")
+        escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+        commands.append(f"({escaped}) Tj")
+    commands.append("ET")
+    return "\n".join(commands)
+
+
+def _text_pdf_pages(pages: list[list[str]]) -> bytes:
+    """Return a multi-page text PDF, never written to disk."""
+    font_id = 3
+    next_id = 4
+    page_ids: list[int] = []
+    content_ids: list[int] = []
+    for _page in pages:
+        page_ids.append(next_id)
+        content_ids.append(next_id + 1)
+        next_id += 2
+    kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
     objects = [
         "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-        "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-        (
-            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            "/Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n"
-        ),
-        f"4 0 obj\n<< /Length {len(content_bytes)} >>\nstream\n{content}\nendstream\nendobj\n",
-        "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+        f"2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>\nendobj\n",
+        "3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
     ]
+    for lines, page_id, content_id in zip(pages, page_ids, content_ids, strict=True):
+        stream = _pdf_stream(lines)
+        objects.append(
+            f"{page_id} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            f"/Contents {content_id} 0 R /Resources << /Font << /F1 {font_id} 0 R >> >> >>\n"
+            "endobj\n"
+        )
+        objects.append(
+            f"{content_id} 0 obj\n<< /Length {len(stream.encode('latin-1'))} >>\n"
+            f"stream\n{stream}\nendstream\nendobj\n"
+        )
     header = "%PDF-1.4\n"
     encoded = [obj.encode("latin-1") for obj in objects]
     offsets: list[int] = []
@@ -69,14 +94,53 @@ def _text_pdf(line: str) -> bytes:
     for raw in encoded:
         offsets.append(cursor)
         cursor += len(raw)
-    xref = ["xref\n0 6\n0000000000 65535 f \n"]
+    size = len(objects) + 1
+    xref = [f"xref\n0 {size}\n0000000000 65535 f \n"]
     xref.extend(f"{offset:010d} 00000 n \n" for offset in offsets)
-    trailer = f"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{cursor}\n%%EOF\n"
+    trailer = f"trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{cursor}\n%%EOF\n"
     return (
         header.encode("latin-1")
         + b"".join(encoded)
         + "".join(xref).encode("latin-1")
         + trailer.encode("latin-1")
+    )
+
+
+def _text_pdf(line: str) -> bytes:
+    """Return a one-page PDF with selectable text, never written to disk."""
+    return _text_pdf_pages([[line]])
+
+
+def _multipage_lab_pdf() -> bytes:
+    """Synthetic two-page blank. The name and order number repeat on every page."""
+    header = [
+        "Olymp Laboratory",
+        "Patient: Ivanov Ivan Ivanovich",
+        "Date of birth: 1984-03-15",
+        "Order number: 88442211",
+        "Test Result Unit Reference",
+    ]
+    footer = [
+        "Ivanov Ivan Ivanovich",
+        "Order number: 88442211",
+        "884422110099",
+    ]
+    return _text_pdf_pages(
+        [
+            [
+                *header,
+                "Serum Albumin 46.2 g/L 35-52",
+                "Creatinine 0.88 mg/dL 0.6-1.2",
+                *footer,
+                "Page 1 of 2",
+            ],
+            [
+                *header,
+                "Glucose 84 mg/dL 70-99",
+                *footer,
+                "Page 2 of 2",
+            ],
+        ]
     )
 
 
@@ -285,13 +349,13 @@ async def test_text_pdf_uses_pdfplumber_path_and_drops_bytes(
     from app.services import uploads as uploads_module
 
     calls = {"n": 0}
-    real = pdf_text_module.extract_pdf_text
+    real = pdf_text_module.prepare_selectable_pdf
 
-    def counted(payload: bytes) -> str:
+    def counted(payload: bytes) -> pdf_text_module.SelectablePdf | None:
         calls["n"] += 1
         return real(payload)
 
-    monkeypatch.setattr(uploads_module, "extract_pdf_text", counted)
+    monkeypatch.setattr(uploads_module, "prepare_selectable_pdf", counted)
     service, vision, _labs = _upload_bundle()
     user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
     payload = _text_pdf(
@@ -305,6 +369,47 @@ async def test_text_pdf_uses_pdfplumber_path_and_drops_bytes(
     assert session.panel.document_sha256 == digest
     assert session.panel.markers[0].canonical_id == "albumin"
     assert session.panel.markers[0].loinc_code == "1751-7"
+
+
+@pytest.mark.asyncio
+async def test_multipage_pdf_sent_to_model_has_no_page_chrome() -> None:
+    """Each page loses its header and footer before extract_from_text."""
+    service, vision, _labs = _upload_bundle()
+    user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
+    await service.extract(user.id, _multipage_lab_pdf(), client_key="203.0.113.10")
+    assert vision.media_calls == 0
+    assert vision.text_calls == 1
+    sent = vision.last_text or ""
+    assert "Serum Albumin" in sent
+    assert "Glucose" in sent
+    assert "Ivanov" not in sent
+    assert "1984-03-15" not in sent
+    assert "88442211" not in sent
+    assert "Page 1 of 2" not in sent
+    assert "Page 2 of 2" not in sent
+
+
+@pytest.mark.asyncio
+async def test_identity_only_pdf_is_not_sent_to_the_model() -> None:
+    """A text PDF that is only a header never falls through to the original bytes."""
+    service, vision, _labs = _upload_bundle()
+    user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
+    payload = _text_pdf_pages(
+        [
+            [
+                "Patient: Ivanov Ivan Ivanovich",
+                "Date of birth: 1984-03-15",
+                "Order number: 884422110099",
+                "Phone: +7 701 555 12 34",
+                "Ivanov Ivan Ivanovich",
+                "Page 1 of 1",
+            ]
+        ]
+    )
+    with pytest.raises(NoMarkersError):
+        await service.extract(user.id, payload, client_key="203.0.113.10")
+    assert vision.text_calls == 0
+    assert vision.media_calls == 0
 
 
 @pytest.mark.asyncio
