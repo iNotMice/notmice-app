@@ -231,6 +231,12 @@ class InMemoryLabStore:
                             loinc_code=marker.loinc_code,
                             value=marker.value,
                             unit=marker.unit,
+                            reported_value=marker.reported_value,
+                            reported_unit=marker.reported_unit,
+                            reference_low=marker.reference_low,
+                            reference_high=marker.reference_high,
+                            reference_text=marker.reference_text,
+                            lab_flag=marker.lab_flag,
                         )
                         for marker in markers
                     ),
@@ -318,6 +324,74 @@ def test_map_marker_known_and_unmapped() -> None:
     assert unknown.mapping_status is MappingStatus.UNMAPPED
     assert unknown.value == Decimal("42")
     assert unknown.within_range is None
+
+
+def test_map_marker_keeps_printed_reference_and_scales_bounds() -> None:
+    """A creatinine interval in µmol/L is stored in mg/dL; the printed text stays."""
+    dictionary = load_loinc_dictionary()
+    mapped = map_marker(
+        RawMarker(
+            raw_name="Креатинин",
+            value=88.4,
+            unit="мкмоль/л",
+            reference_low=62,
+            reference_high=106,
+            reference_text="62-106",
+            lab_flag="H",
+        ),
+        dictionary,
+    )
+    entry = dictionary.find("creatinine")
+    assert entry is not None
+    assert mapped.unit == "mg/dL"
+    assert mapped.reported_unit == "мкмоль/л"
+    assert mapped.reported_value == Decimal("88.4")
+    assert mapped.reference_text == "62-106"
+    assert mapped.lab_flag == "H"
+    assert mapped.reference_low == entry.convert(Decimal("62"), "мкмоль/л").value
+    assert mapped.reference_high == entry.convert(Decimal("106"), "мкмоль/л").value
+
+
+def test_map_marker_parses_one_sided_interval_and_drops_an_inverted_pair() -> None:
+    """`<5` becomes an upper bound. Low above high is not stored as a range."""
+    dictionary = load_loinc_dictionary()
+    below = map_marker(
+        RawMarker(raw_name="Albumin", value=46.0, unit="g/L", reference_text="<5"),
+        dictionary,
+    )
+    assert below.reference_low is None
+    assert below.reference_high == Decimal("5")
+    assert below.reference_text == "<5"
+    inverted = map_marker(
+        RawMarker(
+            raw_name="Albumin",
+            value=46.0,
+            unit="g/L",
+            reference_low=10,
+            reference_high=1,
+            reference_text="10-1",
+        ),
+        dictionary,
+    )
+    assert inverted.reference_low is None
+    assert inverted.reference_high is None
+    assert inverted.reference_text == "10-1"
+
+
+def test_map_marker_drops_a_personal_reference_string() -> None:
+    """A name written into the interval text is not stored."""
+    dictionary = load_loinc_dictionary()
+    mapped = map_marker(
+        RawMarker(
+            raw_name="Albumin",
+            value=46.0,
+            unit="g/L",
+            reference_text="Ivanov Ivan Ivanovich",
+        ),
+        dictionary,
+    )
+    assert mapped.reference_text is None
+    assert mapped.reference_low is None
 
 
 def test_claude_provider_is_explicit_stub() -> None:
@@ -449,6 +523,41 @@ async def test_confirm_keeps_unmapped_marker() -> None:
     assert vitamin_d.mapping_status is MappingStatus.UNMAPPED
     assert vitamin_d.loinc_code is None
     assert vitamin_d.value == Decimal("42")
+
+
+@pytest.mark.asyncio
+async def test_confirm_keeps_printed_reference_on_the_saved_marker() -> None:
+    """The review payload keeps the laboratory interval and scales it with the unit."""
+    service, _vision, labs = _upload_bundle()
+    user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x44" * 32
+    session = (await service.extract(user.id, jpeg, client_key="203.0.113.10")).session
+    await service.confirm(
+        user.id,
+        session.token,
+        lab_name=None,
+        collected_at=None,
+        chronological_age=None,
+        markers=(
+            RawMarker(
+                raw_name="Serum Albumin",
+                value=4.6,
+                unit="g/dL",
+                reference_text="3.5-5.2",
+                lab_flag="high",
+            ),
+        ),
+    )
+    saved = labs.markers[0][0]
+    entry = load_loinc_dictionary().find("albumin")
+    assert entry is not None
+    assert saved.unit == "g/L"
+    assert saved.reported_unit == "g/dL"
+    assert saved.reported_value == Decimal("4.6")
+    assert saved.lab_flag == "H"
+    assert saved.reference_text == "3.5-5.2"
+    assert saved.reference_low == entry.convert(Decimal("3.5"), "g/dL").value
+    assert saved.reference_high == entry.convert(Decimal("5.2"), "g/dL").value
 
 
 @pytest.mark.asyncio

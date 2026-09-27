@@ -82,6 +82,10 @@ class Biomarker(Base):
             "mapping_status IN ('mapped', 'unmapped')",
             name="ck_biomarkers_mapping_status",
         ),
+        CheckConstraint(
+            "lab_flag IS NULL OR lab_flag IN ('H', 'L', '*')",
+            name="ck_biomarkers_lab_flag",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -96,6 +100,12 @@ class Biomarker(Base):
     canonical_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     value: Mapped[Decimal] = mapped_column(Numeric(14, 6), nullable=False)
     unit: Mapped[str] = mapped_column(String(32), nullable=False)
+    reported_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    reported_unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    ref_low: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    ref_high: Mapped[Decimal | None] = mapped_column(Numeric(14, 6), nullable=True)
+    ref_text: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lab_flag: Mapped[str | None] = mapped_column(String(1), nullable=True)
     mapping_status: Mapped[str] = mapped_column(
         String(16),
         default=MappingStatus.UNMAPPED.value,

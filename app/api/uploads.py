@@ -57,6 +57,13 @@ async def gemini_budget_exhausted_handler(_request: Request, exc: Exception) -> 
     )
 
 
+def _float_or_none(value: Decimal | None) -> float | None:
+    """Return a JSON number, or None when the blank did not print one."""
+    if value is None:
+        return None
+    return float(value)
+
+
 def _http_for(exc: UploadError) -> HTTPException:
     """Map domain errors to HTTP responses without leaking file contents."""
     if isinstance(exc, UnsupportedMediaTypeError):
@@ -140,6 +147,12 @@ async def extract_upload(
                 confidence=marker.confidence,
                 mapping_status=marker.mapping_status.value,
                 within_range=marker.within_range,
+                reported_value=float(marker.reported_value),
+                reported_unit=marker.reported_unit,
+                reference_low=_float_or_none(marker.reference_low),
+                reference_high=_float_or_none(marker.reference_high),
+                reference_text=marker.reference_text,
+                lab_flag=marker.lab_flag,
             )
             for marker in panel.markers
         ],
@@ -171,7 +184,17 @@ async def confirm_upload(
                 else None
             ),
             markers=tuple(
-                RawMarker(raw_name=item.raw_name, value=item.value, unit=item.unit)
+                RawMarker(
+                    raw_name=item.raw_name,
+                    value=item.value,
+                    unit=item.unit,
+                    reported_value=item.reported_value,
+                    reported_unit=item.reported_unit,
+                    reference_low=item.reference_low,
+                    reference_high=item.reference_high,
+                    reference_text=item.reference_text,
+                    lab_flag=item.lab_flag,
+                )
                 for item in payload.markers
             ),
         )
@@ -225,6 +248,12 @@ async def list_own_results(
                         loinc_code=marker.loinc_code,
                         value=float(marker.value),
                         unit=marker.unit,
+                        reported_value=_float_or_none(marker.reported_value),
+                        reported_unit=marker.reported_unit,
+                        reference_low=_float_or_none(marker.reference_low),
+                        reference_high=_float_or_none(marker.reference_high),
+                        reference_text=marker.reference_text,
+                        lab_flag=marker.lab_flag,
                     )
                     for marker in panel.markers
                 ],

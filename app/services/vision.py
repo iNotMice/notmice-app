@@ -30,6 +30,10 @@ _EXTRACTION_INSTRUCTIONS = (
     "Return lab_name and collected_at (YYYY-MM-DD) when visible. "
     "Do not extract patient name, date of birth, phone, email, or medical record numbers. "
     "Units must stay as printed on the report. "
+    "For each marker set reference_low and reference_high when the row prints a numeric interval. "
+    "Set reference_text to the interval exactly as printed, including one-sided forms such as <5. "
+    "Set lab_flag to H, L, or * only when the laboratory printed that mark. "
+    "Do not invent a reference interval or a flag. "
     "confidence is 0-1 for each marker."
 )
 

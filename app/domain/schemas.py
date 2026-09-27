@@ -80,6 +80,12 @@ class ExtractedMarkerView(BaseModel):
     within_range: bool | None = Field(
         description="False when a mapped value sits outside the dictionary typo window.",
     )
+    reported_value: float | None = None
+    reported_unit: str | None = None
+    reference_low: float | None = None
+    reference_high: float | None = None
+    reference_text: str | None = None
+    lab_flag: str | None = None
 
 
 class ExtractResponse(BaseModel):
@@ -107,6 +113,12 @@ class ConfirmedMarkerInput(BaseModel):
     raw_name: str = Field(min_length=1, max_length=255)
     value: float
     unit: str = Field(min_length=1, max_length=32)
+    reported_value: float | None = None
+    reported_unit: str | None = Field(default=None, max_length=32)
+    reference_low: float | None = None
+    reference_high: float | None = None
+    reference_text: str | None = Field(default=None, max_length=64)
+    lab_flag: str | None = Field(default=None, max_length=16)
 
 
 class ConfirmRequest(BaseModel):
@@ -131,6 +143,12 @@ class OwnedMarkerView(BaseModel):
     loinc_code: str | None
     value: float
     unit: str
+    reported_value: float | None = None
+    reported_unit: str | None = None
+    reference_low: float | None = None
+    reference_high: float | None = None
+    reference_text: str | None = None
+    lab_flag: str | None = None
 
 
 class OwnedLabResultView(BaseModel):

@@ -29,6 +29,12 @@ export interface OwnMarker {
   loincCode: string | null;
   value: number;
   unit: string;
+  reportedValue: number | null;
+  reportedUnit: string | null;
+  referenceLow: number | null;
+  referenceHigh: number | null;
+  referenceText: string | null;
+  labFlag: string | null;
 }
 
 export interface OwnLabResult {
@@ -57,6 +63,12 @@ interface ExtractedMarkerPayload {
   confidence: number;
   mapping_status: 'mapped' | 'unmapped';
   within_range: boolean | null;
+  reported_value: number | null;
+  reported_unit: string | null;
+  reference_low: number | null;
+  reference_high: number | null;
+  reference_text: string | null;
+  lab_flag: string | null;
 }
 
 interface ExtractPayload {
@@ -78,6 +90,12 @@ interface OwnMarkerPayload {
   loinc_code: string | null;
   value: number;
   unit: string;
+  reported_value: number | null;
+  reported_unit: string | null;
+  reference_low: number | null;
+  reference_high: number | null;
+  reference_text: string | null;
+  lab_flag: string | null;
 }
 
 interface OwnLabResultPayload {
@@ -158,6 +176,12 @@ function mapMarker(payload: ExtractedMarkerPayload): ExtractedMarker {
     confidence: payload.confidence,
     mappingStatus: payload.mapping_status,
     withinRange: payload.within_range,
+    reportedValue: payload.reported_value,
+    reportedUnit: payload.reported_unit,
+    referenceLow: payload.reference_low,
+    referenceHigh: payload.reference_high,
+    referenceText: payload.reference_text,
+    labFlag: payload.lab_flag,
   };
 }
 
@@ -209,6 +233,12 @@ export async function fetchOwnLabResults(token: string): Promise<OwnLabResult[]>
       loincCode: marker.loinc_code,
       value: marker.value,
       unit: marker.unit,
+      reportedValue: marker.reported_value,
+      reportedUnit: marker.reported_unit,
+      referenceLow: marker.reference_low,
+      referenceHigh: marker.reference_high,
+      referenceText: marker.reference_text,
+      labFlag: marker.lab_flag,
     })),
   }));
 }
@@ -230,7 +260,17 @@ export async function confirmLabExtraction(
     labName: string | null;
     collectedAt: string | null;
     chronologicalAge: number | null;
-    markers: { rawName: string; value: number; unit: string }[];
+    markers: {
+      rawName: string;
+      value: number;
+      unit: string;
+      reportedValue?: number | null;
+      reportedUnit?: string | null;
+      referenceLow?: number | null;
+      referenceHigh?: number | null;
+      referenceText?: string | null;
+      labFlag?: string | null;
+    }[];
   }
 ): Promise<ConfirmResult> {
   const response = await fetch(apiUrl('/api/v1/uploads/confirm'), {
@@ -248,6 +288,12 @@ export async function confirmLabExtraction(
         raw_name: marker.rawName,
         value: marker.value,
         unit: marker.unit,
+        reported_value: marker.reportedValue ?? null,
+        reported_unit: marker.reportedUnit ?? null,
+        reference_low: marker.referenceLow ?? null,
+        reference_high: marker.referenceHigh ?? null,
+        reference_text: marker.referenceText ?? null,
+        lab_flag: marker.labFlag ?? null,
       })),
     }),
   });

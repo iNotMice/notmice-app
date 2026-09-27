@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -10,10 +11,15 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.enums import MappingStatus
-from app.domain.loinc import LoincDictionary, normalize_analyte_name
+from app.domain.loinc import BiomarkerEntry, LoincDictionary, normalize_analyte_name
+from app.domain.pii import contains_personal_text
 
 PARSER_NAME = "notmice-extract"
 PARSER_RELEASE = "1.0"
+_LAB_FLAGS = frozenset({"H", "L", "*"})
+_LT_RE = re.compile(r"^[<≤]=?\s*(\d+(?:[.,]\d+)?)$")
+_GT_RE = re.compile(r"^[>≥]=?\s*(\d+(?:[.,]\d+)?)$")
+_RANGE_RE = re.compile(r"^(\d+(?:[.,]\d+)?)\s*[-\u2013\u2014]\s*(\d+(?:[.,]\d+)?)$")
 
 
 class UploadError(Exception):
@@ -66,7 +72,13 @@ class GeminiBudgetExhaustedError(UploadError):
 
 
 class RawMarker(BaseModel):
-    """One analyte as returned by pdfplumber/Vision before persistence."""
+    """One analyte as returned by pdfplumber/Vision before persistence.
+
+    ``unit`` and ``value`` are as printed, unless a review client already
+    converted them. ``reference_text`` keeps the interval as printed, including
+    a one-sided form such as ``<5``. ``lab_flag`` is only the mark the
+    laboratory printed.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -74,6 +86,12 @@ class RawMarker(BaseModel):
     value: float
     unit: str = Field(min_length=1, max_length=32)
     confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    reported_value: float | None = None
+    reported_unit: str | None = Field(default=None, max_length=32)
+    reference_low: float | None = None
+    reference_high: float | None = None
+    reference_text: str | None = Field(default=None, max_length=64)
+    lab_flag: str | None = Field(default=None, max_length=16)
 
 
 class RawLabExtraction(BaseModel):
@@ -99,6 +117,12 @@ class MappedMarker:
     loinc_code: str | None
     mapping_status: MappingStatus
     within_range: bool | None
+    reported_value: Decimal
+    reported_unit: str
+    reference_low: Decimal | None = None
+    reference_high: Decimal | None = None
+    reference_text: str | None = None
+    lab_flag: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +177,12 @@ class OwnedMarker:
     loinc_code: str | None
     value: Decimal
     unit: str
+    reported_value: Decimal | None = None
+    reported_unit: str | None = None
+    reference_low: Decimal | None = None
+    reference_high: Decimal | None = None
+    reference_text: str | None = None
+    lab_flag: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,8 +228,10 @@ def map_marker(raw: RawMarker, dictionary: LoincDictionary) -> MappedMarker:
     """Attach a LOINC code when the dictionary knows the analyte name.
 
     Unrecognised names stay ``unmapped`` and are not dropped. Known units are
-    scaled to the canonical unit. A value outside the plausible window stays
-    mapped and is flagged so a typo is visible at review.
+    scaled to the canonical unit, and so are the printed reference bounds.
+    ``reference_text`` and ``reported_unit`` stay as printed. A value outside
+    the plausible window stays mapped and is flagged so a typo is visible at
+    review. ``lab_flag`` is the laboratory mark, not that typo window.
 
     Args:
         raw: Marker as extracted by pdfplumber or Vision.
@@ -207,6 +239,12 @@ def map_marker(raw: RawMarker, dictionary: LoincDictionary) -> MappedMarker:
     """
     entry = dictionary.find(normalize_analyte_name(raw.raw_name))
     value = Decimal(str(raw.value))
+    printed_value = (
+        Decimal(str(raw.reported_value)) if raw.reported_value is not None else value
+    )
+    printed_unit = (raw.reported_unit or raw.unit).strip()
+    low, high, text = printed_reference(raw)
+    flag = normalize_lab_flag(raw.lab_flag)
     if entry is None:
         return MappedMarker(
             raw_name=raw.raw_name.strip(),
@@ -217,6 +255,12 @@ def map_marker(raw: RawMarker, dictionary: LoincDictionary) -> MappedMarker:
             loinc_code=None,
             mapping_status=MappingStatus.UNMAPPED,
             within_range=None,
+            reported_value=printed_value,
+            reported_unit=printed_unit,
+            reference_low=low,
+            reference_high=high,
+            reference_text=text,
+            lab_flag=flag,
         )
     converted = entry.convert(value, raw.unit)
     within_range = entry.within_range(converted.value) if converted.unit_recognized else None
@@ -229,7 +273,82 @@ def map_marker(raw: RawMarker, dictionary: LoincDictionary) -> MappedMarker:
         loinc_code=entry.loinc,
         mapping_status=MappingStatus.MAPPED,
         within_range=within_range,
+        reported_value=printed_value,
+        reported_unit=printed_unit,
+        reference_low=_scale_bound(entry, low, raw.unit),
+        reference_high=_scale_bound(entry, high, raw.unit),
+        reference_text=text,
+        lab_flag=flag,
     )
+
+
+def printed_reference(raw: RawMarker) -> tuple[Decimal | None, Decimal | None, str | None]:
+    """Return reference bounds in the printed unit, plus the printed text.
+
+    Numeric fields win over a parsed string. An inverted pair is dropped and
+    the printed text is kept. A personal string is not kept.
+
+    Args:
+        raw: Marker as extracted or confirmed.
+    """
+    text = raw.reference_text.strip() if raw.reference_text else None
+    if text and contains_personal_text(text, parent_key="notes"):
+        text = None
+    parsed_low, parsed_high = _parse_interval_text(text) if text else (None, None)
+    low = Decimal(str(raw.reference_low)) if raw.reference_low is not None else parsed_low
+    high = Decimal(str(raw.reference_high)) if raw.reference_high is not None else parsed_high
+    if low is not None and high is not None and low > high:
+        return None, None, text
+    return low, high, text
+
+
+def normalize_lab_flag(value: str | None) -> str | None:
+    """Return ``H``, ``L``, or ``*`` when the laboratory printed that mark.
+
+    Args:
+        value: Flag text from the blank or the review form.
+    """
+    if value is None:
+        return None
+    token = value.strip().upper()
+    if token in {"HIGH"}:
+        return "H"
+    if token in {"LOW"}:
+        return "L"
+    if token in {"A", "ABN", "ABNORMAL"}:
+        return "*"
+    if token in _LAB_FLAGS:
+        return token
+    return None
+
+
+def _parse_interval_text(text: str) -> tuple[Decimal | None, Decimal | None]:
+    """Parse ``<5``, ``>10``, or ``35-52``. Other text stays display-only."""
+    less = _LT_RE.match(text)
+    if less is not None:
+        return None, _decimal_token(less.group(1))
+    greater = _GT_RE.match(text)
+    if greater is not None:
+        return _decimal_token(greater.group(1)), None
+    bounds = _RANGE_RE.match(text)
+    if bounds is not None:
+        return _decimal_token(bounds.group(1)), _decimal_token(bounds.group(2))
+    return None, None
+
+
+def _decimal_token(token: str) -> Decimal:
+    """Parse a printed number that may use a decimal comma."""
+    return Decimal(token.replace(",", "."))
+
+
+def _scale_bound(entry: BiomarkerEntry, bound: Decimal | None, unit: str) -> Decimal | None:
+    """Scale one reference bound with the same factor as the analyte value."""
+    if bound is None:
+        return None
+    converted = entry.convert(bound, unit)
+    if not converted.unit_recognized:
+        return bound
+    return converted.value
 
 
 def parse_collected_at(value: str | None) -> date | None:

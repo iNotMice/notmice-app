@@ -72,11 +72,20 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
     setConfirmError(null);
   }, [currentPanel]);
 
-  const confirmedMarkers = PHENOAGE_BIOMARKERS.map((bio) => ({
-    rawName: bio.name,
-    value: localValues[bio.id] ?? bio.optimalRange[0],
-    unit: bio.unit,
-  }));
+  const confirmedMarkers = PHENOAGE_BIOMARKERS.map((bio) => {
+    const extracted = currentPanel.extractedMarkers?.find((marker) => marker.canonicalId === bio.id);
+    return {
+      rawName: extracted?.rawName ?? bio.name,
+      value: localValues[bio.id] ?? bio.optimalRange[0],
+      unit: bio.unit,
+      reportedValue: extracted?.reportedValue ?? null,
+      reportedUnit: extracted?.reportedUnit ?? null,
+      referenceLow: extracted?.referenceLow ?? null,
+      referenceHigh: extracted?.referenceHigh ?? null,
+      referenceText: extracted?.referenceText ?? null,
+      labFlag: extracted?.labFlag ?? null,
+    };
+  });
 
   const handleValueChange = (id: string, val: number) => {
     const next = { ...localValues, [id]: val };
@@ -286,6 +295,10 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
                     const isOptimal =
                       currentVal >= bio.optimalRange[0] && currentVal <= bio.optimalRange[1];
                     const isVerified = verifiedMap[bio.id];
+                    const extracted = currentPanel.extractedMarkers?.find(
+                      (marker) => marker.canonicalId === bio.id,
+                    );
+                    const labInterval = extracted?.referenceText;
 
                     return (
                       <tr
@@ -305,6 +318,15 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
                               {fill(copy.loinc, { code: bio.loinc })} •{' '}
                               {isBiomarkerId(bio.id) ? m.biomarkers[bio.id].domain : bio.domain}
                             </span>
+                            {labInterval ? (
+                              <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74]">
+                                {fill(copy.labInterval, {
+                                  interval: labInterval,
+                                  unit: extracted?.reportedUnit || bio.unit,
+                                })}
+                                {extracted?.labFlag ? ` · ${extracted.labFlag}` : ''}
+                              </span>
+                            ) : null}
                           </div>
                         </td>
 

@@ -64,6 +64,12 @@ class LabResultRepository:
                     canonical_name=marker.canonical_id,
                     value=marker.value,
                     unit=marker.unit,
+                    reported_value=marker.reported_value,
+                    reported_unit=marker.reported_unit,
+                    ref_low=marker.reference_low,
+                    ref_high=marker.reference_high,
+                    ref_text=marker.reference_text,
+                    lab_flag=marker.lab_flag,
                     mapping_status=marker.mapping_status.value,
                 )
             )
@@ -120,6 +126,12 @@ class LabResultRepository:
                             loinc_code=marker.loinc_code,
                             value=marker.value,
                             unit=marker.unit,
+                            reported_value=marker.reported_value,
+                            reported_unit=marker.reported_unit,
+                            reference_low=marker.ref_low,
+                            reference_high=marker.ref_high,
+                            reference_text=marker.ref_text,
+                            lab_flag=marker.lab_flag,
                         )
                         for marker in row.biomarkers
                     ),

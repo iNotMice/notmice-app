@@ -16,6 +16,7 @@ export const review = {
   collected: 'COLL: {date}',
   focused: 'Focused: {name}',
   loinc: 'LOINC {code}',
+  labInterval: 'Lab interval: {interval} {unit}',
   optimalInterval: 'Optimal interval: {min} - {max} {unit}',
   matrixTitle: 'Extracted Biomarker Matrix',
   demoMatrix: 'Worked example. These values were not read from a laboratory file.',

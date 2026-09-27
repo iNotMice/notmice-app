@@ -59,6 +59,12 @@ export interface ExtractedMarker {
   confidence: number;
   mappingStatus: 'mapped' | 'unmapped';
   withinRange: boolean | null;
+  reportedValue: number | null;
+  reportedUnit: string | null;
+  referenceLow: number | null;
+  referenceHigh: number | null;
+  referenceText: string | null;
+  labFlag: string | null;
 }
 
 export interface PhenoAgeCalculation {

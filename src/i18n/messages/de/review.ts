@@ -16,6 +16,7 @@ export const review = {
   collected: 'ENTN.: {date}',
   focused: 'Fokus: {name}',
   loinc: 'LOINC {code}',
+  labInterval: 'Laborintervall: {interval} {unit}',
   optimalInterval: 'Optimales Intervall: {min} - {max} {unit}',
   matrixTitle: 'Extrahierte Biomarker-Matrix',
   demoMatrix: 'Rechenbeispiel. Diese Werte wurden nicht aus einer Labordatei gelesen.',
