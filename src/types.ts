@@ -86,6 +86,16 @@ export interface PhenoAgeCalculation {
   disclaimer: string;
 }
 
+/** Printed laboratory interval for one analyte on one confirmed panel. */
+export interface PrintedLabInterval {
+  referenceLow: number | null;
+  referenceHigh: number | null;
+  referenceText: string | null;
+  labFlag: string | null;
+  /** True only outside the printed interval, or when the laboratory marked H, L, or *. */
+  outsideInterval: boolean;
+}
+
 export interface HistoricalTestRecord {
   id: string;
   date: string;
@@ -100,6 +110,8 @@ export interface HistoricalTestRecord {
   hash: string;
   /** Canonical marker ids from the panel. Not the full default biomarker map. */
   markerIds: string[];
+  /** Printed interval keyed by canonical marker id. Empty for a session snapshot. */
+  printedIntervals: Record<string, PrintedLabInterval>;
   /** Every analyte row on the upload, including names the dictionary did not map. */
   markerCount: number;
   /** True when the row exists only in this browser session and is not stored on the account. */

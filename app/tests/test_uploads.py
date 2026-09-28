@@ -758,6 +758,68 @@ async def test_confirm_keeps_values_when_labels_look_personal() -> None:
 
 
 @pytest.mark.asyncio
+async def test_owned_panel_flags_only_the_printed_interval_or_lab_mark() -> None:
+    """The cabinet flag ignores the platform window and the dictionary typo window."""
+    accounts = _account_service()
+    uploads, _vision, _labs = _upload_bundle()
+    application = _app(accounts, uploads)
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x66" * 48
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
+        extracted = await client.post(
+            "/api/v1/uploads/extract",
+            files={"file": ("panel.jpg", jpeg, "image/jpeg")},
+        )
+        confirmed = await client.post(
+            "/api/v1/uploads/confirm",
+            json={
+                "extract_token": extracted.json()["extract_token"],
+                "lab_name": "City Lab",
+                "collected_at": "2024-04-02",
+                "chronological_age": 42,
+                "markers": [
+                    {
+                        "raw_name": "Serum Albumin",
+                        "value": 42.0,
+                        "unit": "g/L",
+                        "reference_low": 35,
+                        "reference_high": 52,
+                    },
+                    {
+                        "raw_name": "hs-CRP",
+                        "value": 2.5,
+                        "unit": "mg/L",
+                        "reference_low": 0,
+                        "reference_high": 1,
+                    },
+                    {
+                        "raw_name": "Fasting Serum Glucose",
+                        "value": 90.0,
+                        "unit": "mg/dL",
+                    },
+                    {
+                        "raw_name": "Lymphocyte Percentage",
+                        "value": 32.0,
+                        "unit": "%",
+                        "reference_low": 20,
+                        "reference_high": 40,
+                        "lab_flag": "high",
+                    },
+                ],
+            },
+        )
+        assert confirmed.status_code == 200
+        owned = await client.get("/api/v1/uploads/results")
+    markers = owned.json()["results"][0]["markers"]
+    flags = {item["raw_name"]: item["outside_interval"] for item in markers}
+    assert flags["Serum Albumin"] is False
+    assert flags["hs-CRP"] is True
+    assert flags["Fasting Serum Glucose"] is False
+    assert flags["Lymphocyte Percentage"] is True
+
+
+@pytest.mark.asyncio
 async def test_extract_rejects_unsupported_type() -> None:
     """A text file is not parsed as a lab report."""
     accounts = _account_service()

@@ -233,6 +233,12 @@ class OwnedMarkerView(BaseModel):
     reference_high: float | None = None
     reference_text: str | None = None
     lab_flag: str | None = None
+    outside_interval: bool = Field(
+        description=(
+            "True only when the value leaves the printed laboratory interval "
+            "or the laboratory mark is H, L, or *."
+        ),
+    )
 
 
 class OwnedLabResultView(BaseModel):

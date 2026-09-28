@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.core.deps import get_upload_service
 from app.core.rate_limit import resolve_client_key
 from app.domain.accounts import UserRecord
+from app.domain.cabinet import outside_printed_interval
 from app.domain.pii import PIIValidationError
 from app.domain.schemas import (
     ConfirmRequest,
@@ -358,6 +359,12 @@ async def list_own_results(
                         reference_high=_float_or_none(marker.reference_high),
                         reference_text=marker.reference_text,
                         lab_flag=marker.lab_flag,
+                        outside_interval=outside_printed_interval(
+                            marker.value,
+                            reference_low=marker.reference_low,
+                            reference_high=marker.reference_high,
+                            lab_flag=marker.lab_flag,
+                        ),
                     )
                     for marker in panel.markers
                 ],

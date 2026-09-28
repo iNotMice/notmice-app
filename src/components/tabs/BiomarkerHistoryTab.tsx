@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TabType, HistoricalTestRecord } from '../../types';
+import { TabType, HistoricalTestRecord, PrintedLabInterval } from '../../types';
 import { PHENOAGE_BIOMARKERS } from '../../data/phenoAgeData';
 import {
   Calendar,
@@ -35,6 +35,25 @@ import {
   Legend as RechartsLegend,
   ReferenceLine,
 } from 'recharts';
+
+function formatBound(value: number): string {
+  return value.toFixed(3).replace(/\.?0+$/, '');
+}
+
+function printedSpan(interval: PrintedLabInterval | null): {
+  low: number | null;
+  high: number | null;
+} {
+  if (!interval) {
+    return { low: null, high: null };
+  }
+  const low = interval.referenceLow;
+  const high = interval.referenceHigh;
+  if (low != null && high != null && low > high) {
+    return { low: null, high: null };
+  }
+  return { low, high };
+}
 
 interface BiomarkerHistoryTabProps {
   history: HistoricalTestRecord[];
@@ -159,17 +178,86 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
     );
   };
 
-  // Biomarker specific chart calculations
-  const bioValues = hasHistory ? history.map((h) => h.biomarkers[selectedBiomarker] ?? 0) : [];
-  const minBio = hasHistory ? Math.min(...bioValues) * 0.85 : 0;
-  const maxBio = hasHistory ? Math.max(...bioValues) * 1.15 || 1 : 1;
+  const markerPoints = history.flatMap((record) => {
+    const measuredIds =
+      record.sessionOnly && record.markerIds.length === 0
+        ? Object.keys(record.biomarkers)
+        : record.markerIds;
+    if (!measuredIds.includes(selectedBiomarker)) {
+      return [];
+    }
+    const value = record.biomarkers[selectedBiomarker];
+    if (value === undefined || Number.isNaN(value)) {
+      return [];
+    }
+    return [
+      {
+        record,
+        value,
+        interval: record.printedIntervals[selectedBiomarker] ?? null,
+      },
+    ];
+  });
+  const scaleNumbers = markerPoints.flatMap((point) => {
+    const span = printedSpan(point.interval);
+    const nums = [point.value];
+    if (span.low != null) nums.push(span.low);
+    if (span.high != null) nums.push(span.high);
+    return nums;
+  });
+  const minRaw = scaleNumbers.length > 0 ? Math.min(...scaleNumbers) : 0;
+  const maxRaw = scaleNumbers.length > 0 ? Math.max(...scaleNumbers) : 1;
+  const axisSpan = maxRaw - minRaw || Math.abs(maxRaw) || 1;
+  const minBio = minRaw - axisSpan * 0.12;
+  const maxBio = maxRaw + axisSpan * 0.12;
+  const plotTop = padding.top;
+  const plotBottom = chartHeight - padding.bottom;
   const getBioY = (val: number) => {
     const range = maxBio - minBio || 1;
+    return plotBottom - ((val - minBio) / range) * (plotBottom - plotTop);
+  };
+  const getMarkerX = (index: number) => {
+    if (markerPoints.length <= 1) return padding.left;
     return (
-      chartHeight -
-      padding.bottom -
-      ((val - minBio) / range) * (chartHeight - padding.top - padding.bottom)
+      padding.left +
+      (index / (markerPoints.length - 1)) * (chartWidth - padding.left - padding.right)
     );
+  };
+  const intervalLabel = (interval: PrintedLabInterval | null): string | null => {
+    const bounds = printedSpan(interval);
+    const unit = activeBioDef?.unit ?? '';
+    if (bounds.low != null && bounds.high != null) {
+      return fill(copy.intervalClosed, {
+        min: formatBound(bounds.low),
+        max: formatBound(bounds.high),
+        unit,
+      });
+    }
+    if (bounds.high != null) {
+      return fill(copy.intervalUpper, { max: formatBound(bounds.high), unit });
+    }
+    if (bounds.low != null) {
+      return fill(copy.intervalLower, { min: formatBound(bounds.low), unit });
+    }
+    return null;
+  };
+  const bandRect = (interval: PrintedLabInterval | null, cx: number) => {
+    const bounds = printedSpan(interval);
+    if (bounds.low == null && bounds.high == null) {
+      return null;
+    }
+    const width = 22;
+    const x = cx - width / 2;
+    if (bounds.low != null && bounds.high != null) {
+      const y = getBioY(bounds.high);
+      return { x, y, width, height: Math.max(getBioY(bounds.low) - y, 1) };
+    }
+    if (bounds.high != null) {
+      const y = getBioY(bounds.high);
+      return { x, y, width, height: Math.max(plotBottom - y, 1) };
+    }
+    const y = plotTop;
+    return { x, y, width, height: Math.max(getBioY(bounds.low ?? minBio) - y, 1) };
   };
 
   const hasSessionSnapshot = history.some((row) => row.sessionOnly);
@@ -648,66 +736,141 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
           </div>
 
           {activeBioDef && (
-            <div className="text-xs text-[#565e74] flex justify-between bg-[#f8f9ff] p-2.5 rounded border border-[#e2e8f0] font-['JetBrains_Mono']">
+            <div className="text-xs text-[#565e74] flex justify-between items-center gap-3 bg-[#f8f9ff] p-2.5 rounded border border-[#e2e8f0] font-['JetBrains_Mono']">
               <span>{fill(copy.loinc, { code: activeBioDef.loinc })}</span>
-              <span className="text-[#006947] font-semibold">
-                {fill(copy.targetRange, {
-                  min: activeBioDef.optimalRange[0],
-                  max: activeBioDef.optimalRange[1],
-                  unit: activeBioDef.unit,
-                })}
+              <span className="inline-flex items-center gap-1.5 text-[#3f4850]">
+                <span
+                  className="inline-block w-3 h-3 rounded-sm bg-[#e7eef6] border border-[#94a3b8]"
+                  aria-hidden
+                />
+                {copy.labInterval}
               </span>
             </div>
           )}
 
-          {/* SVG for Specific Biomarker */}
           <div className="w-full">
-            {hasHistory ? (
-            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto">
-              {/* Line */}
-              <polyline
-                fill="none"
-                stroke="#006194"
-                strokeWidth="3"
-                points={history
-                  .map((h, i) => `${getX(i)},${getBioY(h.biomarkers[selectedBiomarker] ?? 0)}`)
-                  .join(' ')}
-              />
-              {/* Nodes */}
-              {history.map((h, i) => {
-                const val = h.biomarkers[selectedBiomarker] ?? 0;
-                const cx = getX(i);
-                const cy = getBioY(val);
-                return (
-                  <g key={h.id}>
-                    <circle cx={cx} cy={cy} r="5" fill="#006194" stroke="#ffffff" strokeWidth="2" />
-                    <text
-                      x={cx}
-                      y={cy - 10}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fontWeight="bold"
-                      fill="#006194"
-                      fontFamily="JetBrains Mono"
-                    >
-                      {val.toFixed(1)}
-                    </text>
-                    <text
-                      x={cx}
-                      y={chartHeight - 12}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fill="#565e74"
-                      fontFamily="JetBrains Mono"
-                    >
-                      {h.date.slice(0, 7)}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-            ) : (
+            {!hasHistory ? (
               <p className="font-['Inter'] text-sm text-[#565e74] py-8">{copy.noPanels}</p>
+            ) : markerPoints.length === 0 ? (
+              <p className="font-['Inter'] text-sm text-[#565e74] py-8">{copy.markerNotOnReports}</p>
+            ) : (
+              <>
+                <svg
+                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                  className="w-full h-auto"
+                  role="img"
+                  aria-label={copy.labInterval}
+                >
+                  {markerPoints.map((point, index) => {
+                    const band = bandRect(point.interval, getMarkerX(index));
+                    if (!band) {
+                      return null;
+                    }
+                    const label = intervalLabel(point.interval);
+                    return (
+                      <rect
+                        key={`${point.record.id}-band`}
+                        x={band.x}
+                        y={band.y}
+                        width={band.width}
+                        height={band.height}
+                        fill="#e7eef6"
+                        stroke="#94a3b8"
+                        strokeWidth="1"
+                        rx="2"
+                      >
+                        {label && <title>{label}</title>}
+                      </rect>
+                    );
+                  })}
+                  <polyline
+                    fill="none"
+                    stroke="#006194"
+                    strokeWidth="3"
+                    points={markerPoints
+                      .map((point, index) => `${getMarkerX(index)},${getBioY(point.value)}`)
+                      .join(' ')}
+                  />
+                  {markerPoints.map((point, index) => {
+                    const cx = getMarkerX(index);
+                    const cy = getBioY(point.value);
+                    const flagged = point.interval?.outsideInterval === true;
+                    return (
+                      <g key={point.record.id}>
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r="5"
+                          fill={flagged ? '#f8f9ff' : '#006194'}
+                          stroke={flagged ? '#3f4850' : '#ffffff'}
+                          strokeWidth="2"
+                        >
+                          {flagged && <title>{copy.outsideInterval}</title>}
+                        </circle>
+                        <text
+                          x={cx}
+                          y={cy - 10}
+                          textAnchor="middle"
+                          fontSize="10"
+                          fontWeight="bold"
+                          fill={flagged ? '#3f4850' : '#006194'}
+                          fontFamily="JetBrains Mono"
+                        >
+                          {point.value.toFixed(1)}
+                        </text>
+                        <text
+                          x={cx}
+                          y={chartHeight - 12}
+                          textAnchor="middle"
+                          fontSize="10"
+                          fill="#565e74"
+                          fontFamily="JetBrains Mono"
+                        >
+                          {(point.record.collectedAt ?? point.record.date).slice(0, 7)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {markerPoints.map((point) => {
+                    const label = intervalLabel(point.interval);
+                    const flagged = point.interval?.outsideInterval === true;
+                    const when = point.record.sessionOnly
+                      ? point.record.date
+                      : (point.record.collectedAt ?? copy.dateMissing);
+                    return (
+                      <li
+                        key={`${point.record.id}-caption`}
+                        className="font-['Inter'] text-xs text-[#3f4850]"
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                          <span className="font-['JetBrains_Mono']">{when}</span>
+                          <span className="font-['JetBrains_Mono']">
+                            {formatBound(point.value)} {activeBioDef?.unit}
+                            {point.interval?.labFlag ? ` ${point.interval.labFlag}` : ''}
+                          </span>
+                          {!point.record.sessionOnly && (
+                            <span className="font-['JetBrains_Mono'] text-[#565e74]">
+                              {label ?? copy.intervalNotPrinted}
+                            </span>
+                          )}
+                        </div>
+                        {point.interval?.referenceText && (
+                          <p className="text-[#565e74] mt-0.5">
+                            {fill(copy.asPrinted, { text: point.interval.referenceText })}
+                          </p>
+                        )}
+                        {flagged && (
+                          <p className="mt-1 text-[#3f4850] bg-[#f8f9ff] border border-[#cbd5e1] rounded px-2.5 py-1.5">
+                            {copy.outsideInterval}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </div>
         </div>

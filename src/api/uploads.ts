@@ -35,6 +35,7 @@ export interface OwnMarker {
   referenceHigh: number | null;
   referenceText: string | null;
   labFlag: string | null;
+  outsideInterval: boolean;
 }
 
 export interface OwnLabResult {
@@ -99,6 +100,7 @@ interface OwnMarkerPayload {
   reference_high: number | null;
   reference_text: string | null;
   lab_flag: string | null;
+  outside_interval: boolean;
 }
 
 interface OwnLabResultPayload {
@@ -306,6 +308,7 @@ export async function fetchOwnLabResults(): Promise<OwnLabResult[]> {
       referenceHigh: marker.reference_high,
       referenceText: marker.reference_text,
       labFlag: marker.lab_flag,
+      outsideInterval: marker.outside_interval,
     })),
   }));
 }

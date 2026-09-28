@@ -204,10 +204,18 @@ export default function App() {
       for (const panel of panels) {
         const saved: Record<string, number> = {};
         const markerIds: string[] = [];
+        const printedIntervals: HistoricalTestRecord['printedIntervals'] = {};
         for (const marker of panel.markers) {
           if (marker.canonicalId && isBiomarkerId(marker.canonicalId)) {
             saved[marker.canonicalId] = marker.value;
             markerIds.push(marker.canonicalId);
+            printedIntervals[marker.canonicalId] = {
+              referenceLow: marker.referenceLow,
+              referenceHigh: marker.referenceHigh,
+              referenceText: marker.referenceText,
+              labFlag: marker.labFlag,
+              outsideInterval: marker.outsideInterval,
+            };
           }
         }
         const panelBiomarkers = { ...INITIAL_BIOMARKERS, ...saved };
@@ -232,6 +240,7 @@ export default function App() {
           biomarkers: panelBiomarkers,
           hash: panel.documentSha256,
           markerIds,
+          printedIntervals,
           markerCount: panel.markerCount,
           sessionOnly: false,
         });
@@ -262,6 +271,7 @@ export default function App() {
       biomarkers: { ...biomarkers },
       hash: currentPanel.hash.length === 64 ? currentPanel.hash : '',
       markerIds: [...currentPanel.focusMarkerIds],
+      printedIntervals: {},
       markerCount: currentPanel.focusMarkerIds.length,
       sessionOnly: true,
     };
