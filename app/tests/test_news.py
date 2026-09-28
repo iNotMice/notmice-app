@@ -14,6 +14,7 @@ from app.domain.news import (
     NewsFetchError,
     assert_public_https,
     clip_snippet,
+    parse_pubmed_articles,
     parse_rss,
     same_feed_host,
 )
@@ -154,6 +155,42 @@ def test_public_https_rejects_insecure_and_local_hosts() -> None:
     with pytest.raises(NewsFetchError):
         assert_public_https("https://10.0.0.8/feed")
     assert_public_https("https://example.com/feed")
+
+
+_AHEAD_OF_ISSUE = """<?xml version="1.0"?>
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID>42741701</PMID>
+      <Article>
+        <Journal>
+          <Title>Bioactive materials</Title>
+          <JournalIssue>
+            <PubDate><Year>2027</Year><Month>Feb</Month></PubDate>
+          </JournalIssue>
+        </Journal>
+        <ArticleTitle>Context-dependent vesicles</ArticleTitle>
+        <Abstract>
+          <AbstractText>Electronic publication is the news date.</AbstractText>
+        </Abstract>
+        <ArticleDate DateType="Print">
+          <Year>2027</Year><Month>02</Month><Day>01</Day>
+        </ArticleDate>
+        <ArticleDate DateType="Electronic">
+          <Year>2026</Year><Month>09</Month><Day>08</Day>
+        </ArticleDate>
+      </Article>
+    </MedlineCitation>
+  </PubmedArticle>
+</PubmedArticleSet>
+"""
+
+
+def test_pubmed_prefers_electronic_date_over_future_issue() -> None:
+    """A 2027 journal issue must not replace the 2026 electronic publication date."""
+    cards = parse_pubmed_articles(_AHEAD_OF_ISSUE, snippet_max_chars=420)
+    assert len(cards) == 1
+    assert cards[0].published_at == date(2026, 9, 8)
 
 
 def test_parse_rss_reads_atom_links() -> None:

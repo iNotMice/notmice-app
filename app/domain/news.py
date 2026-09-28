@@ -253,11 +253,7 @@ def _pubmed_article(article: ElementTree.Element, snippet_max_chars: int) -> New
             piece = _text(node)
             if piece:
                 abstract_parts.append(piece)
-    published = None
-    for node in article.iter():
-        if _local(node.tag) == "PubDate":
-            published = _read_pub_date(node)
-            break
+    published = _publication_date(article)
     url = _doi_url(doi) or f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
     return NewsCard(
         id=f"pubmed:{pmid}",
@@ -327,6 +323,43 @@ def _entry_link(entry: ElementTree.Element) -> str:
         elif not fallback:
             fallback = href
     return _safe_http_url(alternate or fallback)
+
+
+def _publication_date(article: ElementTree.Element) -> date | None:
+    """Return when the paper appeared, not the journal issue it was assigned to.
+
+    ``PubDate`` is the issue date. For online-first articles that issue is often
+    the next calendar year, while ``ArticleDate`` is the day the paper went live.
+    """
+    body = _article_body(article)
+    electronic: date | None = None
+    printed: date | None = None
+    for node in body.iter():
+        if _local(node.tag) != "ArticleDate":
+            continue
+        parsed = _read_pub_date(node)
+        if parsed is None:
+            continue
+        if node.attrib.get("DateType") == "Electronic":
+            electronic = electronic or parsed
+        else:
+            printed = printed or parsed
+    if electronic is not None:
+        return electronic
+    if printed is not None:
+        return printed
+    for node in body.iter():
+        if _local(node.tag) == "PubDate":
+            return _read_pub_date(node)
+    return None
+
+
+def _article_body(article: ElementTree.Element) -> ElementTree.Element:
+    """Return the paper ``Article`` node, ignoring structured citations."""
+    for node in article.iter():
+        if _local(node.tag) == "Article":
+            return node
+    return article
 
 
 def _entry_date(entry: ElementTree.Element) -> date | None:
