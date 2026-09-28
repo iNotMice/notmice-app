@@ -2,6 +2,8 @@ export const shell = {
   documentTitle: 'NotMice - Longevity & Biomarker Research Platform',
   disclaimer:
     'PhenoAge is a research index (Levine et al., Aging 2018), not a medical service, diagnosis, or treatment recommendation.',
+  dataDisclaimer:
+    'A self-observation tool for research purposes, not a medical diagnosis and not a substitute for a physician.',
   splashAria: 'NotMice Research Protocol. Click to continue.',
   researchProtocol: 'Research Protocol',
   tutorialExample: 'Tutorial example',

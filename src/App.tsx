@@ -31,6 +31,7 @@ import { UserInstructionsTab } from './components/tabs/UserInstructionsTab';
 import { ProofModal } from './components/ProofModal';
 import { SeedPhraseModal } from './components/SeedPhraseModal';
 import { TerminalModal } from './components/TerminalModal';
+import { DataDisclaimer } from './components/DataDisclaimer';
 import { Footer } from './components/Footer';
 import { SplashScreen } from './components/SplashScreen';
 import { getActiveI18n } from './i18n/catalog';
@@ -481,6 +482,7 @@ export default function App() {
           tutorial={currentPanel.sourceType === 'demo'}
           labName={currentPanel.labName}
         />
+        <DataDisclaimer />
 
         {/* Tab 1: Overview / Landing */}
         {activeTab === 'overview-landing' && (

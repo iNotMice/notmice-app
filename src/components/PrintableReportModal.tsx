@@ -246,6 +246,7 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
           </div>
 
           <div className="p-4 bg-[#f8f9ff] rounded-xl border border-[#e2e8f0] text-xs space-y-2">
+            <p className="text-[#3f4850] leading-relaxed">{m.shell.dataDisclaimer}</p>
             <p className="text-[#3f4850] leading-relaxed">{m.shell.disclaimer}</p>
             <p className="text-[10px] text-[#64748b]">{copy.citation}</p>
             {latest && latest.hash.length === 64 && (

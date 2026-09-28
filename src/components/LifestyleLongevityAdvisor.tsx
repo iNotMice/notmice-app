@@ -62,7 +62,7 @@ export const LifestyleLongevityAdvisor: React.FC = () => {
       </div>
 
       <p className="p-4 bg-[#eff4ff] rounded-xl border border-[#dce9ff] text-xs text-[#3f4850] leading-relaxed">
-        <strong>{copy.disclaimerTitle}</strong> {copy.disclaimer}
+        {m.shell.dataDisclaimer}
       </p>
     </section>
   );

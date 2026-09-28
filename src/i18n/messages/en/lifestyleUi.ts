@@ -11,9 +11,6 @@ export const lifestyleUi = {
   studyLabel: 'Research',
   studyCitation: 'Levine et al., Aging, 2018.',
   studyHref: 'https://doi.org/10.18632/aging.101414',
-  disclaimerTitle: 'Note.',
-  disclaimer:
-    'A self-observation tool for research purposes. Not a medical diagnosis and not a substitute for a physician.',
   cards: {
     albumin:
       'Serum albumin is a protein measured in a blood sample. Laboratories report it in grams per litre.',

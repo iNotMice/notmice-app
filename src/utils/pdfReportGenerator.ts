@@ -178,7 +178,10 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
     currentY = 20;
   }
 
-  const disclaimer = doc.splitTextToSize(`${messages.shell.disclaimer} ${copy.citation}`, pageWidth - margin * 2 - 6);
+  const disclaimer = doc.splitTextToSize(
+    `${messages.shell.dataDisclaimer} ${messages.shell.disclaimer} ${copy.citation}`,
+    pageWidth - margin * 2 - 6,
+  );
   const boxH = 8 + disclaimer.length * 4;
   doc.setFillColor(248, 249, 255);
   doc.setDrawColor(226, 232, 240);
