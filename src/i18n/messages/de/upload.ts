@@ -55,7 +55,7 @@ export const upload = {
   masking: 'Personenbezogene Zeilen werden vor der Extraktion geschwärzt...',
   redactionTitle: 'Geschwärzten Rahmen prüfen',
   redactionBody:
-    'Dieses Bild wird gesendet. Geschwärzte Bereiche: {count}. Wenn Name, Geburtsdatum oder Auftragsnummer noch lesbar sind, abbrechen und neu zuschneiden.',
+    'Das wird gesendet. Geschwärzte Bereiche: {count}. Wenn Name, Geburtsdatum oder Auftragsnummer noch lesbar sind, nicht senden.',
   redactionConfirm: 'Diesen Rahmen senden',
   redactionCancel: 'Nicht senden',
 };

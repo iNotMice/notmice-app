@@ -17,6 +17,7 @@ dependencies = [
     "google-genai>=1.0",
     "mnemonic>=0.21",
     "pdfplumber>=0.11",
+    "pypdfium2>=4.30",
     "pillow>=11",
     "pytesseract>=0.3",
     "pyarrow>=17",
@@ -66,7 +67,16 @@ strict = true
 exclude = "^app/migrations/"
 
 [[tool.mypy.overrides]]
-module = ["mnemonic", "pdfplumber", "pytesseract", "google", "google.*", "pyarrow", "pyarrow.*"]
+module = [
+    "mnemonic",
+    "pdfplumber",
+    "pypdfium2",
+    "pytesseract",
+    "google",
+    "google.*",
+    "pyarrow",
+    "pyarrow.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

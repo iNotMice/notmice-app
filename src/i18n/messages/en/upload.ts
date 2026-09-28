@@ -55,7 +55,7 @@ export const upload = {
   masking: 'Painting personal lines before extraction...',
   redactionTitle: 'Check the painted frame',
   redactionBody:
-    'This is the image that will be sent. Painted areas: {count}. If a name, date of birth, or order number is still readable, cancel and crop again.',
+    'This is what will be sent. Painted areas: {count}. If a name, date of birth, or order number is still readable, do not send it.',
   redactionConfirm: 'Send this frame',
   redactionCancel: 'Do not send',
 };

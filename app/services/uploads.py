@@ -37,6 +37,7 @@ from app.services.gemini_budget import GeminiTokenBudget
 from app.services.image_redact import LabImageRedactor, TesseractImageRedactor
 from app.services.loinc_dictionary import load_loinc_dictionary
 from app.services.media import sha256_hex, sniff_mime_type
+from app.services.pdf_scan import LabScanRedactor, PdfiumScanRedactor
 from app.services.pdf_text import prepare_selectable_pdf
 from app.services.redaction_holds import RedactionHoldStore
 from app.services.vision import ExtractionProvider
@@ -96,6 +97,7 @@ class UploadService:
         dictionary: LoincDictionary | None = None,
         image_redactor: LabImageRedactor | None = None,
         redaction_holds: RedactionHoldStore | None = None,
+        scan_redactor: LabScanRedactor | None = None,
     ) -> None:
         self._vision = vision
         self._sessions = sessions
@@ -104,6 +106,7 @@ class UploadService:
         self._budget = budget
         self._dictionary = dictionary if dictionary is not None else load_loinc_dictionary()
         self._images = image_redactor if image_redactor is not None else TesseractImageRedactor()
+        self._scans = scan_redactor if scan_redactor is not None else PdfiumScanRedactor()
         self._holds = (
             redaction_holds
             if redaction_holds is not None
@@ -119,9 +122,10 @@ class UploadService:
     ) -> CompletedExtract | RedactionPreview:
         """Hash, parse, and forget the original bytes.
 
-        A photo is painted locally before any model call. When that paint is
-        uncertain, the return value is the painted frame and the model is not
-        called.
+        A photo is painted locally before any model call. An image-only PDF is
+        rasterized and painted the same way; the original file is not sent.
+        When that paint is uncertain, the return value is the painted frame
+        and the model is not called.
 
         Args:
             user_id: Authenticated owner.
@@ -161,14 +165,34 @@ class UploadService:
                         media=None,
                         media_mime=None,
                     )
+                scan = await asyncio.to_thread(self._scans.redact, payload)
+                logger.info(
+                    "scan_pdf_redacted",
+                    page_count=scan.page_count,
+                    region_count=scan.region_count,
+                    needs_confirmation=scan.needs_confirmation,
+                )
+                if scan.needs_confirmation:
+                    token = self._holds.put(
+                        user_id,
+                        document_sha256=digest,
+                        payload=scan.payload,
+                        mime_type=scan.mime_type,
+                    )
+                    return RedactionPreview(
+                        token=token,
+                        document_sha256=digest,
+                        region_count=scan.region_count,
+                        preview_png=scan.preview_png,
+                    )
                 return await self._run_model(
                     user_id,
                     client_key=client_key,
                     document_sha256=digest,
                     mime_type=mime_type,
                     text=None,
-                    media=payload,
-                    media_mime=mime_type,
+                    media=scan.payload,
+                    media_mime=scan.mime_type,
                 )
             redacted = await asyncio.to_thread(self._images.redact, payload, mime_type)
             logger.info(

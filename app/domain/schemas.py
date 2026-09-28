@@ -106,7 +106,7 @@ class ExtractResponse(BaseModel):
 
 
 class RedactionPreviewResponse(BaseModel):
-    """Painted photo the caller must accept before extraction runs.
+    """Painted pages the caller must accept before extraction runs.
 
     ``preview_png`` is base64 of the painted PNG, not the original upload.
     """

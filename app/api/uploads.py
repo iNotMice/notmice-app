@@ -170,8 +170,9 @@ async def extract_upload(
 ) -> ExtractResponse | JSONResponse:
     """Parse a PDF or image in RAM and return markers for human review.
 
-    A photo may instead return 202 with the painted frame. The model is not
-    called until that frame is confirmed.
+    A photo or an image-only PDF may instead return 202 with the painted
+    pages. The model is not called until that frame is confirmed. The original
+    scan is not part of the response.
     """
     settings = get_settings()
     client_key = resolve_client_key(
