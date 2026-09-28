@@ -118,6 +118,18 @@ class ExportedMarker:
 
 
 @dataclass(frozen=True, slots=True)
+class ExportedProtocolEntry:
+    """One journal row in the owner's own export. No internal ids."""
+
+    kind: str
+    title: str
+    dose: str | None
+    started_on: date
+    ended_on: date | None
+    note: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class AccountExport:
     """The signed-in person's copy of their account. Built only by the account repository."""
 
@@ -127,3 +139,4 @@ class AccountExport:
     created_at: datetime
     consents: tuple[ConsentRecord, ...]
     markers: tuple[ExportedMarker, ...]
+    protocol: tuple[ExportedProtocolEntry, ...] = ()

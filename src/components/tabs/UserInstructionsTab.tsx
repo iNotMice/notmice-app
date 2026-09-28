@@ -9,6 +9,7 @@ const SCREEN_TABS: TabType[] = [
   'review-extraction',
   'phenoage-engine',
   'biomarker-history',
+  'protocol-journal',
   'data-sovereignty-public-sharing',
 ];
 

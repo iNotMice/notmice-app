@@ -44,6 +44,10 @@ class User(Base):
 
     lab_results: Mapped[list[LabResult]] = relationship(back_populates="user")
     share_settings: Mapped[ShareSettings | None] = relationship(back_populates="user")
+    protocol_entries: Mapped[list[ProtocolEntryRow]] = relationship(
+        back_populates="user",
+        passive_deletes=True,
+    )
 
 
 class LabResult(Base):
@@ -272,3 +276,44 @@ class Consent(Base):
     text_version: Mapped[str] = mapped_column(String(64), nullable=False)
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ProtocolEntryRow(Base):
+    """One protocol-journal row. It belongs to the participant, not to a research package.
+
+    There is no catalog id. Deleting the participant removes the row.
+    """
+
+    __tablename__ = "protocol_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('drug', 'supplement', 'nutrition', 'activity', 'sleep', 'other')",
+            name="ck_protocol_entries_kind",
+        ),
+        CheckConstraint(
+            "ended_on IS NULL OR ended_on >= started_on",
+            name="ck_protocol_entries_period",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    dose: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    started_on: Mapped[date] = mapped_column(Date, nullable=False)
+    ended_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    note: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="protocol_entries")

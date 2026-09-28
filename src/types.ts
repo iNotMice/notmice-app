@@ -4,6 +4,7 @@ export type TabType =
   | 'review-extraction'
   | 'phenoage-engine'
   | 'biomarker-history'
+  | 'protocol-journal'
   | 'data-sovereignty-public-sharing'
   | 'research-news'
   | 'user-instructions';

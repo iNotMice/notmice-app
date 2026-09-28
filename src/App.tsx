@@ -24,6 +24,7 @@ import { UploadLabTab } from './components/tabs/UploadLabTab';
 import { ReviewExtractionTab } from './components/tabs/ReviewExtractionTab';
 import { PhenoAgeEngineTab } from './components/tabs/PhenoAgeEngineTab';
 import { BiomarkerHistoryTab } from './components/tabs/BiomarkerHistoryTab';
+import { ProtocolJournalTab } from './components/tabs/ProtocolJournalTab';
 import { DataSovereigntyTab } from './components/tabs/DataSovereigntyTab';
 import { ResearchNewsTab } from './components/tabs/ResearchNewsTab';
 import { UserInstructionsTab } from './components/tabs/UserInstructionsTab';
@@ -545,6 +546,16 @@ export default function App() {
             onDeleteHistory={handleDeleteHistory}
             onSelectRecord={handleSelectHistoricalRecord}
             setActiveTab={setActiveTab}
+          />
+        )}
+
+        {activeTab === 'protocol-journal' && (
+          <ProtocolJournalTab
+            isAuthenticated={account !== null}
+            onRequestAuth={() => {
+              setAuthError(null);
+              setIsSeedPhraseModalOpen(true);
+            }}
           />
         )}
 

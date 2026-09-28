@@ -80,6 +80,11 @@ export const instructions = {
       body: 'Zeichnet Panels, die Sie in dieser Browsersitzung gespeichert haben. Ein Panel erscheint hier erst, nachdem Sie In den Verlauf speichern gewählt haben. Sie können ein PDF dieser Sitzungsliste exportieren.',
     },
     {
+      tab: 'protocol-journal',
+      title: 'Protokoll',
+      body: 'Tragen Sie ein Arzneimittel, eine Ergänzung, ein Ernährungsmuster, Aktivität oder eine Schlafphase in eigenen Worten ein, mit optionaler Dosis und offenem oder geschlossenem Zeitraum. Der Eintrag bleibt auf diesem Konto. Er ist in Ihrem eigenen JSON- und CSV-Export enthalten.',
+    },
+    {
       tab: 'data-sovereignty-public-sharing',
       title: 'Daten',
       body: 'Melden Sie sich mit der Phrase aus 12 Wörtern an oder legen Sie ein Konto an. Teilen bleibt aus, bis Sie es einschalten. Wenn es an ist, kommen bestätigte Biomarker-Zeilen dieses Kontos in den öffentlichen Datensatz. Namen, Geburtsdaten und die Originaldatei sind nicht enthalten.',

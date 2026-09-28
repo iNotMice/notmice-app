@@ -7,6 +7,7 @@ export const nav = {
   phenoAge: 'PhenoAge',
   phenoAgeEngine: 'PhenoAge™ Engine',
   biomarkerHistory: 'Biomarker History',
+  journal: 'Journal',
   data: 'Data',
   dataSovereignty: 'Data Sovereignty & Public Sharing',
   news: 'News',

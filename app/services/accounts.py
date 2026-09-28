@@ -32,6 +32,7 @@ from app.domain.accounts import (
     CreatedAccount,
     EmailLogin,
     ExportedMarker,
+    ExportedProtocolEntry,
     InvalidAuthTokenError,
     InvalidCredentialsError,
     InvalidMnemonicError,
@@ -454,11 +455,12 @@ class AccountService:
                 for row in bundle.consents
             ],
             "markers": [_marker_dict(row) for row in bundle.markers],
+            "protocol": [_protocol_dict(row) for row in bundle.protocol],
         }
         return json.dumps(payload, ensure_ascii=False)
 
     async def export_csv(self, user_id: UUID) -> str:
-        """Return the owner's confirmed analytes as CSV.
+        """Return the owner's confirmed analytes and journal rows as CSV.
 
         Args:
             user_id: Authenticated participant.
@@ -482,6 +484,12 @@ class AccountService:
                 "ref_low",
                 "ref_high",
                 "lab_flag",
+                "entry_kind",
+                "entry_title",
+                "entry_dose",
+                "entry_started_on",
+                "entry_ended_on",
+                "entry_note",
             ),
         )
         writer.writeheader()
@@ -501,6 +509,34 @@ class AccountService:
                     "ref_low": "" if row.ref_low is None else _decimal_text(row.ref_low),
                     "ref_high": "" if row.ref_high is None else _decimal_text(row.ref_high),
                     "lab_flag": row.lab_flag or "",
+                    "entry_kind": "",
+                    "entry_title": "",
+                    "entry_dose": "",
+                    "entry_started_on": "",
+                    "entry_ended_on": "",
+                    "entry_note": "",
+                }
+            )
+        for entry in bundle.protocol:
+            writer.writerow(
+                {
+                    "public_id": bundle.public_id,
+                    "email": bundle.email or "",
+                    "collected_at": "",
+                    "lab_name": "",
+                    "raw_name": "",
+                    "loinc_code": "",
+                    "value": "",
+                    "unit": "",
+                    "ref_low": "",
+                    "ref_high": "",
+                    "lab_flag": "",
+                    "entry_kind": entry.kind,
+                    "entry_title": entry.title,
+                    "entry_dose": entry.dose or "",
+                    "entry_started_on": entry.started_on.isoformat(),
+                    "entry_ended_on": "" if entry.ended_on is None else entry.ended_on.isoformat(),
+                    "entry_note": entry.note or "",
                 }
             )
         return buffer.getvalue()
@@ -601,6 +637,18 @@ def _decimal_text(value: Decimal) -> str:
     if "." in text:
         text = text.rstrip("0").rstrip(".")
     return text or "0"
+
+
+def _protocol_dict(row: ExportedProtocolEntry) -> dict[str, str | None]:
+    """One journal object for the owner's JSON export."""
+    return {
+        "kind": row.kind,
+        "title": row.title,
+        "dose": row.dose,
+        "started_on": row.started_on.isoformat(),
+        "ended_on": None if row.ended_on is None else row.ended_on.isoformat(),
+        "note": row.note,
+    }
 
 
 def _marker_dict(row: ExportedMarker) -> dict[str, str | None]:

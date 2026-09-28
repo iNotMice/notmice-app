@@ -17,6 +17,7 @@ from app.domain.accounts import (
     ConsentRecord,
     EmailLogin,
     ExportedMarker,
+    ExportedProtocolEntry,
     UserRecord,
 )
 from app.repositories.models import (
@@ -26,6 +27,7 @@ from app.repositories.models import (
     Credential,
     LabResult,
     LoginSession,
+    ProtocolEntryRow,
     ShareSettings,
     User,
 )
@@ -396,7 +398,7 @@ class UserRepository:
         await self._session.flush()
 
     async def delete_account(self, user_id: UUID) -> bool:
-        """Delete the participant. Credentials, consents, and lab rows cascade.
+        """Delete the participant. Credentials, consents, lab rows, and journal rows cascade.
 
         Args:
             user_id: Participant id.
@@ -446,6 +448,22 @@ class UserRepository:
             )
             for lab, marker in marker_rows.all()
         )
+        protocol_rows = await self._session.execute(
+            select(ProtocolEntryRow)
+            .where(ProtocolEntryRow.user_id == user_id)
+            .order_by(ProtocolEntryRow.started_on.asc(), ProtocolEntryRow.created_at.asc())
+        )
+        protocol = tuple(
+            ExportedProtocolEntry(
+                kind=row.kind,
+                title=row.title,
+                dose=row.dose,
+                started_on=row.started_on,
+                ended_on=row.ended_on,
+                note=row.note,
+            )
+            for row in protocol_rows.scalars().all()
+        )
         is_public = user.share_settings.is_public if user.share_settings is not None else False
         return AccountExport(
             public_id=user.public_id,
@@ -454,6 +472,7 @@ class UserRepository:
             created_at=user.created_at,
             consents=consents,
             markers=markers,
+            protocol=protocol,
         )
 
 

@@ -18,6 +18,7 @@ from app.core.security import Argon2PasswordHasher, Argon2SeedHasher
 from app.repositories.dataset import DatasetRepository
 from app.repositories.health import HealthRepository
 from app.repositories.lab_results import LabResultRepository
+from app.repositories.protocol import ProtocolRepository
 from app.repositories.users import UserRepository
 from app.services.accounts import AccountService
 from app.services.dataset import DatasetService
@@ -28,6 +29,7 @@ from app.services.health import HealthService
 from app.services.image_redact import TesseractImageRedactor
 from app.services.mailer import DevLoggingMailer, Mailer, SmtpMailer
 from app.services.news import HttpxTextFetcher, NewsMemoryCache, NewsService
+from app.services.protocol import ProtocolService
 from app.services.redaction_holds import RedactionHoldStore
 from app.services.uploads import UploadService
 from app.services.vision import ExtractionProvider, build_extraction_provider
@@ -269,6 +271,13 @@ async def get_export_service(
 ) -> ExportService:
     """Build the CC0 export service for a request. It reads the same public store."""
     return ExportService(DatasetRepository(session))
+
+
+async def get_protocol_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ProtocolService:
+    """Build the protocol journal service for a request."""
+    return ProtocolService(ProtocolRepository(session))
 
 
 async def get_upload_service(

@@ -27,6 +27,7 @@ from app.domain.accounts import (
     AccountExport,
     ConsentRecord,
     EmailLogin,
+    ExportedProtocolEntry,
     InvalidCredentialsError,
     InvalidMnemonicError,
     UnauthenticatedError,
@@ -73,6 +74,7 @@ class InMemoryUserStore:
         self._tokens: list[_MemoryToken] = []
         self._consents: dict[UUID, list[ConsentRecord]] = {}
         self._sessions: dict[str, _MemorySession] = {}
+        self.exported_protocol: dict[UUID, tuple[ExportedProtocolEntry, ...]] = {}
 
     async def create(self, *, public_id: str, seed_phrase_hash: str) -> UserRecord:
         user_id = uuid4()
@@ -251,6 +253,7 @@ class InMemoryUserStore:
         self._sessions = {
             digest: row for digest, row in self._sessions.items() if row.user_id != user_id
         }
+        self.exported_protocol.pop(user_id, None)
         return True
 
     async def export_account(self, user_id: UUID) -> AccountExport | None:
@@ -265,6 +268,7 @@ class InMemoryUserStore:
             created_at=current.created_at,
             consents=tuple(self._consents.get(user_id, [])),
             markers=(),
+            protocol=tuple(self.exported_protocol.get(user_id, ())),
         )
 
     async def open_session(

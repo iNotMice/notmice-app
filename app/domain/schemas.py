@@ -4,7 +4,9 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.domain.protocol import ProtocolKindName
 
 
 class HealthStatus(BaseModel):
@@ -408,3 +410,45 @@ class NewsResponse(BaseModel):
     fetched_at: datetime | None
     stale: bool
     error: Literal["unavailable"] | None
+
+
+class ProtocolEntryInput(BaseModel):
+    """One journal row. Extra keys, including a catalog id, are rejected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: ProtocolKindName
+    title: str = Field(min_length=1, max_length=120)
+    dose: str | None = Field(default=None, max_length=80)
+    started_on: date
+    ended_on: date | None = None
+    note: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def end_is_not_before_start(self) -> "ProtocolEntryInput":
+        """Reject a period that finishes before it starts."""
+        if self.ended_on is not None and self.ended_on < self.started_on:
+            raise ValueError("End date is before the start date")
+        return self
+
+
+class ProtocolEntryView(BaseModel):
+    """One journal row returned to its owner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    kind: ProtocolKindName
+    title: str
+    dose: str | None
+    started_on: date
+    ended_on: date | None
+    note: str | None
+
+
+class ProtocolListResponse(BaseModel):
+    """Journal rows for the signed-in participant."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entries: list[ProtocolEntryView]

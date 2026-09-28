@@ -80,6 +80,11 @@ export const instructions = {
       body: 'Charts panels you saved from this browser session. A panel appears here only after you choose Save to History. You can export a PDF of that session list.',
     },
     {
+      tab: 'protocol-journal',
+      title: 'Journal',
+      body: 'Write a drug, supplement, meal pattern, activity, or sleep period in your own words, with an optional dose and an open or closed date range. The entry stays on this account. It is included when you download your own JSON or CSV.',
+    },
+    {
       tab: 'data-sovereignty-public-sharing',
       title: 'Data',
       body: 'Sign in with the 12-word phrase, or create an account. Sharing stays off until you turn it on. When it is on, confirmed biomarker rows for this account join the public dataset. Names, dates of birth, and the original file are not included.',

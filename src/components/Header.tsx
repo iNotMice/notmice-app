@@ -33,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'review-extraction', label: m.nav.reviewExtraction },
     { id: 'phenoage-engine', label: m.nav.phenoAgeEngine },
     { id: 'biomarker-history', label: m.nav.biomarkerHistory },
+    { id: 'protocol-journal', label: m.nav.journal },
     { id: 'data-sovereignty-public-sharing', label: m.nav.dataSovereignty },
     { id: 'research-news', label: m.nav.news },
   ];
@@ -172,6 +173,15 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               );
             })}
+
+            <button
+              type="button"
+              onClick={() => selectTab('protocol-journal')}
+              data-path="protocol-journal"
+              className={linkClass(activeTab === 'protocol-journal')}
+            >
+              {m.nav.journal}
+            </button>
 
             <button
               type="button"
