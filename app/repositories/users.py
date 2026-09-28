@@ -1,15 +1,33 @@
-"""User and share_settings persistence. No HTTP, no hashing."""
+"""User, credentials, consents, and the owner's own export. No HTTP, no hashing.
+
+Email and analyses are joined only in this module.
+"""
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.domain.accounts import UserRecord
-from app.repositories.models import ShareSettings, User
+from app.domain.accounts import (
+    AccountExport,
+    ConsentRecord,
+    EmailLogin,
+    ExportedMarker,
+    UserRecord,
+)
+from app.repositories.models import (
+    AuthToken,
+    Biomarker,
+    Consent,
+    Credential,
+    LabResult,
+    ShareSettings,
+    User,
+)
 
 
 def _to_record(user: User) -> UserRecord:
@@ -92,3 +110,292 @@ class UserRepository:
             user.share_settings.is_public = is_public
         await self._session.flush()
         return _to_record(user)
+
+    async def create_email_account(
+        self,
+        *,
+        public_id: str,
+        email: str,
+        password_hash: str,
+        consents: tuple[tuple[str, str], ...],
+        granted_at: datetime,
+    ) -> UserRecord:
+        """Insert a participant, a credentials row, and the accepted consents.
+
+        The participant row has no email and no password hash.
+
+        Args:
+            public_id: Unique public identifier.
+            email: Normalized address. Stored only on ``credentials``.
+            password_hash: PHC-encoded argon2id hash.
+            consents: Pairs of consent type and text version.
+            granted_at: Timestamp stored on each new consent row.
+        """
+        user = User(id=uuid4(), public_id=public_id, seed_phrase_hash=None)
+        settings = ShareSettings(id=uuid4(), user_id=user.id, is_public=False)
+        credential = Credential(
+            id=uuid4(),
+            user_id=user.id,
+            email=email,
+            password_hash=password_hash,
+        )
+        self._session.add(user)
+        self._session.add(settings)
+        self._session.add(credential)
+        for consent_type, text_version in consents:
+            self._session.add(
+                Consent(
+                    id=uuid4(),
+                    user_id=user.id,
+                    consent_type=consent_type,
+                    text_version=text_version,
+                    granted_at=granted_at,
+                )
+            )
+        await self._session.flush()
+        await self._session.refresh(user)
+        user.share_settings = settings
+        return _to_record(user)
+
+    async def find_email(self, email: str) -> EmailLogin | None:
+        """Return password material for a normalized address, or None.
+
+        Args:
+            email: Already-normalized address.
+        """
+        result = await self._session.execute(select(Credential).where(Credential.email == email))
+        credential = result.scalar_one_or_none()
+        if credential is None:
+            return None
+        return EmailLogin(
+            user_id=credential.user_id,
+            password_hash=credential.password_hash,
+            email_confirmed_at=credential.email_confirmed_at,
+        )
+
+    async def save_auth_token(
+        self,
+        *,
+        user_id: UUID,
+        purpose: str,
+        token_sha256: str,
+        expires_at: datetime,
+        now: datetime,
+    ) -> None:
+        """Store a new digest and retire older unused tokens of the same purpose.
+
+        Args:
+            user_id: Participant who owns the credentials row.
+            purpose: ``confirm_email`` or ``reset_password``.
+            token_sha256: Hex SHA-256 of the raw token. The raw token is not stored.
+            expires_at: Moment the token stops working.
+            now: Clock value used to mark older tokens used.
+        """
+        result = await self._session.execute(
+            select(Credential).where(Credential.user_id == user_id)
+        )
+        credential = result.scalar_one()
+        await self._session.execute(
+            update(AuthToken)
+            .where(
+                AuthToken.credential_id == credential.id,
+                AuthToken.purpose == purpose,
+                AuthToken.used_at.is_(None),
+            )
+            .values(used_at=now)
+        )
+        self._session.add(
+            AuthToken(
+                id=uuid4(),
+                credential_id=credential.id,
+                purpose=purpose,
+                token_sha256=token_sha256,
+                expires_at=expires_at,
+            )
+        )
+        await self._session.flush()
+
+    async def consume_auth_token(
+        self,
+        *,
+        token_sha256: str,
+        purpose: str,
+        now: datetime,
+    ) -> UUID | None:
+        """Mark a matching unused token used and return the participant id.
+
+        A second call with the same digest returns None.
+
+        Args:
+            token_sha256: Hex SHA-256 of the presented token.
+            purpose: Expected purpose.
+            now: Clock value. Expired tokens are left unused and rejected.
+        """
+        result = await self._session.execute(
+            update(AuthToken)
+            .where(
+                AuthToken.token_sha256 == token_sha256,
+                AuthToken.purpose == purpose,
+                AuthToken.used_at.is_(None),
+                AuthToken.expires_at > now,
+            )
+            .values(used_at=now)
+            .returning(AuthToken.credential_id)
+        )
+        credential_id = result.scalar_one_or_none()
+        if credential_id is None:
+            return None
+        owner = await self._session.execute(
+            select(Credential.user_id).where(Credential.id == credential_id)
+        )
+        return owner.scalar_one()
+
+    async def mark_email_confirmed(self, user_id: UUID, confirmed_at: datetime) -> None:
+        """Set the confirmation timestamp on the credentials row.
+
+        Args:
+            user_id: Participant id.
+            confirmed_at: Clock value.
+        """
+        await self._session.execute(
+            update(Credential)
+            .where(Credential.user_id == user_id)
+            .values(email_confirmed_at=confirmed_at)
+        )
+        await self._session.flush()
+
+    async def set_password_hash(self, user_id: UUID, password_hash: str) -> None:
+        """Replace the password hash. The password itself is not stored.
+
+        Args:
+            user_id: Participant id.
+            password_hash: New PHC-encoded argon2id hash.
+        """
+        await self._session.execute(
+            update(Credential)
+            .where(Credential.user_id == user_id)
+            .values(password_hash=password_hash)
+        )
+        await self._session.flush()
+
+    async def list_consents(self, user_id: UUID) -> tuple[ConsentRecord, ...]:
+        """Return consent rows for the participant, oldest grant first."""
+        result = await self._session.execute(
+            select(Consent).where(Consent.user_id == user_id).order_by(Consent.granted_at)
+        )
+        return tuple(_consent_record(row) for row in result.scalars())
+
+    async def set_consent(
+        self,
+        *,
+        user_id: UUID,
+        consent_type: str,
+        text_version: str,
+        accepted: bool,
+        now: datetime,
+    ) -> ConsentRecord | None:
+        """Grant or withdraw one consent. A declined optional consent with no row stays absent.
+
+        Args:
+            user_id: Participant id.
+            consent_type: Catalogue type.
+            text_version: Current text version.
+            accepted: True grants or restores. False records withdrawal.
+            now: Clock value for grant and withdrawal timestamps.
+        """
+        result = await self._session.execute(
+            select(Consent).where(Consent.user_id == user_id, Consent.consent_type == consent_type)
+        )
+        row = result.scalar_one_or_none()
+        if not accepted:
+            if row is None:
+                return None
+            row.withdrawn_at = now
+            await self._session.flush()
+            return _consent_record(row)
+        if row is None:
+            row = Consent(
+                id=uuid4(),
+                user_id=user_id,
+                consent_type=consent_type,
+                text_version=text_version,
+                granted_at=now,
+            )
+            self._session.add(row)
+        else:
+            row.text_version = text_version
+            row.granted_at = now
+            row.withdrawn_at = None
+        await self._session.flush()
+        return _consent_record(row)
+
+    async def delete_account(self, user_id: UUID) -> bool:
+        """Delete the participant. Credentials, consents, and lab rows cascade.
+
+        Args:
+            user_id: Participant id.
+        """
+        result = await self._session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            return False
+        await self._session.delete(user)
+        await self._session.flush()
+        return True
+
+    async def export_account(self, user_id: UUID) -> AccountExport | None:
+        """Return the owner's copy, including the address and confirmed analytes.
+
+        Args:
+            user_id: Authenticated participant.
+        """
+        result = await self._session.execute(
+            select(User).options(selectinload(User.share_settings)).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            return None
+        credential = await self._session.execute(
+            select(Credential).where(Credential.user_id == user_id)
+        )
+        email_row = credential.scalar_one_or_none()
+        consents = await self.list_consents(user_id)
+        marker_rows = await self._session.execute(
+            select(LabResult, Biomarker)
+            .join(Biomarker, Biomarker.lab_result_id == LabResult.id)
+            .where(LabResult.user_id == user_id)
+            .order_by(LabResult.created_at, Biomarker.created_at)
+        )
+        markers = tuple(
+            ExportedMarker(
+                collected_at=lab.collected_at,
+                lab_name=lab.lab_name,
+                raw_name=marker.raw_name,
+                loinc_code=marker.loinc_code,
+                value=marker.value,
+                unit=marker.unit,
+                ref_low=marker.ref_low,
+                ref_high=marker.ref_high,
+                lab_flag=marker.lab_flag,
+            )
+            for lab, marker in marker_rows.all()
+        )
+        is_public = user.share_settings.is_public if user.share_settings is not None else False
+        return AccountExport(
+            public_id=user.public_id,
+            email=None if email_row is None else email_row.email,
+            is_public=is_public,
+            created_at=user.created_at,
+            consents=consents,
+            markers=markers,
+        )
+
+
+def _consent_record(row: Consent) -> ConsentRecord:
+    """Map an ORM consent to a domain record."""
+    return ConsentRecord(
+        consent_type=row.consent_type,
+        text_version=row.text_version,
+        granted_at=row.granted_at,
+        withdrawn_at=row.withdrawn_at,
+    )

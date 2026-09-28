@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import hmac
+import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from argon2.low_level import Type, hash_secret
 from mnemonic import Mnemonic
 
@@ -20,6 +25,8 @@ _ARGON2_PARALLELISM = 1
 _ARGON2_HASH_LEN = 32
 _SALT_LEN = 16
 _MNEMONIC_STRENGTH_BITS = 128
+_AUTH_TOKEN_BYTES = 32
+_DUMMY_PASSWORD = "notmice-timing-pad-value"
 
 
 class TokenError(ValueError):
@@ -80,6 +87,78 @@ class Argon2SeedHasher:
             type=Type.ID,
         )
         return encoded.decode("ascii")
+
+
+class Argon2PasswordHasher:
+    """Random-salt argon2id for passwords. Same cost parameters as the seed hasher."""
+
+    def __init__(self) -> None:
+        self._hasher = PasswordHasher(
+            time_cost=_ARGON2_TIME_COST,
+            memory_cost=_ARGON2_MEMORY_COST,
+            parallelism=_ARGON2_PARALLELISM,
+            hash_len=_ARGON2_HASH_LEN,
+            salt_len=_SALT_LEN,
+            type=Type.ID,
+        )
+        self._dummy: str | None = None
+
+    def hash_password(self, password: str) -> str:
+        """Return a PHC-encoded argon2id hash. The password is not stored.
+
+        Args:
+            password: Raw password. The caller already enforced the length.
+        """
+        return self._hasher.hash(password)
+
+    def verify(self, password_hash: str, password: str) -> bool:
+        """Return True when ``password`` matches ``password_hash``.
+
+        Args:
+            password_hash: PHC-encoded argon2id string from the credentials table.
+            password: Raw password from the request.
+        """
+        try:
+            return self._hasher.verify(password_hash, password)
+        except (VerifyMismatchError, VerificationError, InvalidHashError):
+            return False
+
+    def verify_dummy(self, password: str) -> None:
+        """Spend an argon2 verify when the account is missing or unconfirmed.
+
+        Args:
+            password: Raw password from the request. The result is discarded.
+        """
+        if self._dummy is None:
+            self._dummy = self._hasher.hash(_DUMMY_PASSWORD)
+        self.verify(self._dummy, password)
+
+
+def new_auth_token() -> tuple[str, str]:
+    """Return a 32-byte token and the hex SHA-256 that is safe to store.
+
+    The raw token is url-safe base64 without padding. Only the digest belongs in the database.
+    """
+    raw = secrets.token_bytes(_AUTH_TOKEN_BYTES)
+    presented = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+    digest = hashlib.sha256(raw).hexdigest()
+    return presented, digest
+
+
+def auth_token_digest(presented: str) -> str | None:
+    """Return the hex SHA-256 of a presented token, or None when it is not 32 bytes.
+
+    Args:
+        presented: Token from a confirmation or reset link.
+    """
+    padded = presented + "=" * (-len(presented) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(padded.encode("ascii"))
+    except (ValueError, binascii.Error, UnicodeError):
+        return None
+    if len(raw) != _AUTH_TOKEN_BYTES:
+        return None
+    return hashlib.sha256(raw).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)

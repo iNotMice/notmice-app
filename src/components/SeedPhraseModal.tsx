@@ -11,7 +11,14 @@ interface SeedPhraseModalProps {
   isAuthenticated: boolean;
   isBusy: boolean;
   error: string | null;
-  onCreateAccount: () => void;
+  notice: 'check-email' | 'reset-sent' | null;
+  resetToken: string | null;
+  confirmToken: string | null;
+  onConfirmEmail: () => void;
+  onRegister: (email: string, password: string, researchReuse: boolean) => void;
+  onEmailLogin: (email: string, password: string) => void;
+  onRequestReset: (email: string) => void;
+  onResetPassword: (password: string) => void;
   onLogin: (mnemonic: string) => void;
   onLogout: () => void;
   onConfirmPhraseSaved: () => void;
@@ -25,7 +32,14 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   isAuthenticated,
   isBusy,
   error,
-  onCreateAccount,
+  notice,
+  resetToken,
+  confirmToken,
+  onConfirmEmail,
+  onRegister,
+  onEmailLogin,
+  onRequestReset,
+  onResetPassword,
   onLogin,
   onLogout,
   onConfirmPhraseSaved,
@@ -36,6 +50,14 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   const [phraseCaptured, setPhraseCaptured] = useState(false);
   const [savedChecked, setSavedChecked] = useState(false);
   const [restorePhrase, setRestorePhrase] = useState('');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const [showPhrase, setShowPhrase] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordAgain, setPasswordAgain] = useState('');
+  const [healthChecked, setHealthChecked] = useState(false);
+  const [researchChecked, setResearchChecked] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     setPhraseCaptured(false);
@@ -88,6 +110,35 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
 
   const handleLogin = () => {
     onLogin(restorePhrase);
+  };
+
+  const submitEmail = () => {
+    setFormError(null);
+    if (password.length < 12) {
+      setFormError(copy.passwordTooShort);
+      return;
+    }
+    if (mode === 'register') {
+      if (password !== passwordAgain) {
+        setFormError(copy.passwordsDiffer);
+        return;
+      }
+      if (!healthChecked) {
+        setFormError(copy.consentRequired);
+        return;
+      }
+      onRegister(email.trim(), password, researchChecked);
+      return;
+    }
+    if (mode === 'reset' && resetToken) {
+      onResetPassword(password);
+      return;
+    }
+    if (mode === 'reset') {
+      onRequestReset(email.trim());
+      return;
+    }
+    onEmailLogin(email.trim(), password);
   };
 
   const showingSignedIn = isAuthenticated && !showingReveal;
@@ -218,39 +269,207 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
               <div className="bg-[#eff4ff] border border-[#dce9ff] p-3 rounded text-xs text-[#3f4850] flex items-start gap-2.5">
                 <ShieldAlert className="w-5 h-5 text-[#006194] shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-[#0b1c30] block">{copy.noEmail}</span>
-                  {copy.noEmailBody}
+                  <span className="font-semibold text-[#0b1c30] block">
+                    {notice === 'check-email' || confirmToken
+                      ? copy.checkEmailTitle
+                      : notice === 'reset-sent'
+                        ? copy.resetTitle
+                        : resetToken
+                          ? copy.resetTitle
+                          : copy.noEmail}
+                  </span>
+                  {notice === 'check-email' || confirmToken
+                    ? copy.checkEmailBody
+                    : notice === 'reset-sent'
+                      ? copy.resetSent
+                      : resetToken
+                        ? copy.passwordHint
+                        : copy.noEmailBody}
                 </div>
               </div>
 
-              <button
-                onClick={onCreateAccount}
-                disabled={isBusy}
-                className="w-full px-4 py-2.5 rounded font-['Inter'] text-sm font-semibold bg-[#006194] text-[#ffffff] hover:bg-[#007bb9] disabled:opacity-60 transition-colors cursor-pointer flex items-center justify-center gap-2"
-              >
-                {isBusy ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
-                <span>{copy.createAccount}</span>
-              </button>
+              {formError && (
+                <p className="text-xs text-[#ba1a1a]" role="alert">
+                  {formError}
+                </p>
+              )}
 
-              <div className="pt-1">
-                <label className="font-['Inter'] text-xs font-semibold text-[#0b1c30] uppercase tracking-wider block mb-2">
-                  {copy.restore}
-                </label>
-                <textarea
-                  value={restorePhrase}
-                  onChange={(e) => setRestorePhrase(e.target.value)}
-                  rows={3}
-                  placeholder={copy.pastePlaceholder}
-                  className="w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] p-3 font-['JetBrains_Mono'] text-xs text-[#0b1c30] focus:outline-none focus:border-[#006194]"
-                />
+              {confirmToken && notice === null && (
                 <button
-                  onClick={handleLogin}
-                  disabled={isBusy || restorePhrase.trim().length === 0}
-                  className="mt-2 w-full px-4 py-2 rounded font-['Inter'] text-sm font-semibold text-[#0b1c30] bg-[#eff4ff] hover:bg-[#e5eeff] border border-[#dce9ff] disabled:opacity-60 transition-colors cursor-pointer"
+                  type="button"
+                  onClick={onConfirmEmail}
+                  disabled={isBusy}
+                  className="w-full px-4 py-2.5 rounded font-['Inter'] text-sm font-semibold bg-[#006194] text-[#ffffff] hover:bg-[#007bb9] disabled:opacity-60 transition-colors cursor-pointer"
                 >
-                  {copy.signIn}
+                  {copy.confirmAction}
                 </button>
-              </div>
+              )}
+
+              {notice === null && !confirmToken && (
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    submitEmail();
+                  }}
+                >
+                  {!resetToken && (
+                    <label className="block">
+                      <span className="font-['Inter'] text-xs font-semibold text-[#0b1c30] uppercase tracking-wider">
+                        {copy.emailLabel}
+                      </span>
+                      <input
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        required
+                        className="mt-1 w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-3 py-2 text-sm text-[#0b1c30] focus:outline-none focus:border-[#006194]"
+                      />
+                    </label>
+                  )}
+                  {(mode !== 'reset' || resetToken) && (
+                    <label className="block">
+                      <span className="font-['Inter'] text-xs font-semibold text-[#0b1c30] uppercase tracking-wider">
+                        {resetToken ? copy.newPassword : copy.passwordLabel}
+                      </span>
+                      <input
+                        type="password"
+                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        minLength={12}
+                        required
+                        className="mt-1 w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-3 py-2 text-sm text-[#0b1c30] focus:outline-none focus:border-[#006194]"
+                      />
+                      <span className="mt-1 block text-xs text-[#565e74]">{copy.passwordHint}</span>
+                    </label>
+                  )}
+                  {mode === 'register' && !resetToken && (
+                    <>
+                      <label className="block">
+                        <span className="font-['Inter'] text-xs font-semibold text-[#0b1c30] uppercase tracking-wider">
+                          {copy.confirmPassword}
+                        </span>
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          value={passwordAgain}
+                          onChange={(event) => setPasswordAgain(event.target.value)}
+                          minLength={12}
+                          required
+                          className="mt-1 w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-3 py-2 text-sm text-[#0b1c30] focus:outline-none focus:border-[#006194]"
+                        />
+                      </label>
+                      <label className="flex items-start gap-2.5 text-xs text-[#3f4850] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={healthChecked}
+                          onChange={(event) => setHealthChecked(event.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>{copy.healthConsent}</span>
+                      </label>
+                      <label className="flex items-start gap-2.5 text-xs text-[#3f4850] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={researchChecked}
+                          onChange={(event) => setResearchChecked(event.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>{copy.researchConsent}</span>
+                      </label>
+                    </>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isBusy}
+                    className="w-full px-4 py-2.5 rounded font-['Inter'] text-sm font-semibold bg-[#006194] text-[#ffffff] hover:bg-[#007bb9] disabled:opacity-60 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isBusy ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                    <span>
+                      {resetToken
+                        ? copy.resetAction
+                        : mode === 'register'
+                          ? copy.registerAction
+                          : mode === 'reset'
+                            ? copy.resetSend
+                            : copy.signIn}
+                    </span>
+                  </button>
+                </form>
+              )}
+
+              {notice === null && !resetToken && (
+                <div className="flex flex-wrap gap-3 text-xs">
+                  {mode === 'login' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormError(null);
+                          setMode('register');
+                        }}
+                        className="text-[#006194] font-semibold cursor-pointer"
+                      >
+                        {copy.needAccount}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormError(null);
+                          setMode('reset');
+                        }}
+                        className="text-[#006194] font-semibold cursor-pointer"
+                      >
+                        {copy.forgotPassword}
+                      </button>
+                    </>
+                  )}
+                  {mode !== 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormError(null);
+                        setMode('login');
+                      }}
+                      className="text-[#006194] font-semibold cursor-pointer"
+                    >
+                      {copy.haveAccount}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowPhrase((value) => !value)}
+                    className="text-[#565e74] font-semibold cursor-pointer"
+                  >
+                    {copy.phraseStill}
+                  </button>
+                </div>
+              )}
+
+              {showPhrase && notice === null && !resetToken && (
+                <div className="pt-1">
+                  <label className="font-['Inter'] text-xs font-semibold text-[#0b1c30] uppercase tracking-wider block mb-2">
+                    {copy.restore}
+                  </label>
+                  <textarea
+                    value={restorePhrase}
+                    onChange={(event) => setRestorePhrase(event.target.value)}
+                    rows={3}
+                    placeholder={copy.pastePlaceholder}
+                    className="w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] p-3 font-['JetBrains_Mono'] text-xs text-[#0b1c30] focus:outline-none focus:border-[#006194]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleLogin}
+                    disabled={isBusy || restorePhrase.trim().length === 0}
+                    className="mt-2 w-full px-4 py-2 rounded font-['Inter'] text-sm font-semibold text-[#0b1c30] bg-[#eff4ff] hover:bg-[#e5eeff] border border-[#dce9ff] disabled:opacity-60 transition-colors cursor-pointer"
+                  >
+                    {copy.signIn}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

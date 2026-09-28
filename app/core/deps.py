@@ -1,6 +1,7 @@
 """FastAPI dependencies. Wiring only — no business logic."""
 
 from collections.abc import AsyncIterator
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import get_settings
 from app.core.rate_limit import SlidingWindowRateLimiter
-from app.core.security import Argon2SeedHasher, JwtTokenIssuer
+from app.core.security import Argon2PasswordHasher, Argon2SeedHasher, JwtTokenIssuer
 from app.repositories.dataset import DatasetRepository
 from app.repositories.health import HealthRepository
 from app.repositories.lab_results import LabResultRepository
@@ -25,6 +26,7 @@ from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GeminiTokenBudget
 from app.services.health import HealthService
 from app.services.image_redact import TesseractImageRedactor
+from app.services.mailer import DevLoggingMailer, Mailer, SmtpMailer
 from app.services.news import HttpxTextFetcher, NewsMemoryCache, NewsService
 from app.services.redaction_holds import RedactionHoldStore
 from app.services.uploads import UploadService
@@ -38,6 +40,9 @@ _image_redactor: TesseractImageRedactor | None = None
 _vision_provider: ExtractionProvider | None = None
 _public_rate_limiter: SlidingWindowRateLimiter | None = None
 _account_rate_limiter: SlidingWindowRateLimiter | None = None
+_account_identity_rate_limiter: SlidingWindowRateLimiter | None = None
+_password_hasher: Argon2PasswordHasher | None = None
+_mailer: Mailer | None = None
 _news_rate_limiter: SlidingWindowRateLimiter | None = None
 _news_service: NewsService | None = None
 _gemini_budget: GeminiTokenBudget | None = None
@@ -94,6 +99,11 @@ async def get_account_service(
         users=UserRepository(session),
         hasher=Argon2SeedHasher(settings.seed_hash_secret),
         tokens=JwtTokenIssuer(settings.jwt_secret, settings.access_token_ttl_seconds),
+        passwords=get_password_hasher(),
+        mailer=get_mailer(),
+        auth_seed_enabled=settings.auth_seed_enabled,
+        app_url=settings.public_app_url,
+        token_ttl=timedelta(seconds=settings.auth_token_ttl_seconds),
     )
 
 
@@ -183,7 +193,7 @@ def get_news_rate_limiter() -> SlidingWindowRateLimiter:
 
 
 def get_account_rate_limiter() -> SlidingWindowRateLimiter:
-    """Return the process-wide limiter for account create and login."""
+    """Return the process-wide limiter for account routes, 20 hits per IP."""
     global _account_rate_limiter
     if _account_rate_limiter is None:
         settings = get_settings()
@@ -192,6 +202,47 @@ def get_account_rate_limiter() -> SlidingWindowRateLimiter:
             window_seconds=settings.account_rate_limit_window_seconds,
         )
     return _account_rate_limiter
+
+
+def get_account_identity_rate_limiter() -> SlidingWindowRateLimiter:
+    """Return the process-wide limiter for one account, 5 hits per window."""
+    global _account_identity_rate_limiter
+    if _account_identity_rate_limiter is None:
+        settings = get_settings()
+        _account_identity_rate_limiter = SlidingWindowRateLimiter(
+            limit=settings.account_identity_rate_limit,
+            window_seconds=settings.account_identity_rate_limit_window_seconds,
+        )
+    return _account_identity_rate_limiter
+
+
+def get_password_hasher() -> Argon2PasswordHasher:
+    """Return the process-wide password hasher. The dummy hash is built on first use."""
+    global _password_hasher
+    if _password_hasher is None:
+        _password_hasher = Argon2PasswordHasher()
+    return _password_hasher
+
+
+def get_mailer() -> Mailer:
+    """Return SMTP when it is configured, otherwise a log sink."""
+    global _mailer
+    if _mailer is None:
+        settings = get_settings()
+        if settings.smtp_host.strip():
+            _mailer = SmtpMailer(
+                host=settings.smtp_host,
+                port=settings.smtp_port,
+                username=settings.smtp_username,
+                password=settings.smtp_password,
+                sender=settings.smtp_from or settings.smtp_username,
+                use_tls=settings.smtp_use_tls,
+            )
+        else:
+            _mailer = DevLoggingMailer(
+                reveal_link=settings.app_env.strip().casefold() != "production"
+            )
+    return _mailer
 
 
 def get_public_rate_limiter() -> SlidingWindowRateLimiter:

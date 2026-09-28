@@ -14,7 +14,7 @@ export const nav = {
   userInstructions: 'Benutzeranleitung',
   researchProtocol: 'Forschungsprotokoll',
   brandAlt: 'NotMice-Forschungsprotokoll',
-  accountRecovery: 'Wiederherstellungsphrase des Kontos',
+  accountRecovery: 'Konto',
   signInOrCreate: 'Anmelden oder ein Konto anlegen',
   signedIn: 'Angemeldet',
   guest: 'Gast',

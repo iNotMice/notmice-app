@@ -24,7 +24,7 @@ export const instructions = {
     },
     {
       name: 'Data',
-      body: 'Your account, the 12-word recovery phrase, and the switch for public sharing.',
+      body: 'Your account, email sign-in, and the switch for public sharing.',
     },
     {
       name: 'Documents',

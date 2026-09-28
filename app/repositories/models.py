@@ -15,6 +15,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -178,3 +179,75 @@ class ShareSettings(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="share_settings")
+
+
+class Credential(Base):
+    """Email login material. Analyses reference ``users.id``, never this table."""
+
+    __tablename__ = "credentials"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    email_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class AuthToken(Base):
+    """One-time confirmation or reset token. Only the SHA-256 digest is stored."""
+
+    __tablename__ = "auth_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            "purpose IN ('confirm_email', 'reset_password')",
+            name="ck_auth_tokens_purpose",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    credential_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("credentials.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False)
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class Consent(Base):
+    """A grant of a named text version, and the moment it was withdrawn."""
+
+    __tablename__ = "consents"
+    __table_args__ = (UniqueConstraint("user_id", "consent_type", name="uq_consents_user_type"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    consent_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    text_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

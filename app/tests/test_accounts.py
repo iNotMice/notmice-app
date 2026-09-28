@@ -9,7 +9,11 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.core.deps import get_account_rate_limiter, get_account_service
+from app.core.deps import (
+    get_account_identity_rate_limiter,
+    get_account_rate_limiter,
+    get_account_service,
+)
 from app.core.rate_limit import SlidingWindowRateLimiter
 from app.core.security import (
     Argon2SeedHasher,
@@ -18,6 +22,9 @@ from app.core.security import (
     is_valid_mnemonic,
 )
 from app.domain.accounts import (
+    AccountExport,
+    ConsentRecord,
+    EmailLogin,
     InvalidCredentialsError,
     InvalidMnemonicError,
     UnauthenticatedError,
@@ -27,6 +34,25 @@ from app.main import create_app
 from app.services.accounts import AccountService
 
 
+class _MemoryCredential:
+    def __init__(self, user_id: UUID, email: str, password_hash: str) -> None:
+        self.user_id = user_id
+        self.email = email
+        self.password_hash = password_hash
+        self.email_confirmed_at: datetime | None = None
+
+
+class _MemoryToken:
+    def __init__(
+        self, user_id: UUID, purpose: str, token_sha256: str, expires_at: datetime
+    ) -> None:
+        self.user_id = user_id
+        self.purpose = purpose
+        self.token_sha256 = token_sha256
+        self.expires_at = expires_at
+        self.used_at: datetime | None = None
+
+
 class InMemoryUserStore:
     """Process-local stand-in for UserRepository."""
 
@@ -34,6 +60,10 @@ class InMemoryUserStore:
         self._by_id: dict[UUID, UserRecord] = {}
         self._by_public: dict[str, UUID] = {}
         self._by_hash: dict[str, UUID] = {}
+        self._credentials: dict[str, _MemoryCredential] = {}
+        self._credential_by_user: dict[UUID, _MemoryCredential] = {}
+        self._tokens: list[_MemoryToken] = []
+        self._consents: dict[UUID, list[ConsentRecord]] = {}
 
     async def create(self, *, public_id: str, seed_phrase_hash: str) -> UserRecord:
         user_id = uuid4()
@@ -71,6 +101,159 @@ class InMemoryUserStore:
         )
         self._by_id[user_id] = updated
         return updated
+
+    async def create_email_account(
+        self,
+        *,
+        public_id: str,
+        email: str,
+        password_hash: str,
+        consents: tuple[tuple[str, str], ...],
+        granted_at: datetime,
+    ) -> UserRecord:
+        user_id = uuid4()
+        record = UserRecord(
+            id=user_id,
+            public_id=public_id,
+            is_public=False,
+            created_at=granted_at,
+        )
+        credential = _MemoryCredential(user_id, email, password_hash)
+        self._by_id[user_id] = record
+        self._by_public[public_id] = user_id
+        self._credentials[email] = credential
+        self._credential_by_user[user_id] = credential
+        self._consents[user_id] = [
+            ConsentRecord(
+                consent_type=consent_type,
+                text_version=text_version,
+                granted_at=granted_at,
+                withdrawn_at=None,
+            )
+            for consent_type, text_version in consents
+        ]
+        return record
+
+    async def find_email(self, email: str) -> EmailLogin | None:
+        credential = self._credentials.get(email)
+        if credential is None:
+            return None
+        return EmailLogin(
+            user_id=credential.user_id,
+            password_hash=credential.password_hash,
+            email_confirmed_at=credential.email_confirmed_at,
+        )
+
+    async def save_auth_token(
+        self,
+        *,
+        user_id: UUID,
+        purpose: str,
+        token_sha256: str,
+        expires_at: datetime,
+        now: datetime,
+    ) -> None:
+        for token in self._tokens:
+            if token.user_id == user_id and token.purpose == purpose and token.used_at is None:
+                token.used_at = now
+        self._tokens.append(_MemoryToken(user_id, purpose, token_sha256, expires_at))
+
+    async def consume_auth_token(
+        self,
+        *,
+        token_sha256: str,
+        purpose: str,
+        now: datetime,
+    ) -> UUID | None:
+        for token in self._tokens:
+            if (
+                token.token_sha256 == token_sha256
+                and token.purpose == purpose
+                and token.used_at is None
+                and token.expires_at > now
+            ):
+                token.used_at = now
+                return token.user_id
+        return None
+
+    async def mark_email_confirmed(self, user_id: UUID, confirmed_at: datetime) -> None:
+        credential = self._credential_by_user[user_id]
+        credential.email_confirmed_at = confirmed_at
+
+    async def set_password_hash(self, user_id: UUID, password_hash: str) -> None:
+        self._credential_by_user[user_id].password_hash = password_hash
+
+    async def list_consents(self, user_id: UUID) -> tuple[ConsentRecord, ...]:
+        return tuple(self._consents.get(user_id, []))
+
+    async def set_consent(
+        self,
+        *,
+        user_id: UUID,
+        consent_type: str,
+        text_version: str,
+        accepted: bool,
+        now: datetime,
+    ) -> ConsentRecord | None:
+        rows = self._consents.setdefault(user_id, [])
+        for index, row in enumerate(rows):
+            if row.consent_type != consent_type:
+                continue
+            if not accepted:
+                updated = ConsentRecord(
+                    consent_type=row.consent_type,
+                    text_version=row.text_version,
+                    granted_at=row.granted_at,
+                    withdrawn_at=now,
+                )
+            else:
+                updated = ConsentRecord(
+                    consent_type=consent_type,
+                    text_version=text_version,
+                    granted_at=now,
+                    withdrawn_at=None,
+                )
+            rows[index] = updated
+            return updated
+        if not accepted:
+            return None
+        created = ConsentRecord(
+            consent_type=consent_type,
+            text_version=text_version,
+            granted_at=now,
+            withdrawn_at=None,
+        )
+        rows.append(created)
+        return created
+
+    async def delete_account(self, user_id: UUID) -> bool:
+        current = self._by_id.pop(user_id, None)
+        if current is None:
+            return False
+        self._by_public.pop(current.public_id, None)
+        self._by_hash = {
+            phrase_hash: owner for phrase_hash, owner in self._by_hash.items() if owner != user_id
+        }
+        credential = self._credential_by_user.pop(user_id, None)
+        if credential is not None:
+            self._credentials.pop(credential.email, None)
+        self._tokens = [token for token in self._tokens if token.user_id != user_id]
+        self._consents.pop(user_id, None)
+        return True
+
+    async def export_account(self, user_id: UUID) -> AccountExport | None:
+        current = self._by_id.get(user_id)
+        if current is None:
+            return None
+        credential = self._credential_by_user.get(user_id)
+        return AccountExport(
+            public_id=current.public_id,
+            email=None if credential is None else credential.email,
+            is_public=current.is_public,
+            created_at=current.created_at,
+            consents=tuple(self._consents.get(user_id, [])),
+            markers=(),
+        )
 
 
 def _service(store: InMemoryUserStore | None = None) -> tuple[AccountService, InMemoryUserStore]:
@@ -172,50 +355,49 @@ def _override_app(service: AccountService) -> FastAPI:
         limit=1000,
         window_seconds=60,
     )
+    application.dependency_overrides[get_account_identity_rate_limiter] = lambda: (
+        SlidingWindowRateLimiter(limit=1000, window_seconds=60)
+    )
     return application
 
 
-async def test_post_accounts_returns_mnemonic_once() -> None:
-    """POST /api/v1/accounts is 201 with a BIP-39 phrase and a token."""
+async def test_post_accounts_without_email_is_rejected() -> None:
+    """New registration requires an email. An empty body is not a phrase account."""
     service, _users = _service()
     application = _override_app(service)
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post("/api/v1/accounts", json={})
-    assert response.status_code == 201
-    body = response.json()
-    assert is_valid_mnemonic(body["mnemonic"]) is True
-    assert body["token_type"] == "bearer"
-    assert body["is_public"] is False
-    assert "seed_phrase_hash" not in body
-    assert "$argon2id$" not in response.text
+    assert response.status_code == 422
 
 
-async def test_post_accounts_rejects_email() -> None:
-    """Registration does not accept an email field."""
+async def test_post_accounts_rejects_phone() -> None:
+    """Registration does not accept a phone field."""
     service, _users = _service()
     application = _override_app(service)
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
             "/api/v1/accounts",
-            json={"email": "someone@example.com"},
+            json={
+                "email": "someone@example.com",
+                "password": "correct-horse-battery",
+                "phone": "1",
+            },
         )
     assert response.status_code == 422
 
 
 async def test_create_logout_login_http_flow() -> None:
-    """DoD HTTP path: create account, logout, login with the same phrase."""
+    """DoD HTTP path: a phrase account can log out and log in with the same phrase."""
     service, _users = _service()
     application = _override_app(service)
+    created = await service.create()
+    mnemonic = created.mnemonic
+    public_id = created.user.public_id
+    token = created.access_token
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        assert created.status_code == 201
-        mnemonic = created.json()["mnemonic"]
-        public_id = created.json()["public_id"]
-        token = created.json()["access_token"]
-
         me = await client.get(
             "/api/v1/accounts/me",
             headers={"Authorization": f"Bearer {token}"},
@@ -287,11 +469,15 @@ async def test_account_create_is_rate_limited() -> None:
     application.dependency_overrides[get_account_rate_limiter] = lambda: limiter
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        first = await client.post("/api/v1/accounts", json={})
-        second = await client.post("/api/v1/accounts", json={})
-        third = await client.post("/api/v1/accounts", json={})
-    assert first.status_code == 201
-    assert second.status_code == 201
+        body = {
+            "password": "correct-horse-battery",
+            "consents": [{"type": "health_data", "version": "2026-09-28", "accepted": True}],
+        }
+        first = await client.post("/api/v1/accounts", json={"email": "one@example.com", **body})
+        second = await client.post("/api/v1/accounts", json={"email": "two@example.com", **body})
+        third = await client.post("/api/v1/accounts", json={"email": "three@example.com", **body})
+    assert first.status_code == 202
+    assert second.status_code == 202
     assert third.status_code == 429
     assert third.json()["detail"] == "Rate limit exceeded"
 
@@ -312,8 +498,8 @@ async def test_share_toggle_http() -> None:
     application = _override_app(service)
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        created = await service.create()
+        token = created.access_token
         headers = {"Authorization": f"Bearer {token}"}
         public = await client.patch(
             "/api/v1/accounts/me/share",
@@ -327,10 +513,11 @@ async def test_share_toggle_http() -> None:
 
 
 async def test_accounts_against_postgres() -> None:
-    """Create → logout → login against a real database when Postgres is up."""
+    """Register, confirm from the dev mail log, and sign in when Postgres is up."""
     from sqlalchemy import text
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.ext.asyncio import create_async_engine
+    from structlog.testing import capture_logs
 
     from app.core.config import get_settings
 
@@ -343,24 +530,29 @@ async def test_accounts_against_postgres() -> None:
     finally:
         await engine.dispose()
 
+    email = f"postgres-{uuid4().hex}@example.com"
+    payload = {
+        "email": email,
+        "password": "correct-horse-battery",
+        "consents": [{"type": "health_data", "version": "2026-09-28", "accepted": True}],
+    }
     application = create_app()
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        assert created.status_code == 201
-        body = created.json()
-        assert is_valid_mnemonic(body["mnemonic"]) is True
-        await client.post(
-            "/api/v1/accounts/logout",
-            headers={"Authorization": f"Bearer {body['access_token']}"},
+        with capture_logs() as logs:
+            created = await client.post("/api/v1/accounts", json=payload)
+        assert created.status_code == 202
+        assert created.json() == {"status": "accepted"}
+        again = await client.post("/api/v1/accounts", json=payload)
+        assert again.status_code == 202
+        assert again.json() == created.json()
+        blocked = await client.post(
+            "/api/v1/accounts/login/email",
+            json={"email": email, "password": "correct-horse-battery"},
         )
-        login = await client.post("/api/v1/accounts/login", json={"mnemonic": body["mnemonic"]})
-        assert login.status_code == 200
-        assert login.json()["public_id"] == body["public_id"]
-        share = await client.patch(
-            "/api/v1/accounts/me/share",
-            headers={"Authorization": f"Bearer {login.json()['access_token']}"},
-            json={"is_public": True},
-        )
-        assert share.status_code == 200
-        assert share.json()["is_public"] is True
+        assert blocked.status_code == 401
+        body = next(row["body"] for row in logs if row.get("event") == "auth_mail_dev")
+        token = str(body).split("confirm=", maxsplit=1)[1].split()[0]
+        confirmed = await client.post("/api/v1/accounts/confirm", json={"token": token})
+        assert confirmed.status_code == 200
+        assert "mnemonic" not in confirmed.json()

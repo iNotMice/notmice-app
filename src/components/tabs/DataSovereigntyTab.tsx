@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { TabType } from '../../types';
+import { deleteOwnAccount, downloadOwnExport } from '../../api/accounts';
 import {
   DatasetRequestError,
   downloadPublicDatasetExport,
@@ -27,6 +28,8 @@ interface DataSovereigntyTabProps {
   isAuthenticated: boolean;
   isPublic: boolean;
   onTogglePublic: (isPublic: boolean) => void;
+  accessToken: string | null;
+  onAccountDeleted: () => void;
   onPurgeMemory: () => void | Promise<void>;
   onOpenSeedPhrase: () => void;
   setActiveTab: (tab: TabType) => void;
@@ -37,6 +40,8 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   isAuthenticated,
   isPublic,
   onTogglePublic,
+  accessToken,
+  onAccountDeleted,
   onPurgeMemory,
   onOpenSeedPhrase,
   setActiveTab,
@@ -54,6 +59,8 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   const [seriesNote, setSeriesNote] = useState<string | null>(null);
   const [purgeBusy, setPurgeBusy] = useState(false);
   const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [ownBusy, setOwnBusy] = useState(false);
+  const [ownError, setOwnError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -150,6 +157,29 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
       });
   };
 
+  const downloadOwn = (kind: 'json' | 'csv') => {
+    if (!accessToken) {
+      return;
+    }
+    setOwnError(null);
+    setOwnBusy(true);
+    void downloadOwnExport(accessToken, kind)
+      .catch(() => setOwnError(copy.ownExportFailed))
+      .finally(() => setOwnBusy(false));
+  };
+
+  const deleteAccount = () => {
+    if (!accessToken || !window.confirm(copy.deleteAccountConfirm)) {
+      return;
+    }
+    setOwnError(null);
+    setOwnBusy(true);
+    void deleteOwnAccount(accessToken)
+      .then(() => onAccountDeleted())
+      .catch(() => setOwnError(copy.deleteFailed))
+      .finally(() => setOwnBusy(false));
+  };
+
   return (
     <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
       {/* Header */}
@@ -187,6 +217,44 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
           )}
         </div>
       </div>
+
+      {isAuthenticated && accessToken && (
+        <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
+          <span className="font-['Inter'] text-base font-bold text-[#0b1c30]">{copy.ownTitle}</span>
+          <p className="font-['Inter'] text-sm text-[#3f4850]">{copy.ownLead}</p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => downloadOwn('json')}
+              disabled={ownBusy}
+              className="px-4 py-2 rounded font-['Inter'] text-xs font-bold bg-[#006194] text-[#ffffff] hover:bg-[#007bb9] disabled:opacity-60 cursor-pointer"
+            >
+              {copy.ownJson}
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadOwn('csv')}
+              disabled={ownBusy}
+              className="px-4 py-2 rounded font-['Inter'] text-xs font-bold bg-[#eff4ff] text-[#006194] border border-[#dce9ff] hover:bg-[#e5eeff] disabled:opacity-60 cursor-pointer"
+            >
+              {copy.ownCsv}
+            </button>
+            <button
+              type="button"
+              onClick={deleteAccount}
+              disabled={ownBusy}
+              className="px-4 py-2 rounded font-['Inter'] text-xs font-bold bg-[#fff1f2] text-[#ba1a1a] border border-[#fecdd3] hover:bg-[#ffe4e6] disabled:opacity-60 cursor-pointer"
+            >
+              {copy.deleteAccount}
+            </button>
+          </div>
+          {ownError && (
+            <p className="text-xs text-[#ba1a1a]" role="alert">
+              {ownError}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Main Grid: Export Modules vs Decentralized Cohort Sharing */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

@@ -24,7 +24,7 @@ export const instructions = {
     },
     {
       name: 'Daten',
-      body: 'Ihr Konto, die Wiederherstellungsphrase aus 12 Wörtern und der Schalter für öffentliches Teilen.',
+      body: 'Ihr Konto, die Anmeldung per E-Mail und der Schalter für öffentliches Teilen.',
     },
     {
       name: 'Dokumente',

@@ -10,10 +10,6 @@ export interface AccountWithToken extends Account {
   accessToken: string;
 }
 
-export interface CreatedAccount extends AccountWithToken {
-  mnemonic: string;
-}
-
 const TOKEN_KEY = 'notmice.access_token';
 
 interface AccountViewPayload {
@@ -25,10 +21,6 @@ interface AccountViewPayload {
 interface SessionPayload extends AccountViewPayload {
   access_token: string;
   token_type: string;
-}
-
-interface CreatedPayload extends SessionPayload {
-  mnemonic: string;
 }
 
 function apiUrl(path: string): string {
@@ -106,17 +98,99 @@ export function clearStoredToken(): void {
   sessionStorage.removeItem(TOKEN_KEY);
 }
 
-export async function createAccount(): Promise<CreatedAccount> {
-  const payload = await requestJson<CreatedPayload>('/api/v1/accounts', {
+export const HEALTH_CONSENT_VERSION = '2026-09-28';
+export const RESEARCH_CONSENT_VERSION = '2026-09-28';
+
+export interface RegisterInput {
+  email: string;
+  password: string;
+  researchReuse: boolean;
+}
+
+export async function registerAccount(input: RegisterInput): Promise<void> {
+  const consents: { type: string; version: string; accepted: boolean }[] = [
+    { type: 'health_data', version: HEALTH_CONSENT_VERSION, accepted: true },
+  ];
+  if (input.researchReuse) {
+    consents.push({
+      type: 'research_reuse',
+      version: RESEARCH_CONSENT_VERSION,
+      accepted: true,
+    });
+  }
+  await requestJson<{ status: string }>('/api/v1/accounts', {
     method: 'POST',
     headers: jsonHeaders(),
-    body: JSON.stringify({}),
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      consents,
+    }),
+  });
+}
+
+export async function loginWithEmail(email: string, password: string): Promise<AccountWithToken> {
+  const payload = await requestJson<SessionPayload>('/api/v1/accounts/login/email', {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify({ email, password }),
   });
   return {
     ...mapAccount(payload),
     accessToken: payload.access_token,
-    mnemonic: payload.mnemonic,
   };
+}
+
+export async function confirmEmail(token: string): Promise<AccountWithToken> {
+  const payload = await requestJson<SessionPayload>('/api/v1/accounts/confirm', {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify({ token }),
+  });
+  return {
+    ...mapAccount(payload),
+    accessToken: payload.access_token,
+  };
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await requestJson<{ status: string }>('/api/v1/accounts/password-reset', {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function confirmPasswordReset(token: string, password: string): Promise<void> {
+  await requestJson<void>('/api/v1/accounts/password-reset/confirm', {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify({ token, password }),
+  });
+}
+
+export async function downloadOwnExport(token: string, kind: 'json' | 'csv'): Promise<void> {
+  const path = kind === 'json' ? '/api/v1/accounts/me/export.json' : '/api/v1/accounts/me/export.csv';
+  const response = await fetch(apiUrl(path), { headers: jsonHeaders(token) });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = kind === 'json' ? 'notmice-account.json' : 'notmice-account.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function deleteOwnAccount(token: string): Promise<void> {
+  await requestJson<void>('/api/v1/accounts/me', {
+    method: 'DELETE',
+    headers: jsonHeaders(token),
+  });
 }
 
 export async function loginWithMnemonic(mnemonic: string): Promise<AccountWithToken> {

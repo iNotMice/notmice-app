@@ -5,7 +5,7 @@ export const overview = {
   valueProp:
     'NotMice reads a lab PDF on the server, asks you to confirm the numbers, and calculates PhenoAge as a research index. Confirmed values join the public dataset only if you turn sharing on.',
   openAccount: 'Open Account',
-  getStarted: 'Get Started with Seed Phrase',
+  getStarted: 'Create an account',
   exploreCharter: 'Explore Open Dataset & Research Charter',
   runtime: 'Runtime Execution',
   serverExtract: 'Server extract',
@@ -92,6 +92,6 @@ export const overview = {
   colOptimal: 'Sample Optimal',
   colRisk: 'Risk Influence',
   ctaTitle: 'Ready to quantify your rate of biological aging?',
-  ctaBody: 'Sign in with a recovery phrase, upload a lab PDF, and review the extracted numbers.',
+  ctaBody: 'Sign in with email, upload a lab PDF, and review the extracted numbers.',
   ctaUpload: 'Upload a lab PDF',
 };

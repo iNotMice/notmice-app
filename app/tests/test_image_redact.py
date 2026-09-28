@@ -207,12 +207,12 @@ async def test_http_confirm_sends_only_the_painted_frame() -> None:
     redactor = PreviewRedactor(painted)
     vision = RememberingVision()
     service = _service(vision, redactor)
-    application = _app(_account_service(), service)
+    accounts = _account_service()
+    application = _app(accounts, service)
     original = b"\xff\xd8\xff\xe0" + b"\x33" * 24
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        token = (await accounts.create()).access_token
         headers = {"Authorization": f"Bearer {token}"}
         extracted = await client.post(
             "/api/v1/uploads/extract",

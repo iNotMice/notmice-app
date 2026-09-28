@@ -16,10 +16,66 @@ class HealthStatus(BaseModel):
     database: str = Field(description="ok or unavailable.")
 
 
-class AccountCreateRequest(BaseModel):
-    """Empty body for registration. Extra keys (email, phone) are rejected."""
+class ConsentInput(BaseModel):
+    """One consent checkbox. Optional consents are omitted when they are off."""
 
     model_config = ConfigDict(extra="forbid")
+
+    type: Literal["health_data", "research_reuse"]
+    version: str = Field(min_length=1, max_length=64)
+    accepted: bool
+
+
+class AccountRegisterRequest(BaseModel):
+    """Email registration. The password is at least 12 characters."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=12, max_length=128)
+    consents: list[ConsentInput] = Field(min_length=1, max_length=4)
+
+
+class AccountRegisterResponse(BaseModel):
+    """Same body whether or not the address already exists."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["accepted"] = "accepted"
+
+
+class EmailLoginRequest(BaseModel):
+    """Email and password. The response does not say which part failed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthTokenRequest(BaseModel):
+    """A one-time confirmation or reset token from an email link."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=20, max_length=128)
+
+
+class PasswordResetRequest(BaseModel):
+    """Ask for a reset link. The response does not say whether the address exists."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254)
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    """Set a new password with a one-time token."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=20, max_length=128)
+    password: str = Field(min_length=12, max_length=128)
 
 
 class AccountLoginRequest(BaseModel):
@@ -60,9 +116,28 @@ class AccountSessionResponse(AccountView):
 
 
 class AccountCreatedResponse(AccountSessionResponse):
-    """Registration payload. ``mnemonic`` is included only on this response."""
+    """Phrase-account payload kept for the legacy service path. New HTTP registration omits it."""
 
     mnemonic: str = Field(description="12-word BIP-39 phrase, shown once. Not stored.")
+
+
+class ConsentView(BaseModel):
+    """One stored consent. Withdrawal is null until the person turns it off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: str
+    version: str
+    granted_at: datetime
+    withdrawn_at: datetime | None
+
+
+class ConsentListResponse(BaseModel):
+    """Consents for the signed-in participant."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    consents: list[ConsentView]
 
 
 class ExtractedMarkerView(BaseModel):

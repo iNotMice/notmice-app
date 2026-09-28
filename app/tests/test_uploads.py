@@ -620,8 +620,7 @@ async def test_extract_confirm_http_flow() -> None:
     jpeg = b"\xff\xd8\xff\xe0" + b"\x22" * 48
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        token = (await accounts.create()).access_token
         headers = {"Authorization": f"Bearer {token}"}
         extracted = await client.post(
             "/api/v1/uploads/extract",
@@ -685,8 +684,7 @@ async def test_confirm_accepts_nine_canonical_phenoage_names() -> None:
     ]
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        token = (await accounts.create()).access_token
         headers = {"Authorization": f"Bearer {token}"}
         extracted = await client.post(
             "/api/v1/uploads/extract",
@@ -719,8 +717,7 @@ async def test_confirm_keeps_values_when_labels_look_personal() -> None:
     jpeg = b"\xff\xd8\xff\xe0" + b"\x55" * 48
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        token = (await accounts.create()).access_token
         headers = {"Authorization": f"Bearer {token}"}
         extracted = await client.post(
             "/api/v1/uploads/extract",
@@ -762,8 +759,7 @@ async def test_extract_rejects_unsupported_type() -> None:
     application = _app(accounts, _upload_bundle()[0])
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        token = (await accounts.create()).access_token
         response = await client.post(
             "/api/v1/uploads/extract",
             headers={"Authorization": f"Bearer {token}"},
@@ -825,8 +821,7 @@ async def test_extract_http_budget_is_429_without_global_figures() -> None:
     application = _app(accounts, service)
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        token = (await accounts.create()).access_token
         response = await client.post(
             "/api/v1/uploads/extract",
             headers={"Authorization": f"Bearer {token}"},
@@ -942,8 +937,7 @@ async def test_delete_results_removes_only_the_caller() -> None:
     jpeg = b"\xff\xd8\xff\xe0" + b"\x55" * 32
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        created = await client.post("/api/v1/accounts", json={})
-        token = created.json()["access_token"]
+        token = (await accounts.create()).access_token
         headers = {"Authorization": f"Bearer {token}"}
         extracted = await client.post(
             "/api/v1/uploads/extract",

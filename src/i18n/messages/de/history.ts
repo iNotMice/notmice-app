@@ -5,7 +5,7 @@ export const history = {
   emptyLead:
     'Auf diesem Konto ist noch kein bestätigtes Laborpanel gespeichert. Die Zahlen auf der Startseite sind ein Rechenbeispiel, keine Patientenakte.',
   sessionLead:
-    'Auf diesem Konto bestätigte Panels. Melden Sie sich mit derselben Wiederherstellungsphrase an, um sie wieder zu sehen. Ein Labor kann sie nicht abrufen.',
+    'Auf diesem Konto bestätigte Panels. Melden Sie sich erneut an, um sie zu sehen. Ein Labor kann sie nicht abrufen.',
   sessionSnapshotLead:
     'Bestätigte Panels bleiben auf diesem Konto. Eine Zeile mit „nur diese Sitzung“ ist ein Wert aus der Engine und verschwindet beim Neuladen.',
   sessionOnly: 'Nur diese Sitzung',

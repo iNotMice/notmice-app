@@ -7,11 +7,15 @@ import { fetchPhenoAge, PhenoAgeScore } from './api/phenoage';
 import { displayBiomarkerScores, displayPercentile } from './utils/phenoAgeMath';
 import {
   clearStoredToken,
-  createAccount,
+  confirmEmail,
+  confirmPasswordReset,
   fetchCurrentAccount,
+  loginWithEmail,
   loginWithMnemonic,
   logoutAccount,
   readStoredToken,
+  registerAccount,
+  requestPasswordReset,
   storeToken,
   updateShareSettings,
 } from './api/accounts';
@@ -95,6 +99,9 @@ export default function App() {
   const [revealedMnemonic, setRevealedMnemonic] = useState<string[] | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<'check-email' | 'reset-sent' | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [confirmToken, setConfirmToken] = useState<string | null>(null);
   const [phenoAgeScore, setPhenoAgeScore] = useState<PhenoAgeScore | null>(null);
   const [phenoAgeLoading, setPhenoAgeLoading] = useState(true);
   const [phenoAgeError, setPhenoAgeError] = useState<string | null>(null);
@@ -288,21 +295,94 @@ export default function App() {
     setCurrentPanel(tutorialPanel());
   };
 
-  const handleCreateAccount = async () => {
+  const applySession = async (session: {
+    publicId: string;
+    isPublic: boolean;
+    createdAt: string;
+    accessToken: string;
+  }) => {
+    storeToken(session.accessToken);
+    setAccount({
+      publicId: session.publicId,
+      isPublic: session.isPublic,
+      createdAt: session.createdAt,
+      accessToken: session.accessToken,
+    });
+    setRevealedMnemonic(null);
+    setAuthNotice(null);
+    setResetToken(null);
+    setIsSeedPhraseModalOpen(false);
+    await restoreSavedPanels(session.accessToken);
+  };
+
+  const handleRegister = async (email: string, password: string, researchReuse: boolean) => {
     setAuthBusy(true);
     setAuthError(null);
     try {
-      const created = await createAccount();
+      await registerAccount({ email, password, researchReuse });
       clearStoredToken();
-      setAccount({
-        publicId: created.publicId,
-        isPublic: created.isPublic,
-        createdAt: created.createdAt,
-        accessToken: created.accessToken,
-      });
-      setRevealedMnemonic(created.mnemonic.trim().split(/\s+/));
+      setAccount(null);
+      setAuthNotice('check-email');
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotCreateAccount);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleEmailLogin = async (email: string, password: string) => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await applySession(await loginWithEmail(email, password));
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleRequestReset = async (email: string) => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await requestPasswordReset(email);
+      setAuthNotice('reset-sent');
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleConfirmEmail = async () => {
+    if (!confirmToken) {
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await applySession(await confirmEmail(confirmToken));
+      setConfirmToken(null);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleResetPassword = async (password: string) => {
+    if (!resetToken) {
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await confirmPasswordReset(resetToken, password);
+      setResetToken(null);
+      setAuthNotice(null);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
     } finally {
       setAuthBusy(false);
     }
@@ -312,22 +392,33 @@ export default function App() {
     setAuthBusy(true);
     setAuthError(null);
     try {
-      const session = await loginWithMnemonic(mnemonic);
-      storeToken(session.accessToken);
-      setAccount({
-        publicId: session.publicId,
-        isPublic: session.isPublic,
-        createdAt: session.createdAt,
-        accessToken: session.accessToken,
-      });
-      setRevealedMnemonic(null);
-      await restoreSavedPanels(session.accessToken);
+      await applySession(await loginWithMnemonic(mnemonic));
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
     } finally {
       setAuthBusy(false);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const confirm = params.get('confirm');
+    const reset = params.get('reset');
+    if (!confirm && !reset) {
+      return;
+    }
+    setShowSplash(false);
+    markSplashSeen();
+    window.history.replaceState({}, '', window.location.pathname);
+    setAuthNotice(null);
+    setIsSeedPhraseModalOpen(true);
+    if (reset) {
+      setResetToken(reset);
+    }
+    if (confirm) {
+      setConfirmToken(confirm);
+    }
+  }, []);
 
   const handleLogout = async () => {
     const token = account?.accessToken;
@@ -471,6 +562,12 @@ export default function App() {
             isAuthenticated={account !== null}
             isPublic={account?.isPublic ?? false}
             onTogglePublic={handleTogglePublic}
+            accessToken={account?.accessToken ?? null}
+            onAccountDeleted={() => {
+              clearStoredToken();
+              setAccount(null);
+              setRevealedMnemonic(null);
+            }}
             onPurgeMemory={handlePurgeMemory}
             onOpenSeedPhrase={() => {
               setAuthError(null);
@@ -511,8 +608,23 @@ export default function App() {
         isAuthenticated={account !== null}
         isBusy={authBusy}
         error={authError}
-        onCreateAccount={() => {
-          void handleCreateAccount();
+        notice={authNotice}
+        resetToken={resetToken}
+        confirmToken={confirmToken}
+        onConfirmEmail={() => {
+          void handleConfirmEmail();
+        }}
+        onRegister={(email, password, researchReuse) => {
+          void handleRegister(email, password, researchReuse);
+        }}
+        onEmailLogin={(email, password) => {
+          void handleEmailLogin(email, password);
+        }}
+        onRequestReset={(email) => {
+          void handleRequestReset(email);
+        }}
+        onResetPassword={(password) => {
+          void handleResetPassword(password);
         }}
         onLogin={(mnemonic) => {
           void handleLogin(mnemonic);

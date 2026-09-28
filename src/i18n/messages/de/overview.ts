@@ -5,7 +5,7 @@ export const overview = {
   valueProp:
     'NotMice liest ein Labor-PDF auf dem Server, bittet Sie, die Zahlen zu bestätigen, und berechnet PhenoAge als Forschungsindex. Bestätigte Werte gelangen nur dann in den öffentlichen Datensatz, wenn Sie das Teilen einschalten.',
   openAccount: 'Konto öffnen',
-  getStarted: 'Mit Wiederherstellungsphrase beginnen',
+  getStarted: 'Konto anlegen',
   exploreCharter: 'Offenen Datensatz und Forschungscharta ansehen',
   runtime: 'Ausführung',
   serverExtract: 'Server-Extraktion',
@@ -92,6 +92,6 @@ export const overview = {
   colOptimal: 'Beispieloptimum',
   colRisk: 'Risikoeinfluss',
   ctaTitle: 'Bereit, Ihre Rate des biologischen Alterns zu beziffern?',
-  ctaBody: 'Melden Sie sich mit einer Wiederherstellungsphrase an, laden Sie ein Labor-PDF hoch und prüfen Sie die extrahierten Zahlen.',
+  ctaBody: 'Melden Sie sich mit E-Mail an, laden Sie ein Labor-PDF hoch und prüfen Sie die extrahierten Zahlen.',
   ctaUpload: 'Labor-PDF hochladen',
 };

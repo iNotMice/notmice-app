@@ -5,7 +5,7 @@ export const history = {
   emptyLead:
     'No confirmed laboratory panel is saved on this account yet. The numbers on the landing page are a worked example, not a patient record.',
   sessionLead:
-    'Panels confirmed on this account. Sign in with the same recovery phrase to see them again. A laboratory cannot look them up.',
+    'Panels confirmed on this account. Sign in again to see them. A laboratory cannot look them up.',
   sessionSnapshotLead:
     'Confirmed panels stay on this account. A row marked “this session only” is an engine score and disappears when you reload.',
   sessionOnly: 'This session only',
