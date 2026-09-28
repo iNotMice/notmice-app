@@ -254,6 +254,16 @@ class OwnedLabResultView(BaseModel):
     document_sha256: str
     marker_count: int = Field(ge=0)
     status: Literal["confirmed"]
+    pheno_age: float | None = Field(
+        description="Levine 2018 index when all nine markers and an age are present.",
+    )
+    age_delta: float | None = Field(
+        description="Index minus calendar age. Null when the panel is not scored.",
+    )
+    missing_markers: list[str] = Field(
+        description="Levine marker ids absent from this panel, in dictionary order.",
+    )
+    phenoage_disclaimer: str
     markers: list[OwnedMarkerView]
 
 

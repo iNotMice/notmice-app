@@ -47,6 +47,10 @@ export interface OwnLabResult {
   documentSha256: string;
   markerCount: number;
   status: 'confirmed';
+  phenoAge: number | null;
+  ageDelta: number | null;
+  missingMarkers: string[];
+  phenoageDisclaimer: string;
   markers: OwnMarker[];
 }
 
@@ -112,6 +116,10 @@ interface OwnLabResultPayload {
   document_sha256: string;
   marker_count: number;
   status: 'confirmed';
+  pheno_age: number | null;
+  age_delta: number | null;
+  missing_markers: string[];
+  phenoage_disclaimer: string;
   markers: OwnMarkerPayload[];
 }
 
@@ -296,6 +304,10 @@ export async function fetchOwnLabResults(): Promise<OwnLabResult[]> {
     documentSha256: panel.document_sha256,
     markerCount: panel.marker_count,
     status: panel.status,
+    phenoAge: panel.pheno_age,
+    ageDelta: panel.age_delta,
+    missingMarkers: panel.missing_markers,
+    phenoageDisclaimer: panel.phenoage_disclaimer,
     markers: panel.markers.map((marker) => ({
       rawName: marker.raw_name,
       canonicalId: marker.canonical_id,

@@ -10,8 +10,11 @@ Alkaline phosphatase uses the printed weight 0.0019.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
+
+from app.domain.cabinet import missing_phenoage_markers
 
 # Levine units and weights (Table 1, Supplementary Table S1).
 _INTERCEPT = -19.9067
@@ -122,6 +125,71 @@ def calculate_levine_phenoage(markers: LevineBiomarkers) -> PhenoAgeResult:
         mortality_score_10yr=mortality,
         linear_predictor=xb,
         disclaimer=RESEARCH_DISCLAIMER,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmedPanelPhenoAge:
+    """One cabinet point. A missing marker is listed and is not filled in."""
+
+    pheno_age: float | None
+    age_delta: float | None
+    missing_markers: tuple[str, ...]
+    disclaimer: str
+
+
+def score_confirmed_panel(
+    markers: Mapping[str, float],
+    *,
+    chronological_age: float | None,
+) -> ConfirmedPanelPhenoAge:
+    """Score one confirmed panel, or name the Levine markers it does not have.
+
+    Args:
+        markers: Canonical id to value in LOINC-dictionary units.
+        chronological_age: Age in years from the report, or None.
+
+    Returns:
+        A score only when the age is present and all nine markers are present
+        and usable. Otherwise both score fields are None. ``missing_markers``
+        lists absent ids in dictionary order. A present value that the formula
+        cannot use is not reported as missing.
+    """
+    missing = missing_phenoage_markers(markers)
+    if chronological_age is None or missing:
+        return ConfirmedPanelPhenoAge(
+            pheno_age=None,
+            age_delta=None,
+            missing_markers=missing,
+            disclaimer=RESEARCH_DISCLAIMER,
+        )
+    try:
+        result = calculate_canonical_phenoage(
+            CanonicalBiomarkers(
+                albumin_g_l=markers["albumin"],
+                creatinine_mg_dl=markers["creatinine"],
+                glucose_mg_dl=markers["glucose"],
+                crp_mg_l=markers["crp"],
+                lymphocyte_percent=markers["lymphocyte"],
+                mcv_fl=markers["mcv"],
+                rdw_percent=markers["rdw"],
+                alp_u_l=markers["alp"],
+                wbc_10e3_per_ul=markers["wbc"],
+                age_years=chronological_age,
+            )
+        )
+    except PhenoAgeInputError:
+        return ConfirmedPanelPhenoAge(
+            pheno_age=None,
+            age_delta=None,
+            missing_markers=(),
+            disclaimer=RESEARCH_DISCLAIMER,
+        )
+    return ConfirmedPanelPhenoAge(
+        pheno_age=result.pheno_age,
+        age_delta=result.age_delta,
+        missing_markers=(),
+        disclaimer=result.disclaimer,
     )
 
 

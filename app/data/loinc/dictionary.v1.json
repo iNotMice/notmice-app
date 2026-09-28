@@ -87,7 +87,7 @@
       "canonical_unit": "fL",
       "plausible_min": "50",
       "plausible_max": "140",
-      "synonyms": ["mcv", "mean corpuscular volume", "средний объем эритроцита"],
+      "synonyms": ["mcv", "mean corpuscular volume", "mean corpuscular volume (mcv)", "средний объем эритроцита"],
       "units": [
         {"label": "fL", "aliases": ["fl", "фл"], "factor": "1", "divisor": "1"}
       ]
@@ -101,7 +101,7 @@
       "canonical_unit": "%",
       "plausible_min": "8",
       "plausible_max": "40",
-      "synonyms": ["rdw", "red cell distribution width", "ширина распределения эритроцитов"],
+      "synonyms": ["rdw", "red cell distribution width", "red cell distribution width (rdw)", "ширина распределения эритроцитов"],
       "units": [
         {"label": "%", "aliases": ["percent"], "factor": "1", "divisor": "1"}
       ]
@@ -115,7 +115,7 @@
       "canonical_unit": "U/L",
       "plausible_min": "1",
       "plausible_max": "3000",
-      "synonyms": ["alp", "alkaline phosphatase", "щелочная фосфатаза"],
+      "synonyms": ["alp", "alkaline phosphatase", "alkaline phosphatase (alp)", "щелочная фосфатаза"],
       "units": [
         {"label": "U/L", "aliases": ["u/l", "iu/l", "ед/л"], "factor": "1", "divisor": "1"}
       ]
@@ -129,7 +129,7 @@
       "canonical_unit": "10^3/µL",
       "plausible_min": "0.1",
       "plausible_max": "200",
-      "synonyms": ["wbc", "white blood cell", "white blood cell count", "leukocytes", "лейкоциты"],
+      "synonyms": ["wbc", "white blood cell", "white blood cell count", "white blood cell count (wbc)", "leukocytes", "лейкоциты"],
       "units": [
         {
           "label": "10^3/µL",

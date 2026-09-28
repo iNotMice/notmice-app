@@ -15,7 +15,20 @@ from app.services.phenoage import (
     PhenoAgeInputError,
     calculate_canonical_phenoage,
     calculate_levine_phenoage,
+    score_confirmed_panel,
 )
+
+_WORKED_CANONICAL = {
+    "albumin": 44.0,
+    "creatinine": 1.53,
+    "glucose": 105.0,
+    "crp": 2.31,
+    "lymphocyte": 24.0,
+    "mcv": 97.0,
+    "rdw": 11.8,
+    "alp": 53.0,
+    "wbc": 4.9,
+}
 
 # Supplement equation applied to the Cramer worksheet (Levine 2018):
 # albumin 44 g/L, creatinine 135.25353 umol/L, glucose 5.8275 mmol/L,
@@ -67,6 +80,35 @@ def test_dictionary_units_round_to_the_same_published_age() -> None:
     )
     assert round(result.pheno_age, 2) == 66.95
     assert round(result.mortality_score_10yr, 3) == 0.196
+
+
+def test_confirmed_panel_matches_the_published_age_only_when_complete() -> None:
+    """A gap is named. The missing value is not replaced, and the point is absent."""
+    scored = score_confirmed_panel(_WORKED_CANONICAL, chronological_age=71.0)
+    assert round(scored.pheno_age or 0, 2) == 66.95
+    assert scored.age_delta == pytest.approx((scored.pheno_age or 0) - 71.0)
+    assert scored.missing_markers == ()
+    assert scored.disclaimer == RESEARCH_DISCLAIMER
+
+    partial = score_confirmed_panel({"albumin": 44.0, "wbc": 4.9}, chronological_age=71.0)
+    assert partial.pheno_age is None
+    assert partial.age_delta is None
+    assert partial.missing_markers[0] == "creatinine"
+    assert "albumin" not in partial.missing_markers
+    assert "wbc" not in partial.missing_markers
+
+    no_age = score_confirmed_panel(_WORKED_CANONICAL, chronological_age=None)
+    assert no_age.pheno_age is None
+    assert no_age.missing_markers == ()
+
+
+def test_unusable_crp_is_present_and_still_unscored() -> None:
+    """Zero CRP is on the report. It is not listed as a missing marker."""
+    markers = {**_WORKED_CANONICAL, "crp": 0.0}
+    point = score_confirmed_panel(markers, chronological_age=71.0)
+    assert point.pheno_age is None
+    assert point.missing_markers == ()
+    assert point.disclaimer == RESEARCH_DISCLAIMER
 
 
 def test_non_positive_crp_is_rejected() -> None:

@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.core.deps import get_upload_service
 from app.core.rate_limit import resolve_client_key
 from app.domain.accounts import UserRecord
-from app.domain.cabinet import outside_printed_interval
+from app.domain.cabinet import canonical_marker_values, outside_printed_interval
 from app.domain.pii import PIIValidationError
 from app.domain.schemas import (
     ConfirmRequest,
@@ -46,6 +46,7 @@ from app.domain.uploads import (
     VisionTimeoutError,
     usable_chronological_age,
 )
+from app.services.phenoage import score_confirmed_panel
 from app.services.uploads import RedactionPreview, UploadService
 
 router = APIRouter(prefix="/api/v1/uploads", tags=["uploads"])
@@ -333,19 +334,29 @@ async def list_own_results(
 ) -> OwnedLabResultsResponse:
     """Return panels this account confirmed. Other accounts cannot read them."""
     panels = await upload_service.list_confirmed(current.id)
-    return OwnedLabResultsResponse(
-        results=[
+    views: list[OwnedLabResultView] = []
+    for panel in panels:
+        age = float(panel.chronological_age) if panel.chronological_age is not None else None
+        trend = score_confirmed_panel(
+            canonical_marker_values(
+                (marker.canonical_id, float(marker.value)) for marker in panel.markers
+            ),
+            chronological_age=age,
+        )
+        views.append(
             OwnedLabResultView(
                 id=panel.id,
                 collected_at=panel.collected_at,
                 lab_name=panel.lab_name,
-                chronological_age=(
-                    float(panel.chronological_age) if panel.chronological_age is not None else None
-                ),
+                chronological_age=age,
                 confirmed_at=panel.confirmed_at,
                 document_sha256=panel.document_sha256,
                 marker_count=len(panel.markers),
                 status="confirmed",
+                pheno_age=trend.pheno_age,
+                age_delta=trend.age_delta,
+                missing_markers=list(trend.missing_markers),
+                phenoage_disclaimer=trend.disclaimer,
                 markers=[
                     OwnedMarkerView(
                         raw_name=marker.raw_name,
@@ -369,6 +380,5 @@ async def list_own_results(
                     for marker in panel.markers
                 ],
             )
-            for panel in panels
-        ]
-    )
+        )
+    return OwnedLabResultsResponse(results=views)

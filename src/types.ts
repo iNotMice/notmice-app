@@ -101,9 +101,12 @@ export interface HistoricalTestRecord {
   date: string;
   /** Specimen date from the laboratory report. Null when the report did not state one. */
   collectedAt: string | null;
-  chronologicalAge: number;
-  phenoAge: number;
-  delta: number;
+  /** Null when the report did not state an age. The trend does not invent one. */
+  chronologicalAge: number | null;
+  /** Null when a Levine marker or the age is missing, or the value cannot be scored. */
+  phenoAge: number | null;
+  /** Index minus calendar age. Null on the same panels as ``phenoAge``. */
+  delta: number | null;
   labSource: string;
   biomarkers: Record<string, number>;
   /** SHA-256 of a confirmed laboratory file. Empty for a session-only engine snapshot. */
@@ -116,6 +119,8 @@ export interface HistoricalTestRecord {
   markerCount: number;
   /** True when the row exists only in this browser session and is not stored on the account. */
   sessionOnly: boolean;
+  /** Levine marker ids absent from this panel, in dictionary order. */
+  missingMarkers: string[];
 }
 
 export interface AccountState {

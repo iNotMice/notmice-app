@@ -60,9 +60,9 @@ function panelFromHistory(record: HistoricalTestRecord): LabPanelData {
     testDate: record.date,
     sourceType: record.sessionOnly ? 'manual' : 'pdf',
     fileName: record.labSource,
-    chronologicalAge: record.chronologicalAge,
+    chronologicalAge: record.chronologicalAge ?? 42,
     gender: 'male',
-    biomarkers: { ...record.biomarkers },
+    biomarkers: { ...INITIAL_BIOMARKERS, ...record.biomarkers },
     confidenceScores: {},
     verified: true,
     hash: record.hash,
@@ -218,31 +218,21 @@ export default function App() {
             };
           }
         }
-        const panelBiomarkers = { ...INITIAL_BIOMARKERS, ...saved };
-        const age = panel.chronologicalAge ?? 42;
-        let phenoAge = 0;
-        let delta = 0;
-        try {
-          const score = await fetchPhenoAge(age, panelBiomarkers);
-          phenoAge = score.phenoAge;
-          delta = score.ageDelta;
-        } catch {
-          // The saved numbers still load when the score request fails.
-        }
         records.push({
           id: panel.id,
           date: panel.collectedAt ?? panel.confirmedAt.slice(0, 10),
           collectedAt: panel.collectedAt,
-          chronologicalAge: age,
-          phenoAge,
-          delta,
+          chronologicalAge: panel.chronologicalAge,
+          phenoAge: panel.phenoAge,
+          delta: panel.ageDelta,
           labSource: panel.labName ?? getActiveI18n().messages.shell.unknownLaboratory,
-          biomarkers: panelBiomarkers,
+          biomarkers: saved,
           hash: panel.documentSha256,
           markerIds,
           printedIntervals,
           markerCount: panel.markerCount,
           sessionOnly: false,
+          missingMarkers: panel.missingMarkers,
         });
       }
       setHistory((prev) => [...records, ...prev.filter((row) => row.sessionOnly)]);
@@ -274,14 +264,16 @@ export default function App() {
       printedIntervals: {},
       markerCount: currentPanel.focusMarkerIds.length,
       sessionOnly: true,
+      missingMarkers: [],
     };
     setHistory((prev) => [...prev, newRecord]);
   };
 
   const handleSelectHistoricalRecord = (record: HistoricalTestRecord) => {
-    setChronologicalAge(record.chronologicalAge);
-    setBiomarkers({ ...record.biomarkers });
-    setCurrentPanel(panelFromHistory(record));
+    const panel = panelFromHistory(record);
+    setChronologicalAge(panel.chronologicalAge);
+    setBiomarkers({ ...panel.biomarkers });
+    setCurrentPanel(panel);
   };
 
   const handleDeleteHistory = async (id: string) => {

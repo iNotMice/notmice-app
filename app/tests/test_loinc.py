@@ -38,6 +38,25 @@ def test_albumin_english_and_russian_names() -> None:
         assert mapped.unit == "g/L"
 
 
+def test_review_screen_names_map_to_the_nine() -> None:
+    """The confirm form's display names, including the parenthetical, stay mapped."""
+    dictionary = load_loinc_dictionary()
+    names = {
+        "Serum Albumin": "albumin",
+        "Serum Creatinine": "creatinine",
+        "Fasting Serum Glucose": "glucose",
+        "hs-C-Reactive Protein": "crp",
+        "Lymphocyte Percentage": "lymphocyte",
+        "Mean Corpuscular Volume (MCV)": "mcv",
+        "Red Cell Distribution Width (RDW)": "rdw",
+        "Alkaline Phosphatase (ALP)": "alp",
+        "White Blood Cell Count (WBC)": "wbc",
+    }
+    for raw_name, canonical_id in names.items():
+        mapped = map_marker(RawMarker(raw_name=raw_name, value=10.0, unit="g/L"), dictionary)
+        assert mapped.canonical_id == canonical_id
+
+
 def test_unknown_name_is_not_dropped() -> None:
     """A name outside the dictionary stays on the unmapped queue with its value."""
     dictionary = load_loinc_dictionary()

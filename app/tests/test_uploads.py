@@ -820,6 +820,71 @@ async def test_owned_panel_flags_only_the_printed_interval_or_lab_mark() -> None
 
 
 @pytest.mark.asyncio
+async def test_owned_trend_scores_only_a_complete_panel() -> None:
+    """A partial panel names the missing markers and does not invent an index."""
+    accounts = _account_service()
+    uploads, _vision, _labs = _upload_bundle()
+    application = _app(accounts, uploads)
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x77" * 48
+    complete = [
+        {"raw_name": "Serum Albumin", "value": 44.0, "unit": "g/L"},
+        {"raw_name": "Serum Creatinine", "value": 1.53, "unit": "mg/dL"},
+        {"raw_name": "Fasting Serum Glucose", "value": 105.0, "unit": "mg/dL"},
+        {"raw_name": "hs-C-Reactive Protein", "value": 2.31, "unit": "mg/L"},
+        {"raw_name": "Lymphocyte Percentage", "value": 24.0, "unit": "%"},
+        {"raw_name": "Mean Corpuscular Volume (MCV)", "value": 97.0, "unit": "fL"},
+        {"raw_name": "Red Cell Distribution Width (RDW)", "value": 11.8, "unit": "%"},
+        {"raw_name": "Alkaline Phosphatase (ALP)", "value": 53.0, "unit": "U/L"},
+        {"raw_name": "White Blood Cell Count (WBC)", "value": 4.9, "unit": "10³/µL"},
+    ]
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
+        first = await client.post(
+            "/api/v1/uploads/extract",
+            files={"file": ("partial.jpg", jpeg, "image/jpeg")},
+        )
+        assert first.status_code == 200
+        partial = await client.post(
+            "/api/v1/uploads/confirm",
+            json={
+                "extract_token": first.json()["extract_token"],
+                "lab_name": "City Lab",
+                "collected_at": "2024-01-02",
+                "chronological_age": 71,
+                "markers": [{"raw_name": "Serum Albumin", "value": 44.0, "unit": "g/L"}],
+            },
+        )
+        assert partial.status_code == 200
+        second = await client.post(
+            "/api/v1/uploads/extract",
+            files={"file": ("complete.jpg", jpeg + b"\x01", "image/jpeg")},
+        )
+        assert second.status_code == 200
+        full = await client.post(
+            "/api/v1/uploads/confirm",
+            json={
+                "extract_token": second.json()["extract_token"],
+                "lab_name": "City Lab",
+                "collected_at": "2024-06-02",
+                "chronological_age": 71,
+                "markers": complete,
+            },
+        )
+        assert full.status_code == 200
+        owned = await client.get("/api/v1/uploads/results")
+    rows = owned.json()["results"]
+    assert rows[0]["pheno_age"] is None
+    assert rows[0]["age_delta"] is None
+    assert rows[0]["missing_markers"][0] == "creatinine"
+    assert "albumin" not in rows[0]["missing_markers"]
+    assert "mortality" not in rows[0]
+    assert round(rows[1]["pheno_age"], 2) == 66.95
+    assert rows[1]["missing_markers"] == []
+    assert "not a medical service" in rows[1]["phenoage_disclaimer"]
+
+
+@pytest.mark.asyncio
 async def test_extract_rejects_unsupported_type() -> None:
     """A text file is not parsed as a lab report."""
     accounts = _account_service()

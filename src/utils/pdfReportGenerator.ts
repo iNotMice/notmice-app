@@ -5,6 +5,7 @@ import { PHENOAGE_BIOMARKERS } from '../data/phenoAgeData';
 import { getActiveI18n } from '../i18n/catalog';
 import { isBiomarkerId } from '../i18n/biomarkerIds';
 import { fill } from '../i18n/fill';
+import { missingMarkerText, scoredRecords } from './phenoTrend';
 
 export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): void {
   if (!history || history.length === 0) return;
@@ -12,6 +13,9 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
   const { locale, messages } = getActiveI18n();
   const copy = messages.report;
   const dateLocale = locale === 'de' ? 'de-DE' : 'en-US';
+  const sortedHistory = [...history].sort((a, b) => a.date.localeCompare(b.date));
+  const scored = scoredRecords(sortedHistory);
+  const latest = scored.length > 0 ? scored[scored.length - 1] : sortedHistory[sortedHistory.length - 1];
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -19,49 +23,24 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
     format: 'a4',
   });
 
-  const sortedHistory = [...history].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-
-  const earliest = sortedHistory[0];
-  const latest = sortedHistory[sortedHistory.length - 1];
-  const netBioChange = Number((latest.phenoAge - earliest.phenoAge).toFixed(1));
-  const netChronoChange = Number((latest.chronologicalAge - earliest.chronologicalAge).toFixed(1));
-  const agingPace =
-    netChronoChange > 0 ? Number((netBioChange / netChronoChange).toFixed(2)) : 0.82;
-  const avgDelta = Number(
-    (sortedHistory.reduce((acc, h) => acc + h.delta, 0) / sortedHistory.length).toFixed(1)
-  );
-  const latestAdvantage = Number(Math.max(0, -latest.delta).toFixed(1));
-
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 14;
 
-  // Header Banner Background
-  doc.setFillColor(11, 28, 48); // #0b1c30 deep navy
+  doc.setFillColor(11, 28, 48);
   doc.rect(0, 0, pageWidth, 38, 'F');
-
-  // Accent line
-  doc.setFillColor(0, 97, 148); // #006194 primary cyan-blue
+  doc.setFillColor(0, 97, 148);
   doc.rect(0, 38, pageWidth, 2, 'F');
 
-  // Header Text
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.text(copy.pdfTitle, margin, 15);
-
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(203, 213, 225); // #cbd5e1
-  doc.text(
-    copy.pdfSubtitle,
-    margin,
-    22
-  );
+  doc.setTextColor(203, 213, 225);
+  doc.text(copy.pdfSubtitle, margin, 22, { maxWidth: pageWidth - margin * 2 - 40 });
 
-  // Top Right Header Metadata
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
   const printDate = new Date().toLocaleDateString(dateLocale, {
@@ -69,71 +48,43 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
     month: 'short',
     day: 'numeric',
   });
-  doc.text(fill(copy.generatedLine, { date: printDate }), pageWidth - margin, 15, { align: 'right' });
-  doc.text(fill(copy.panelsLine, { count: sortedHistory.length }), pageWidth - margin, 21, { align: 'right' });
-  doc.text(copy.statusLine, pageWidth - margin, 27, { align: 'right' });
+  doc.text(fill(copy.generatedLine, { date: printDate }), pageWidth - margin, 12, { align: 'right' });
+  doc.text(fill(copy.panelsLine, { count: sortedHistory.length }), pageWidth - margin, 18, { align: 'right' });
+  doc.text(copy.statusLine, pageWidth - margin, 24, { align: 'right', maxWidth: 70 });
 
   let currentY = 48;
-
-  // Executive Summary Section
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(11, 28, 48);
   doc.text(copy.pdfSummary, margin, currentY);
-
   currentY += 5;
 
-  // Summary Metrics Grid (4 boxes)
-  const boxWidth = (pageWidth - margin * 2 - 9) / 4;
+  const boxWidth = (pageWidth - margin * 2 - 6) / 3;
   const boxHeight = 22;
-
+  const latestValue =
+    latest.phenoAge === null ? copy.notCalculated : fill(copy.yrs, { value: latest.phenoAge.toFixed(1) });
+  const latestAge =
+    latest.chronologicalAge === null
+      ? copy.ageMissing
+      : fill(copy.chronoAge, { value: latest.chronologicalAge.toFixed(1) });
   const kpis = [
-    {
-      title: copy.latestPhenoPdf,
-      value: fill(copy.yrs, { value: latest.phenoAge.toFixed(1) }),
-      sub: `${messages.history.chronoLegend} ${latest.chronologicalAge.toFixed(1)}`,
-      color: [0, 105, 71], // emerald
-    },
-    {
-      title: copy.variancePdf,
-      value: latest.delta <= 0 ? fill(copy.yrs, { value: latest.delta.toFixed(1) }) : fill(copy.plusYrs, { value: latest.delta.toFixed(1) }),
-      sub: latest.delta <= 0 ? copy.decelerated : copy.accelerated,
-      color: latest.delta <= 0 ? [0, 105, 71] : [186, 26, 26],
-    },
-    {
-      title: copy.pacePdf,
-      value: fill(copy.paceValue, { value: agingPace }),
-      sub: agingPace < 1.0 ? copy.slowedPdf : copy.baselineRate,
-      color: [0, 97, 148],
-    },
-    {
-      title: copy.avgPdf,
-      value: fill(copy.yrs, { value: Math.abs(avgDelta).toFixed(1) }),
-      sub: fill(copy.acrossPdf, { count: sortedHistory.length }),
-      color: [0, 105, 71],
-    },
+    { title: copy.latestPhenoPdf, value: latestValue, sub: latestAge },
+    { title: copy.scoredPdf, value: String(scored.length), sub: copy.panels },
+    { title: copy.notScoredPdf, value: String(sortedHistory.length - scored.length), sub: copy.panels },
   ];
 
   kpis.forEach((kpi, idx) => {
     const x = margin + idx * (boxWidth + 3);
-    // Background
     doc.setFillColor(248, 249, 255);
     doc.setDrawColor(226, 232, 240);
     doc.roundedRect(x, currentY, boxWidth, boxHeight, 2, 2, 'FD');
-
-    // Title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(86, 94, 116);
     doc.text(kpi.title, x + 3, currentY + 5);
-
-    // Value
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(kpi.color[0], kpi.color[1], kpi.color[2]);
+    doc.setTextColor(11, 28, 48);
     doc.text(kpi.value, x + 3, currentY + 12);
-
-    // Subtitle
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
@@ -141,36 +92,29 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
   });
 
   currentY += boxHeight + 8;
-
-  // Historical Panels Table
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(11, 28, 48);
   doc.text(copy.panelsPdf, margin, currentY);
-
   currentY += 2;
 
   const panelRows = sortedHistory.map((item) => {
-    const isDecel = item.delta <= 0;
-    const deltaStr = isDecel
-      ? fill(copy.yrs, { value: item.delta.toFixed(1) })
-      : fill(copy.plusYrs, { value: item.delta.toFixed(1) });
-    const statusStr = isDecel
-      ? fill(copy.deceleratedShort, { value: Math.abs(item.delta).toFixed(1) })
-      : copy.acceleratedShort;
-    return [
-      item.date,
-      item.labSource,
-      fill(copy.yrs, { value: item.chronologicalAge.toFixed(1) }),
-      fill(copy.yrs, { value: item.phenoAge.toFixed(1) }),
-      deltaStr,
-      statusStr,
-    ];
+    const age = item.chronologicalAge === null ? copy.ageMissing : item.chronologicalAge.toFixed(1);
+    const index = item.phenoAge === null ? copy.notCalculated : item.phenoAge.toFixed(1);
+    const gap =
+      item.phenoAge !== null
+        ? '—'
+        : item.missingMarkers.length > 0
+          ? missingMarkerText(item, messages.biomarkers)
+          : item.chronologicalAge === null
+            ? copy.ageMissing
+            : copy.notCalculated;
+    return [item.collectedAt ?? item.date, item.labSource, age, index, gap];
   });
 
   autoTable(doc, {
     startY: currentY,
-    head: [[copy.colDate, copy.colLab, copy.colCalendar, copy.colPhenoShort, copy.colVariance, copy.colProfile]],
+    head: [[copy.colDate, copy.colLab, copy.colCalendar, copy.colPhenoShort, copy.colMissing]],
     body: panelRows,
     theme: 'striped',
     styles: {
@@ -185,54 +129,25 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
       fontStyle: 'bold',
       fontSize: 8,
     },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 22 },
-      1: { cellWidth: 32 },
-      2: { cellWidth: 22 },
-      3: { fontStyle: 'bold', textColor: [0, 105, 71], cellWidth: 22 },
-      4: { fontStyle: 'bold', cellWidth: 22 },
-      5: { cellWidth: 34 },
-      6: { fontSize: 7, textColor: [100, 116, 139] },
-    },
     margin: { left: margin, right: margin },
   });
 
-  // Calculate position after first table
-  const afterFirstTable = (doc as any).lastAutoTable.finalY || currentY + 40;
-  currentY = afterFirstTable + 7;
-
-  // Longitudinal Biomarker Measurements Matrix Table
+  const afterFirstTable = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
+  currentY = (afterFirstTable ?? currentY + 40) + 7;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(11, 28, 48);
   doc.text(copy.matrixPdf, margin, currentY);
-
   currentY += 2;
 
-  // Header row for biomarkers: Biomarker Name, Domain, Optimal, then columns for each date
-  const biomarkerHead = [
-    copy.colBiomarker,
-    copy.colUnit,
-    copy.colOptimalPdf,
-    ...sortedHistory.map((h) => h.date),
-  ];
-
+  const biomarkerHead = [copy.colBiomarker, copy.colUnit, ...sortedHistory.map((item) => item.date)];
   const biomarkerBody = PHENOAGE_BIOMARKERS.map((bio) => {
-    const row = [
-      isBiomarkerId(bio.id) ? messages.biomarkers[bio.id].name : bio.name,
-      bio.unit,
-      `${bio.optimalRange[0]} - ${bio.optimalRange[1]}`,
-    ];
-
-    sortedHistory.forEach((h) => {
-      const val = h.biomarkers ? h.biomarkers[bio.id] : undefined;
-      if (val !== undefined && val !== null) {
-        row.push(String(val));
-      } else {
-        row.push('—');
-      }
+    const row = [isBiomarkerId(bio.id) ? messages.biomarkers[bio.id].name : bio.name, bio.unit];
+    sortedHistory.forEach((item) => {
+      const value = item.biomarkers[bio.id];
+      const measured = item.markerIds.includes(bio.id) || item.sessionOnly;
+      row.push(measured && value !== undefined ? String(value) : '—');
     });
-
     return row;
   });
 
@@ -253,67 +168,38 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
       fontStyle: 'bold',
       fontSize: 7.5,
     },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 42 },
-      1: { cellWidth: 16 },
-      2: { cellWidth: 26, fontStyle: 'italic', textColor: [0, 105, 71] },
-    },
     margin: { left: margin, right: margin },
   });
 
-  const afterSecondTable = (doc as any).lastAutoTable.finalY || currentY + 60;
-  currentY = afterSecondTable + 7;
-
-  // Check if we have enough room for clinical interpretation, or add a page
-  if (currentY > pageHeight - 45) {
+  const afterSecondTable = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
+  currentY = (afterSecondTable ?? currentY + 60) + 7;
+  if (currentY > pageHeight - 36) {
     doc.addPage();
     currentY = 20;
   }
 
-  // Clinical Longevity Interpretation Box
-  doc.setFillColor(239, 244, 255); // #eff4ff
-  doc.setDrawColor(220, 233, 255);
-  const boxH = 34;
+  const disclaimer = doc.splitTextToSize(`${messages.shell.disclaimer} ${copy.citation}`, pageWidth - margin * 2 - 6);
+  const boxH = 8 + disclaimer.length * 4;
+  doc.setFillColor(248, 249, 255);
+  doc.setDrawColor(226, 232, 240);
   doc.roundedRect(margin, currentY, pageWidth - margin * 2, boxH, 2, 2, 'FD');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(0, 97, 148);
-  doc.text(copy.methodPdf, margin + 3, currentY + 6);
-
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
+  doc.text(disclaimer, margin + 3, currentY + 6);
 
-  const interpretationText = [
-    fill(copy.bulletPace, {
-      pace: agingPace,
-      tone: agingPace < 1.0 ? copy.paceFavorable : copy.paceNormal,
-    }),
-    copy.bulletMarkers,
-    copy.bulletMath,
-  ];
-
-  interpretationText.forEach((line, lIdx) => {
-    doc.text(line, margin + 3, currentY + 13 + lIdx * 6);
-  });
-
-  // Footer on all pages
-  const totalPages = (doc.internal as any).getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i += 1) {
     doc.setPage(i);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
-    doc.text(
-      copy.footer,
-      margin,
-      pageHeight - 8
-    );
-    doc.text(fill(copy.page, { page: i, total: totalPages }), pageWidth - margin, pageHeight - 8, { align: 'right' });
+    const footer = doc.splitTextToSize(copy.footer, pageWidth - margin * 2 - 30);
+    doc.text(footer, margin, pageHeight - 8);
+    doc.text(fill(copy.page, { page: i, total: totalPages }), pageWidth - margin, pageHeight - 8, {
+      align: 'right',
+    });
   }
 
-  // Save the PDF
-  const filename = `PhenoAge_Longitudinal_Report_${latest.date}.pdf`;
-  doc.save(filename);
+  doc.save(`PhenoAge_Research_Index_${latest.date}.pdf`);
 }

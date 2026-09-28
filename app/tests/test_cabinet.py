@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from app.domain.cabinet import outside_printed_interval
+from app.domain.cabinet import (
+    canonical_marker_values,
+    missing_phenoage_markers,
+    outside_printed_interval,
+)
 
 
 def test_flag_only_outside_printed_interval_or_lab_mark() -> None:
@@ -144,3 +148,30 @@ def test_inverted_bounds_do_not_flag() -> None:
         )
         is True
     )
+
+
+def test_missing_phenoage_markers_follow_dictionary_order() -> None:
+    """A later marker that is present does not pull an earlier gap forward."""
+    assert missing_phenoage_markers(["wbc", "albumin", "albumin"]) == (
+        "creatinine",
+        "glucose",
+        "crp",
+        "lymphocyte",
+        "mcv",
+        "rdw",
+        "alp",
+    )
+    assert (
+        missing_phenoage_markers(
+            ["albumin", "creatinine", "glucose", "crp", "lymphocyte", "mcv", "rdw", "alp", "wbc"]
+        )
+        == ()
+    )
+
+
+def test_repeated_canonical_id_keeps_the_first_value() -> None:
+    """The cabinet does not average or replace a marker that appears twice."""
+    values = canonical_marker_values(
+        [("albumin", 44.0), (None, 9.0), ("albumin", 50.0), ("crp", 2.31)]
+    )
+    assert values == {"albumin": 44.0, "crp": 2.31}
