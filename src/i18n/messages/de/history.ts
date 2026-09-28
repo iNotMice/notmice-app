@@ -33,6 +33,7 @@ export const history = {
   markerTrack: 'Verlauf eines einzelnen Biomarkers',
   loinc: 'LOINC: {code}',
   labInterval: 'Referenzintervall des Labors',
+  journalPeriod: 'Journalzeitraum',
   intervalClosed: '{min}–{max} {unit}',
   intervalUpper: '< {max} {unit}',
   intervalLower: '> {min} {unit}',

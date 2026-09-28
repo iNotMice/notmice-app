@@ -33,6 +33,7 @@ export const history = {
   markerTrack: 'Biomarker Specific Trajectory',
   loinc: 'LOINC: {code}',
   labInterval: 'Laboratory reference interval',
+  journalPeriod: 'Journal period',
   intervalClosed: '{min}–{max} {unit}',
   intervalUpper: '< {max} {unit}',
   intervalLower: '> {min} {unit}',

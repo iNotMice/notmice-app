@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TabType, HistoricalTestRecord, PrintedLabInterval } from '../../types';
 import { PHENOAGE_BIOMARKERS } from '../../data/phenoAgeData';
 import { Calendar, Trash2, LineChart as LineChartIcon, FileDown } from 'lucide-react';
 import { PrintableReportModal } from '../PrintableReportModal';
+import { listProtocolEntries, type ProtocolEntry } from '../../api/protocol';
 import { isBiomarkerId } from '../../i18n/biomarkerIds';
 import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
+import {
+  dayMs,
+  fractionOnAxis,
+  layoutPeriodBands,
+  localIsoDate,
+  periodDrawEnd,
+} from '../../utils/protocolBands';
 import { missingMarkerText, scoredRecords } from '../../utils/phenoTrend';
 import {
   ResponsiveContainer,
@@ -44,6 +52,7 @@ function signedYears(value: number): string {
 
 interface BiomarkerHistoryTabProps {
   history: HistoricalTestRecord[];
+  isAuthenticated: boolean;
   onDeleteHistory: (id: string) => void | Promise<void>;
   onSelectRecord: (record: HistoricalTestRecord) => void;
   setActiveTab: (tab: TabType) => void;
@@ -51,6 +60,7 @@ interface BiomarkerHistoryTabProps {
 
 export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   history,
+  isAuthenticated,
   onDeleteHistory,
   onSelectRecord,
   setActiveTab,
@@ -60,6 +70,29 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   const [selectedBiomarker, setSelectedBiomarker] = useState<string>('crp');
   const [showReportModal, setShowReportModal] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [journalEntries, setJournalEntries] = useState<ProtocolEntry[]>([]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setJournalEntries([]);
+      return;
+    }
+    let cancelled = false;
+    void listProtocolEntries()
+      .then((rows) => {
+        if (!cancelled) {
+          setJournalEntries(rows);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setJournalEntries([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   const removeUpload = (id: string) => {
     setDeleteError(null);
@@ -91,7 +124,6 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   });
 
   const chartWidth = 720;
-  const chartHeight = 220;
   const padding = { top: 20, right: 30, bottom: 40, left: 45 };
 
   const markerPoints = history.flatMap((record) => {
@@ -121,23 +153,45 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
     if (span.high != null) nums.push(span.high);
     return nums;
   });
+  const periodLayout = layoutPeriodBands(
+    markerPoints.map((point) => point.record.collectedAt ?? point.record.date),
+    journalEntries.map((entry) => ({
+      id: entry.id,
+      title: entry.title,
+      startedOn: entry.startedOn,
+      endedOn: entry.endedOn,
+    })),
+    localIsoDate(),
+  );
+  const laneCount = periodLayout.periods.reduce((max, band) => Math.max(max, band.lane + 1), 0);
+  const laneHeight = 18;
+  const laneGap = 6;
+  const plotWidth = chartWidth - padding.left - padding.right;
+  const plotTop = padding.top;
+  const plotBottom = plotTop + 160;
+  const laneBlock = laneCount === 0 ? 0 : laneCount * laneHeight + (laneCount - 1) * laneGap;
+  const dateLabelY = laneCount === 0 ? plotBottom + 28 : plotBottom + 8 + laneBlock + 16;
+  const svgHeight = laneCount === 0 ? 220 : dateLabelY + 12;
+  const useDateAxis = periodLayout.periods.length > 0;
   const minRaw = scaleNumbers.length > 0 ? Math.min(...scaleNumbers) : 0;
   const maxRaw = scaleNumbers.length > 0 ? Math.max(...scaleNumbers) : 1;
   const axisSpan = maxRaw - minRaw || Math.abs(maxRaw) || 1;
   const minBio = minRaw - axisSpan * 0.12;
   const maxBio = maxRaw + axisSpan * 0.12;
-  const plotTop = padding.top;
-  const plotBottom = chartHeight - padding.bottom;
   const getBioY = (val: number) => {
     const range = maxBio - minBio || 1;
     return plotBottom - ((val - minBio) / range) * (plotBottom - plotTop);
   };
   const getMarkerX = (index: number) => {
+    if (useDateAxis) {
+      const ms = dayMs(markerPoints[index].record.collectedAt ?? markerPoints[index].record.date);
+      if (ms == null) {
+        return padding.left;
+      }
+      return padding.left + fractionOnAxis(ms, periodLayout.axis) * plotWidth;
+    }
     if (markerPoints.length <= 1) return padding.left;
-    return (
-      padding.left +
-      (index / (markerPoints.length - 1)) * (chartWidth - padding.left - padding.right)
-    );
+    return padding.left + (index / (markerPoints.length - 1)) * plotWidth;
   };
   const intervalLabel = (interval: PrintedLabInterval | null): string | null => {
     const bounds = printedSpan(interval);
@@ -392,12 +446,23 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
         {activeBioDef && (
           <div className="text-xs text-[#565e74] flex justify-between items-center gap-3 bg-[#f8f9ff] p-2.5 rounded border border-[#e2e8f0] font-['JetBrains_Mono']">
             <span>{fill(copy.loinc, { code: activeBioDef.loinc })}</span>
-            <span className="inline-flex items-center gap-1.5 text-[#3f4850]">
-              <span
-                className="inline-block w-3 h-3 rounded-sm bg-[#e7eef6] border border-[#94a3b8]"
-                aria-hidden
-              />
-              {copy.labInterval}
+            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[#3f4850]">
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block w-3 h-3 rounded-sm bg-[#e7eef6] border border-[#94a3b8]"
+                  aria-hidden
+                />
+                {copy.labInterval}
+              </span>
+              {laneCount > 0 && markerPoints.length > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="inline-block w-6 h-2.5 rounded-sm bg-[#d7e6f5] border border-[#6d8eae]"
+                    aria-hidden
+                  />
+                  {copy.journalPeriod}
+                </span>
+              )}
             </span>
           </div>
         )}
@@ -410,10 +475,10 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
           ) : (
             <>
               <svg
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                viewBox={`0 0 ${chartWidth} ${svgHeight}`}
                 className="w-full h-auto"
                 role="img"
-                aria-label={copy.labInterval}
+                aria-label={copy.markerTrack}
               >
                 {markerPoints.map((point, index) => {
                   const band = bandRect(point.interval, getMarkerX(index));
@@ -474,13 +539,60 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                       </text>
                       <text
                         x={cx}
-                        y={chartHeight - 12}
+                        y={dateLabelY}
                         textAnchor="middle"
                         fontSize="10"
                         fill="#565e74"
                         fontFamily="JetBrains Mono"
                       >
                         {(point.record.collectedAt ?? point.record.date).slice(0, 7)}
+                      </text>
+                    </g>
+                  );
+                })}
+                {periodLayout.periods.map((band) => {
+                  const x0 = padding.left + fractionOnAxis(band.start, periodLayout.axis) * plotWidth;
+                  const x1 =
+                    padding.left + fractionOnAxis(periodDrawEnd(band), periodLayout.axis) * plotWidth;
+                  const x = Math.min(x0, x1);
+                  const width = Math.max(x1 - x0, 2);
+                  const y = plotBottom + 8 + band.lane * (laneHeight + laneGap);
+                  const clipId = `period-${band.id}`;
+                  const labelWidth = band.title.length * 6.4 + 8;
+                  const inside = width >= labelWidth;
+                  const roomRight = chartWidth - padding.right - (x + width);
+                  const textX = inside ? x + 4 : roomRight >= labelWidth ? x + width + 4 : x - 4;
+                  const textAnchor = inside || roomRight >= labelWidth ? 'start' : 'end';
+                  return (
+                    <g key={`period-${band.id}`} data-period-band={band.title}>
+                      <rect
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={laneHeight}
+                        fill="#d7e6f5"
+                        stroke="#6d8eae"
+                        strokeWidth="1"
+                        rx="2"
+                      >
+                        <title>{band.title}</title>
+                      </rect>
+                      {inside && (
+                        <clipPath id={clipId}>
+                          <rect x={x + 3} y={y} width={Math.max(width - 6, 0)} height={laneHeight} />
+                        </clipPath>
+                      )}
+                      <text
+                        x={textX}
+                        y={y + laneHeight / 2}
+                        clipPath={inside ? `url(#${clipId})` : undefined}
+                        textAnchor={textAnchor}
+                        dominantBaseline="central"
+                        fontSize="10"
+                        fill="#0b1c30"
+                        fontFamily="Inter, sans-serif"
+                      >
+                        {band.title}
                       </text>
                     </g>
                   );

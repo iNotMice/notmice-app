@@ -543,6 +543,7 @@ export default function App() {
         {activeTab === 'biomarker-history' && (
           <BiomarkerHistoryTab
             history={history}
+            isAuthenticated={account !== null}
             onDeleteHistory={handleDeleteHistory}
             onSelectRecord={handleSelectHistoricalRecord}
             setActiveTab={setActiveTab}
