@@ -24,13 +24,17 @@ from app.services.export import ExportService
 from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GeminiTokenBudget
 from app.services.health import HealthService
+from app.services.image_redact import TesseractImageRedactor
 from app.services.news import HttpxTextFetcher, NewsMemoryCache, NewsService
+from app.services.redaction_holds import RedactionHoldStore
 from app.services.uploads import UploadService
 from app.services.vision import ExtractionProvider, build_extraction_provider
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 _extract_sessions: InMemoryExtractSessionStore | None = None
+_redaction_holds: RedactionHoldStore | None = None
+_image_redactor: TesseractImageRedactor | None = None
 _vision_provider: ExtractionProvider | None = None
 _public_rate_limiter: SlidingWindowRateLimiter | None = None
 _account_rate_limiter: SlidingWindowRateLimiter | None = None
@@ -99,6 +103,22 @@ def get_extract_sessions() -> InMemoryExtractSessionStore:
     if _extract_sessions is None:
         _extract_sessions = InMemoryExtractSessionStore(get_settings().extract_session_ttl_seconds)
     return _extract_sessions
+
+
+def get_redaction_holds() -> RedactionHoldStore:
+    """Return the process-wide store of painted frames waiting on a person."""
+    global _redaction_holds
+    if _redaction_holds is None:
+        _redaction_holds = RedactionHoldStore(get_settings().extract_session_ttl_seconds)
+    return _redaction_holds
+
+
+def get_image_redactor() -> TesseractImageRedactor:
+    """Return the process-wide local painter. It does not call Gemini."""
+    global _image_redactor
+    if _image_redactor is None:
+        _image_redactor = TesseractImageRedactor()
+    return _image_redactor
 
 
 def get_vision_provider() -> ExtractionProvider:
@@ -211,13 +231,15 @@ async def get_upload_service(
         lab_results=LabResultRepository(session),
         max_upload_bytes=settings.max_upload_bytes,
         budget=get_gemini_budget(),
+        image_redactor=get_image_redactor(),
+        redaction_holds=get_redaction_holds(),
     )
 
 
 async def dispose_engine() -> None:
     """Dispose the engine, RAM extract sessions, rate limiters, news cache, and Gemini budget."""
     global _engine, _session_factory, _extract_sessions, _vision_provider, _public_rate_limiter
-    global _gemini_budget, _news_service, _news_rate_limiter
+    global _gemini_budget, _news_service, _news_rate_limiter, _redaction_holds, _image_redactor
     if _engine is not None:
         await _engine.dispose()
     _engine = None
@@ -225,6 +247,10 @@ async def dispose_engine() -> None:
     if _extract_sessions is not None:
         _extract_sessions.clear()
     _extract_sessions = None
+    if _redaction_holds is not None:
+        _redaction_holds.clear()
+    _redaction_holds = None
+    _image_redactor = None
     _vision_provider = None
     _public_rate_limiter = None
     _news_rate_limiter = None

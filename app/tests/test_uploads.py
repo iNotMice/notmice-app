@@ -18,6 +18,7 @@ from app.domain.accounts import UserRecord
 from app.domain.enums import MappingStatus
 from app.domain.schemas import ConfirmedMarkerInput, ConfirmRequest
 from app.domain.uploads import (
+    CompletedExtract,
     ConfirmedLabResult,
     ExtractedPanel,
     ExtractSessionNotFoundError,
@@ -36,9 +37,10 @@ from app.main import create_app
 from app.services.accounts import AccountService
 from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GeminiTokenBudget
+from app.services.image_redact import PassthroughImageRedactor
 from app.services.loinc_dictionary import load_loinc_dictionary
 from app.services.media import sha256_hex
-from app.services.uploads import UploadService
+from app.services.uploads import RedactionPreview, UploadService
 from app.services.vision import (
     ClaudeExtractionProvider,
     GeminiExtractionProvider,
@@ -279,6 +281,13 @@ def _budget() -> GeminiTokenBudget:
     )
 
 
+def _done(result: CompletedExtract | RedactionPreview) -> CompletedExtract:
+    """Return a finished extract. A redaction preview is a test failure."""
+    if isinstance(result, RedactionPreview):
+        raise AssertionError("image redaction asked for confirmation")
+    return result
+
+
 def _upload_bundle() -> tuple[UploadService, FakeVision, InMemoryLabStore]:
     vision = FakeVision()
     labs = InMemoryLabStore()
@@ -288,6 +297,7 @@ def _upload_bundle() -> tuple[UploadService, FakeVision, InMemoryLabStore]:
         lab_results=labs,
         max_upload_bytes=1_000_000,
         budget=_budget(),
+        image_redactor=PassthroughImageRedactor(),
     )
     return service, vision, labs
 
@@ -436,7 +446,7 @@ async def test_text_pdf_uses_pdfplumber_path_and_drops_bytes(
         "Serum Albumin 46.2 g/L  Creatinine 0.88 mg/dL  Glucose 84 mg/dL extra padding text"
     )
     digest = sha256_hex(payload)
-    session = (await service.extract(user.id, payload, client_key="203.0.113.10")).session
+    session = _done(await service.extract(user.id, payload, client_key="203.0.113.10")).session
     assert vision.text_calls == 1
     assert calls["n"] == 1
     assert vision.media_calls == 0
@@ -492,7 +502,7 @@ async def test_image_uses_vision_media_path() -> None:
     service, vision, _labs = _upload_bundle()
     user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
     jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 64
-    session = (await service.extract(user.id, jpeg, client_key="203.0.113.10")).session
+    session = _done(await service.extract(user.id, jpeg, client_key="203.0.113.10")).session
     assert vision.media_calls == 1
     assert vision.text_calls == 0
     assert vision.last_media_mime == "image/jpeg"
@@ -505,7 +515,7 @@ async def test_confirm_keeps_unmapped_marker() -> None:
     service, _vision, labs = _upload_bundle()
     user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
     jpeg = b"\xff\xd8\xff\xe0" + b"\x33" * 32
-    session = (await service.extract(user.id, jpeg, client_key="203.0.113.10")).session
+    session = _done(await service.extract(user.id, jpeg, client_key="203.0.113.10")).session
     await service.confirm(
         user.id,
         session.token,
@@ -531,7 +541,7 @@ async def test_confirm_keeps_printed_reference_on_the_saved_marker() -> None:
     service, _vision, labs = _upload_bundle()
     user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
     jpeg = b"\xff\xd8\xff\xe0" + b"\x44" * 32
-    session = (await service.extract(user.id, jpeg, client_key="203.0.113.10")).session
+    session = _done(await service.extract(user.id, jpeg, client_key="203.0.113.10")).session
     await service.confirm(
         user.id,
         session.token,
@@ -566,7 +576,7 @@ async def test_confirm_persists_session_hash_and_forgets_token() -> None:
     service, _vision, labs = _upload_bundle()
     user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
     payload = b"\xff\xd8\xff\xe0" + b"\x11" * 32
-    session = (await service.extract(user.id, payload, client_key="203.0.113.10")).session
+    session = _done(await service.extract(user.id, payload, client_key="203.0.113.10")).session
     result = await service.confirm(
         user.id,
         session.token,
@@ -772,6 +782,7 @@ async def test_extract_stops_before_gemini_when_budget_is_exhausted() -> None:
         sessions=InMemoryExtractSessionStore(ttl_seconds=60),
         lab_results=labs,
         max_upload_bytes=1_000_000,
+        image_redactor=PassthroughImageRedactor(),
         budget=GeminiTokenBudget(
             daily_token_budget=10,
             user_daily_token_budget=100_000,
@@ -800,6 +811,7 @@ async def test_extract_http_budget_is_429_without_global_figures() -> None:
         sessions=InMemoryExtractSessionStore(ttl_seconds=60),
         lab_results=InMemoryLabStore(),
         max_upload_bytes=1_000_000,
+        image_redactor=PassthroughImageRedactor(),
         budget=GeminiTokenBudget(
             daily_token_budget=10,
             user_daily_token_budget=100_000,
@@ -891,6 +903,7 @@ async def test_vision_timeout_releases_the_budget_hold() -> None:
         lab_results=InMemoryLabStore(),
         max_upload_bytes=1_000_000,
         budget=budget,
+        image_redactor=PassthroughImageRedactor(),
     )
     with pytest.raises(VisionTimeoutError):
         await timed_out.extract(user.id, jpeg, client_key="203.0.113.10")
@@ -900,8 +913,9 @@ async def test_vision_timeout_releases_the_budget_hold() -> None:
         lab_results=InMemoryLabStore(),
         max_upload_bytes=1_000_000,
         budget=budget,
+        image_redactor=PassthroughImageRedactor(),
     )
-    completed = await follow_up.extract(user.id, jpeg, client_key="203.0.113.10")
+    completed = _done(await follow_up.extract(user.id, jpeg, client_key="203.0.113.10"))
     assert completed.session.panel.markers
 
 

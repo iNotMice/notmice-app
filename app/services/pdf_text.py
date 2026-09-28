@@ -234,6 +234,15 @@ def _is_chrome_line(line: str) -> bool:
     return False
 
 
+def line_is_page_chrome(line: str) -> bool:
+    """Return True when a line is page chrome rather than a measured row.
+
+    Args:
+        line: One OCR or PDF line.
+    """
+    return _is_chrome_line(line)
+
+
 def _has_word(folded: str, word: str) -> bool:
     """Return True when ``word`` appears as its own word in ``folded``."""
     return re.search(rf"(?<!\w){re.escape(word)}(?!\w)", folded) is not None

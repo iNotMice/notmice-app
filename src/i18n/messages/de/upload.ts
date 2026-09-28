@@ -45,4 +45,17 @@ export const upload = {
   tokenUsage: 'Heute {used} von {limit} Tokens verbraucht.',
   tokenUsageWarning: 'Heute {used} von {limit} Tokens verbraucht. Das Tageslimit ist fast erreicht.',
   tokenLimitReached: 'Das Tageslimit für die Extraktion ist erreicht. Verbraucht: {used} von {limit} Tokens.',
+  cropTitle: 'Ergebnistabelle zuschneiden',
+  cropLead:
+    'Ziehen Sie den Rahmen auf die Ergebnistabelle. Kopfzeile mit Name oder Geburtsdatum bleibt außerhalb. Der Server schwärzt personenbezogene Zeilen, bevor ein Modell das Foto sieht.',
+  cropHint: 'Im Rahmen ziehen verschiebt ihn. An einer Kante ziehen ändert die Größe.',
+  cropSend: 'Diesen Ausschnitt hochladen',
+  cropWhole: 'Das ganze Foto hochladen',
+  cropCancel: 'Abbrechen',
+  masking: 'Personenbezogene Zeilen werden vor der Extraktion geschwärzt...',
+  redactionTitle: 'Geschwärzten Rahmen prüfen',
+  redactionBody:
+    'Dieses Bild wird gesendet. Geschwärzte Bereiche: {count}. Wenn Name, Geburtsdatum oder Auftragsnummer noch lesbar sind, abbrechen und neu zuschneiden.',
+  redactionConfirm: 'Diesen Rahmen senden',
+  redactionCancel: 'Nicht senden',
 };

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from decimal import Decimal
 from typing import Annotated
 
@@ -22,14 +23,19 @@ from app.domain.schemas import (
     OwnedLabResultsResponse,
     OwnedLabResultView,
     OwnedMarkerView,
+    RedactionConfirmRequest,
+    RedactionPreviewResponse,
 )
 from app.domain.uploads import (
+    CompletedExtract,
     EmptyPayloadError,
     ExtractSessionNotFoundError,
     GeminiBudgetExhaustedError,
     NoMarkersError,
     PayloadTooLargeError,
     RawMarker,
+    RedactionEngineUnavailableError,
+    UnreadableImageError,
     UnsupportedMediaTypeError,
     UploadError,
     VisionExtractionError,
@@ -37,7 +43,7 @@ from app.domain.uploads import (
     VisionTimeoutError,
     usable_chronological_age,
 )
-from app.services.uploads import UploadService
+from app.services.uploads import RedactionPreview, UploadService
 
 router = APIRouter(prefix="/api/v1/uploads", tags=["uploads"])
 
@@ -78,6 +84,16 @@ def _http_for(exc: UploadError) -> HTTPException:
         )
     if isinstance(exc, EmptyPayloadError):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
+    if isinstance(exc, UnreadableImageError):
+        return HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not read image",
+        )
+    if isinstance(exc, RedactionEngineUnavailableError):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Local redaction engine is not available",
+        )
     if isinstance(exc, NoMarkersError):
         return HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -103,29 +119,8 @@ def _http_for(exc: UploadError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload request failed")
 
 
-@router.post("/extract", response_model=ExtractResponse)
-async def extract_upload(
-    request: Request,
-    current: Annotated[UserRecord, Depends(get_current_user)],
-    upload_service: Annotated[UploadService, Depends(get_upload_service)],
-    file: Annotated[UploadFile, File()],
-) -> ExtractResponse:
-    """Parse a PDF or image in RAM and return markers for human review."""
-    settings = get_settings()
-    client_key = resolve_client_key(
-        real_ip=request.headers.get("x-real-ip"),
-        client_host=request.client.host if request.client is not None else None,
-        trust_proxy=settings.trust_proxy_headers,
-    )
-    payload = await file.read()
-    try:
-        completed = await upload_service.extract(current.id, payload, client_key=client_key)
-    except GeminiBudgetExhaustedError:
-        raise
-    except UploadError as exc:
-        raise _http_for(exc) from exc
-    finally:
-        del payload
+def _extract_response(completed: CompletedExtract) -> ExtractResponse:
+    """Map a finished extract to the review payload."""
     session = completed.session
     panel = session.panel
     chronological_age = usable_chronological_age(panel.chronological_age)
@@ -160,6 +155,93 @@ async def extract_upload(
         tokens_limit=completed.tokens_limit,
         warning=completed.warning,
     )
+
+
+@router.post(
+    "/extract",
+    response_model=ExtractResponse,
+    responses={202: {"model": RedactionPreviewResponse}},
+)
+async def extract_upload(
+    request: Request,
+    current: Annotated[UserRecord, Depends(get_current_user)],
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
+    file: Annotated[UploadFile, File()],
+) -> ExtractResponse | JSONResponse:
+    """Parse a PDF or image in RAM and return markers for human review.
+
+    A photo may instead return 202 with the painted frame. The model is not
+    called until that frame is confirmed.
+    """
+    settings = get_settings()
+    client_key = resolve_client_key(
+        real_ip=request.headers.get("x-real-ip"),
+        client_host=request.client.host if request.client is not None else None,
+        trust_proxy=settings.trust_proxy_headers,
+    )
+    payload = await file.read()
+    try:
+        completed = await upload_service.extract(current.id, payload, client_key=client_key)
+    except GeminiBudgetExhaustedError:
+        raise
+    except UploadError as exc:
+        raise _http_for(exc) from exc
+    finally:
+        del payload
+    if isinstance(completed, RedactionPreview):
+        body = RedactionPreviewResponse(
+            redaction_token=completed.token,
+            document_sha256=completed.document_sha256,
+            region_count=completed.region_count,
+            preview_png=base64.b64encode(completed.preview_png).decode("ascii"),
+        )
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=body.model_dump())
+    return _extract_response(completed)
+
+
+def _client_key(request: Request) -> str:
+    """Return the address that owns the caller's token bucket."""
+    settings = get_settings()
+    return resolve_client_key(
+        real_ip=request.headers.get("x-real-ip"),
+        client_host=request.client.host if request.client is not None else None,
+        trust_proxy=settings.trust_proxy_headers,
+    )
+
+
+@router.post("/redaction/confirm", response_model=ExtractResponse)
+async def confirm_redaction(
+    request: Request,
+    payload: RedactionConfirmRequest,
+    current: Annotated[UserRecord, Depends(get_current_user)],
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
+) -> ExtractResponse:
+    """Extract markers from a painted frame the caller already accepted."""
+    try:
+        completed = await upload_service.confirm_redaction(
+            current.id,
+            payload.redaction_token,
+            client_key=_client_key(request),
+        )
+    except GeminiBudgetExhaustedError:
+        raise
+    except UploadError as exc:
+        raise _http_for(exc) from exc
+    return _extract_response(completed)
+
+
+@router.post("/redaction/discard", status_code=status.HTTP_204_NO_CONTENT)
+async def discard_redaction(
+    payload: RedactionConfirmRequest,
+    current: Annotated[UserRecord, Depends(get_current_user)],
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
+) -> Response:
+    """Drop a painted frame. The model is not called."""
+    try:
+        upload_service.discard_redaction(current.id, payload.redaction_token)
+    except UploadError as exc:
+        raise _http_for(exc) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/confirm", response_model=ConfirmResponse)

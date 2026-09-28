@@ -185,18 +185,25 @@ function mapMarker(payload: ExtractedMarkerPayload): ExtractedMarker {
   };
 }
 
-export async function extractLabFile(token: string, file: File): Promise<ExtractResult> {
-  const body = new FormData();
-  body.append('file', file);
-  const response = await fetch(apiUrl('/api/v1/uploads/extract'), {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body,
-  });
-  if (!response.ok) {
-    throw await readExtractFailure(response);
-  }
-  const payload = (await response.json()) as ExtractPayload;
+export interface RedactionPreview {
+  redactionToken: string;
+  documentSha256: string;
+  regionCount: number;
+  previewPng: string;
+}
+
+export type LabExtract =
+  | { kind: 'markers'; result: ExtractResult }
+  | { kind: 'confirm-redaction'; preview: RedactionPreview };
+
+interface RedactionPreviewPayload {
+  redaction_token: string;
+  document_sha256: string;
+  region_count: number;
+  preview_png: string;
+}
+
+function mapExtract(payload: ExtractPayload): ExtractResult {
   return {
     extractToken: payload.extract_token,
     documentSha256: payload.document_sha256,
@@ -211,6 +218,65 @@ export async function extractLabFile(token: string, file: File): Promise<Extract
       warning: payload.warning,
     },
   };
+}
+
+export async function extractLabFile(token: string, file: File): Promise<LabExtract> {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await fetch(apiUrl('/api/v1/uploads/extract'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body,
+  });
+  if (!response.ok && response.status !== 202) {
+    throw await readExtractFailure(response);
+  }
+  if (response.status === 202) {
+    const payload = (await response.json()) as RedactionPreviewPayload;
+    return {
+      kind: 'confirm-redaction',
+      preview: {
+        redactionToken: payload.redaction_token,
+        documentSha256: payload.document_sha256,
+        regionCount: payload.region_count,
+        previewPng: payload.preview_png,
+      },
+    };
+  }
+  const payload = (await response.json()) as ExtractPayload;
+  return { kind: 'markers', result: mapExtract(payload) };
+}
+
+export async function confirmRedactedFrame(
+  token: string,
+  redactionToken: string,
+): Promise<ExtractResult> {
+  const response = await fetch(apiUrl('/api/v1/uploads/redaction/confirm'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ redaction_token: redactionToken }),
+  });
+  if (!response.ok) {
+    throw await readExtractFailure(response);
+  }
+  return mapExtract((await response.json()) as ExtractPayload);
+}
+
+export async function discardRedactedFrame(token: string, redactionToken: string): Promise<void> {
+  const response = await fetch(apiUrl('/api/v1/uploads/redaction/discard'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ redaction_token: redactionToken }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
 }
 
 export async function fetchOwnLabResults(token: string): Promise<OwnLabResult[]> {

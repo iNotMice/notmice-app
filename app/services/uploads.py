@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Protocol
@@ -34,12 +34,28 @@ from app.domain.uploads import (
 )
 from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GeminiTokenBudget
+from app.services.image_redact import LabImageRedactor, TesseractImageRedactor
 from app.services.loinc_dictionary import load_loinc_dictionary
 from app.services.media import sha256_hex, sniff_mime_type
 from app.services.pdf_text import prepare_selectable_pdf
+from app.services.redaction_holds import RedactionHoldStore
 from app.services.vision import ExtractionProvider
 
 logger = structlog.get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class RedactionPreview:
+    """Painted frame the person must accept before a model call.
+
+    ``preview_png`` is the painted image, not the upload. ``document_sha256``
+    is the hash of the original upload.
+    """
+
+    token: str
+    document_sha256: str
+    region_count: int
+    preview_png: bytes
 
 
 class LabResultStore(Protocol):
@@ -78,6 +94,8 @@ class UploadService:
         max_upload_bytes: int,
         budget: GeminiTokenBudget,
         dictionary: LoincDictionary | None = None,
+        image_redactor: LabImageRedactor | None = None,
+        redaction_holds: RedactionHoldStore | None = None,
     ) -> None:
         self._vision = vision
         self._sessions = sessions
@@ -85,9 +103,25 @@ class UploadService:
         self._max_upload_bytes = max_upload_bytes
         self._budget = budget
         self._dictionary = dictionary if dictionary is not None else load_loinc_dictionary()
+        self._images = image_redactor if image_redactor is not None else TesseractImageRedactor()
+        self._holds = (
+            redaction_holds
+            if redaction_holds is not None
+            else RedactionHoldStore(ttl_seconds=1_800)
+        )
 
-    async def extract(self, user_id: UUID, payload: bytes, *, client_key: str) -> CompletedExtract:
+    async def extract(
+        self,
+        user_id: UUID,
+        payload: bytes,
+        *,
+        client_key: str,
+    ) -> CompletedExtract | RedactionPreview:
         """Hash, parse, and forget the original bytes.
+
+        A photo is painted locally before any model call. When that paint is
+        uncertain, the return value is the painted frame and the model is not
+        called.
 
         Args:
             user_id: Authenticated owner.
@@ -95,7 +129,8 @@ class UploadService:
             client_key: Address that owns the IP token bucket.
 
         Returns:
-            Extract session whose panel does not include file bytes, plus personal usage.
+            Extract session whose panel does not include file bytes, or a
+            painted preview that still needs a person.
 
         Raises:
             GeminiBudgetExhaustedError: The daily budget cannot cover another Gemini call.
@@ -106,24 +141,124 @@ class UploadService:
             raise PayloadTooLargeError
         mime_type = sniff_mime_type(payload)
         digest = sha256_hex(payload)
-        text: str | None = None
-        if mime_type == "application/pdf":
-            prepared = await asyncio.to_thread(prepare_selectable_pdf, payload)
-            if prepared is not None:
-                if not prepared.model_text.strip():
-                    raise NoMarkersError
-                logger.info(
-                    "pdf_page_redacted",
-                    page_count=prepared.page_count,
-                    dropped_lines=prepared.dropped_lines,
+        try:
+            if mime_type == "application/pdf":
+                prepared = await asyncio.to_thread(prepare_selectable_pdf, payload)
+                if prepared is not None:
+                    if not prepared.model_text.strip():
+                        raise NoMarkersError
+                    logger.info(
+                        "pdf_page_redacted",
+                        page_count=prepared.page_count,
+                        dropped_lines=prepared.dropped_lines,
+                    )
+                    return await self._run_model(
+                        user_id,
+                        client_key=client_key,
+                        document_sha256=digest,
+                        mime_type=mime_type,
+                        text=prepared.model_text,
+                        media=None,
+                        media_mime=None,
+                    )
+                return await self._run_model(
+                    user_id,
+                    client_key=client_key,
+                    document_sha256=digest,
+                    mime_type=mime_type,
+                    text=None,
+                    media=payload,
+                    media_mime=mime_type,
                 )
-                text = prepared.model_text
+            redacted = await asyncio.to_thread(self._images.redact, payload, mime_type)
+            logger.info(
+                "image_redacted",
+                region_count=redacted.region_count,
+                needs_confirmation=redacted.needs_confirmation,
+            )
+            if redacted.needs_confirmation:
+                token = self._holds.put(
+                    user_id,
+                    document_sha256=digest,
+                    payload=redacted.payload,
+                    mime_type=redacted.mime_type,
+                )
+                return RedactionPreview(
+                    token=token,
+                    document_sha256=digest,
+                    region_count=redacted.region_count,
+                    preview_png=redacted.payload,
+                )
+            return await self._run_model(
+                user_id,
+                client_key=client_key,
+                document_sha256=digest,
+                mime_type=mime_type,
+                text=None,
+                media=redacted.payload,
+                media_mime=redacted.mime_type,
+            )
+        finally:
+            del payload
+
+    async def confirm_redaction(
+        self,
+        user_id: UUID,
+        token: str,
+        *,
+        client_key: str,
+    ) -> CompletedExtract:
+        """Send the already painted frame to the model and drop it.
+
+        Args:
+            user_id: Authenticated owner.
+            token: Token from the redaction preview.
+            client_key: Address that owns the IP token bucket.
+        """
+        hold = self._holds.pop(token, user_id)
+        try:
+            return await self._run_model(
+                user_id,
+                client_key=client_key,
+                document_sha256=hold.document_sha256,
+                mime_type=hold.mime_type,
+                text=None,
+                media=hold.payload,
+                media_mime=hold.mime_type,
+            )
+        finally:
+            del hold
+
+    def discard_redaction(self, user_id: UUID, token: str) -> None:
+        """Drop a painted frame without calling the model.
+
+        Args:
+            user_id: Authenticated owner.
+            token: Token from the redaction preview.
+        """
+        self._holds.pop(token, user_id)
+        logger.info("image_redaction_discarded")
+
+    async def _run_model(
+        self,
+        user_id: UUID,
+        *,
+        client_key: str,
+        document_sha256: str,
+        mime_type: str,
+        text: str | None,
+        media: bytes | None,
+        media_mime: str | None,
+    ) -> CompletedExtract:
+        """Call the model, map markers, and store an extract session."""
         hold = self._budget.reserve(user_id, client_key)
         try:
             if text is not None:
                 parsed = await self._vision.extract_from_text(text)
             else:
-                parsed = await self._vision.extract_from_media(payload, mime_type)
+                if media is None or media_mime is None:
+                    raise NoMarkersError
+                parsed = await self._vision.extract_from_media(media, media_mime)
         except (VisionNotConfiguredError, VisionTimeoutError):
             self._budget.release(hold)
             raise
@@ -132,15 +267,13 @@ class UploadService:
             raise
         else:
             usage = self._budget.commit(hold, parsed.tokens_used)
-        finally:
-            del payload
         raw = parsed.extraction
         mapped = tuple(map_marker(item, self._dictionary) for item in raw.markers)
         if not mapped:
             raise NoMarkersError
         chronological_age = usable_chronological_age(raw.chronological_age)
         panel = ExtractedPanel(
-            document_sha256=digest,
+            document_sha256=document_sha256,
             parser_version=parser_version_for(
                 self._vision.name,
                 self._vision.model_id,

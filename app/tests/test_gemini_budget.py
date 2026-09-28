@@ -10,9 +10,14 @@ import pytest
 from structlog.testing import capture_logs
 
 from app.domain.accounts import UserRecord
-from app.domain.uploads import GeminiBudgetExhaustedError, VisionNotConfiguredError
+from app.domain.uploads import (
+    CompletedExtract,
+    GeminiBudgetExhaustedError,
+    VisionNotConfiguredError,
+)
 from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GEMINI_MAX_ATTEMPTS, GeminiTokenBudget
+from app.services.image_redact import PassthroughImageRedactor
 from app.services.uploads import UploadService
 from app.services.vision import ProviderExtraction, usage_token_count
 from app.tests.test_uploads import FakeVision, InMemoryLabStore, _text_pdf
@@ -204,6 +209,7 @@ async def test_unconfigured_provider_releases_the_hold() -> None:
         lab_results=InMemoryLabStore(),
         max_upload_bytes=1_000_000,
         budget=budget,
+        image_redactor=PassthroughImageRedactor(),
     )
     user = UserRecord(id=uuid4(), public_id="nmtest", is_public=False, created_at=datetime.now(UTC))
     jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 16
@@ -230,6 +236,7 @@ async def test_text_extract_commits_measured_tokens() -> None:
         "Serum Albumin 46.2 g/L  Creatinine 0.88 mg/dL  Glucose 84 mg/dL extra padding text"
     )
     completed = await service.extract(user.id, payload, client_key="203.0.113.41")
+    assert isinstance(completed, CompletedExtract)
     assert vision.text_calls == 1
     assert completed.tokens_used == 25
     assert completed.warning is False

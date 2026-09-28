@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { TabType, LabPanelData, TokenUsageNotice } from '../../types';
 import { INITIAL_BIOMARKERS, PHENOAGE_BIOMARKERS, PRESET_LAB_PANELS } from '../../data/phenoAgeData';
-import { ExtractRequestError, extractLabFile } from '../../api/uploads';
+import {
+  ExtractRequestError,
+  ExtractResult,
+  RedactionPreview,
+  confirmRedactedFrame,
+  discardRedactedFrame,
+  extractLabFile,
+} from '../../api/uploads';
+import { LabImageCrop, RedactionConfirm } from '../LabImagePrep';
 import { TokenUsageBanner } from '../TokenUsageBanner';
 import { fill } from '../../i18n/fill';
 import { getActiveI18n } from '../../i18n/catalog';
@@ -43,6 +51,8 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [tokenNotice, setTokenNotice] = useState<TokenUsageNotice | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [redactionPreview, setRedactionPreview] = useState<RedactionPreview | null>(null);
 
   const loadPresetPanel = (
     fileName: string,
@@ -76,24 +86,10 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
     setActiveTab('review-extraction');
   };
 
-  const processLabFile = async (file: File) => {
-    if (!isAuthenticated || !accessToken) {
-      onRequestAuth();
-      return;
-    }
-    setUploadError(null);
-    setTokenNotice(null);
-    setIsProcessing(true);
-    setSelectedFileName(file.name);
-    setProgressStep(1);
-    setProgressMsg(getActiveI18n().messages.upload.uploading);
-    try {
-      setProgressStep(2);
-      setProgressMsg(getActiveI18n().messages.upload.hashing);
-      const extracted = await extractLabFile(accessToken, file);
-      setTokenNotice(extracted.tokenUsage);
-      setProgressStep(5);
-      setProgressMsg(getActiveI18n().messages.upload.ready);
+  const openReview = (fileName: string, extracted: ExtractResult) => {
+    setTokenNotice(extracted.tokenUsage);
+    setProgressStep(5);
+    setProgressMsg(getActiveI18n().messages.upload.ready);
 
       const biomarkers: Record<string, number> = { ...INITIAL_BIOMARKERS };
       const confidenceScores: Record<string, number> = {};
@@ -114,7 +110,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
         labName: extracted.labName ?? getActiveI18n().messages.shell.unknownLaboratory,
         testDate: extracted.collectedAt ?? new Date().toISOString().slice(0, 10),
         sourceType: 'pdf',
-        fileName: file.name,
+        fileName,
         chronologicalAge: extracted.chronologicalAge ?? 42,
         gender: 'male',
         biomarkers,
@@ -129,6 +125,30 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
       };
       onLoadPanel(newPanel);
       setActiveTab('review-extraction');
+  };
+
+  const processLabFile = async (file: File) => {
+    if (!isAuthenticated || !accessToken) {
+      onRequestAuth();
+      return;
+    }
+    setUploadError(null);
+    setTokenNotice(null);
+    setCropFile(null);
+    setIsProcessing(true);
+    setSelectedFileName(file.name);
+    setProgressStep(1);
+    setProgressMsg(getActiveI18n().messages.upload.uploading);
+    try {
+      setProgressStep(2);
+      setProgressMsg(getActiveI18n().messages.upload.masking);
+      const outcome = await extractLabFile(accessToken, file);
+      if (outcome.kind === 'confirm-redaction') {
+        setRedactionPreview(outcome.preview);
+        setProgressMsg(getActiveI18n().messages.upload.redactionTitle);
+        return;
+      }
+      openReview(file.name, outcome.result);
     } catch (err) {
       if (err instanceof ExtractRequestError && err.usage) {
         setTokenNotice(err.usage);
@@ -153,18 +173,67 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
     setIsDragging(false);
   };
 
+  const beginFile = (file: File) => {
+    if (!isAuthenticated || !accessToken) {
+      onRequestAuth();
+      return;
+    }
+    if (file.type.startsWith('image/')) {
+      setUploadError(null);
+      setRedactionPreview(null);
+      setCropFile(file);
+      return;
+    }
+    void processLabFile(file);
+  };
+
+  const acceptPaintedFrame = async () => {
+    if (!accessToken || !redactionPreview) {
+      return;
+    }
+    setUploadError(null);
+    setIsProcessing(true);
+    setProgressMsg(getActiveI18n().messages.upload.hashing);
+    try {
+      const extracted = await confirmRedactedFrame(accessToken, redactionPreview.redactionToken);
+      const name = selectedFileName ?? 'lab-photo.png';
+      setRedactionPreview(null);
+      openReview(name, extracted);
+    } catch (err) {
+      if (err instanceof ExtractRequestError && err.usage) {
+        setTokenNotice(err.usage);
+        setUploadError(null);
+      } else {
+        setUploadError(
+          err instanceof Error ? err.message : getActiveI18n().messages.shell.extractionFailed,
+        );
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const cancelPaintedFrame = () => {
+    if (accessToken && redactionPreview) {
+      void discardRedactedFrame(accessToken, redactionPreview.redactionToken).catch(() => undefined);
+    }
+    setRedactionPreview(null);
+    setIsProcessing(false);
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      void processLabFile(files[0]);
+      beginFile(files[0]);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      void processLabFile(e.target.files[0]);
+      beginFile(e.target.files[0]);
+      e.target.value = '';
     }
   };
 
@@ -209,12 +278,43 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Dropzone & Progress */}
         <div className="lg:col-span-7 flex flex-col gap-6">
+          {cropFile && (
+            <LabImageCrop
+              file={cropFile}
+              title={copy.cropTitle}
+              lead={copy.cropLead}
+              hint={copy.cropHint}
+              sendCrop={copy.cropSend}
+              sendWhole={copy.cropWhole}
+              cancel={copy.cropCancel}
+              onCancel={() => setCropFile(null)}
+              onSubmit={(file) => {
+                void processLabFile(file);
+              }}
+            />
+          )}
+          {redactionPreview && (
+            <RedactionConfirm
+              previewPng={redactionPreview.previewPng}
+              title={copy.redactionTitle}
+              body={fill(copy.redactionBody, { count: redactionPreview.regionCount })}
+              confirm={copy.redactionConfirm}
+              cancel={copy.redactionCancel}
+              busy={isProcessing}
+              onConfirm={() => {
+                void acceptPaintedFrame();
+              }}
+              onCancel={cancelPaintedFrame}
+            />
+          )}
           {/* Dropzone container */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-xl p-8 lg:p-12 text-center transition-all bg-[#ffffff] flex flex-col items-center justify-center gap-4 ${
+              cropFile || redactionPreview ? 'hidden' : ''
+            } ${
               isDragging
                 ? 'border-[#006194] bg-[#eff4ff]'
                 : 'border-[#cbd5e1] hover:border-[#006194]'

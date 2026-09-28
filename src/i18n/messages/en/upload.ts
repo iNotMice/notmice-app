@@ -45,4 +45,17 @@ export const upload = {
   tokenUsage: 'Used {used} of {limit} tokens today.',
   tokenUsageWarning: 'Used {used} of {limit} tokens today. The daily limit is close.',
   tokenLimitReached: 'Daily extraction limit reached. Used {used} of {limit} tokens.',
+  cropTitle: 'Crop the results table',
+  cropLead:
+    'Drag the frame onto the results table. Leave the header, with a name or date of birth, outside it. The server still paints personal lines before any model sees the photo.',
+  cropHint: 'Drag inside the frame to move it. Drag an edge to resize.',
+  cropSend: 'Upload this crop',
+  cropWhole: 'Upload the whole photo',
+  cropCancel: 'Cancel',
+  masking: 'Painting personal lines before extraction...',
+  redactionTitle: 'Check the painted frame',
+  redactionBody:
+    'This is the image that will be sent. Painted areas: {count}. If a name, date of birth, or order number is still readable, cancel and crop again.',
+  redactionConfirm: 'Send this frame',
+  redactionCancel: 'Do not send',
 };

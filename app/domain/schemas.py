@@ -105,6 +105,28 @@ class ExtractResponse(BaseModel):
     warning: bool
 
 
+class RedactionPreviewResponse(BaseModel):
+    """Painted photo the caller must accept before extraction runs.
+
+    ``preview_png`` is base64 of the painted PNG, not the original upload.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    redaction_token: str
+    document_sha256: str
+    region_count: int = Field(ge=0)
+    preview_png: str
+
+
+class RedactionConfirmRequest(BaseModel):
+    """Accept or drop a painted frame. The token is the preview token."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    redaction_token: str = Field(min_length=8, max_length=128)
+
+
 class ConfirmedMarkerInput(BaseModel):
     """Human-edited analyte row from the review UI."""
 

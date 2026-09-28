@@ -38,6 +38,14 @@ class EmptyPayloadError(UploadError):
     """The upload contained no bytes."""
 
 
+class UnreadableImageError(UploadError):
+    """The image bytes could not be decoded."""
+
+
+class RedactionEngineUnavailableError(UploadError):
+    """Local OCR for painting personal lines is not available."""
+
+
 class VisionNotConfiguredError(UploadError):
     """The selected Vision provider has no API key or is not implemented."""
 
@@ -239,9 +247,7 @@ def map_marker(raw: RawMarker, dictionary: LoincDictionary) -> MappedMarker:
     """
     entry = dictionary.find(normalize_analyte_name(raw.raw_name))
     value = Decimal(str(raw.value))
-    printed_value = (
-        Decimal(str(raw.reported_value)) if raw.reported_value is not None else value
-    )
+    printed_value = Decimal(str(raw.reported_value)) if raw.reported_value is not None else value
     printed_unit = (raw.reported_unit or raw.unit).strip()
     low, high, text = printed_reference(raw)
     flag = normalize_lab_flag(raw.lab_flag)
