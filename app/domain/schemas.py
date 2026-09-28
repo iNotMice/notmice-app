@@ -240,11 +240,14 @@ class OwnedLabResultView(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    id: UUID
     collected_at: date | None
     lab_name: str | None
     chronological_age: float | None
     confirmed_at: datetime
     document_sha256: str
+    marker_count: int = Field(ge=0)
+    status: Literal["confirmed"]
     markers: list[OwnedMarkerView]
 
 

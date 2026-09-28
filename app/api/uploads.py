@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from decimal import Decimal
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response
@@ -31,6 +32,7 @@ from app.domain.uploads import (
     EmptyPayloadError,
     ExtractSessionNotFoundError,
     GeminiBudgetExhaustedError,
+    LabResultNotFoundError,
     NoMarkersError,
     PayloadTooLargeError,
     RawMarker,
@@ -104,6 +106,8 @@ def _http_for(exc: UploadError) -> HTTPException:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Extract session expired",
         )
+    if isinstance(exc, LabResultNotFoundError):
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Upload not found")
     if isinstance(exc, VisionNotConfiguredError):
         return HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -307,6 +311,20 @@ async def delete_own_results(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.delete("/results/{lab_result_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_one_result(
+    lab_result_id: UUID,
+    current: Annotated[UserRecord, Depends(get_current_user)],
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
+) -> Response:
+    """Delete one confirmed upload. Another account's id answers as not found."""
+    try:
+        await upload_service.delete_one(current.id, lab_result_id)
+    except UploadError as exc:
+        raise _http_for(exc) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/results", response_model=OwnedLabResultsResponse)
 async def list_own_results(
     current: Annotated[UserRecord, Depends(get_current_user)],
@@ -317,6 +335,7 @@ async def list_own_results(
     return OwnedLabResultsResponse(
         results=[
             OwnedLabResultView(
+                id=panel.id,
                 collected_at=panel.collected_at,
                 lab_name=panel.lab_name,
                 chronological_age=(
@@ -324,6 +343,8 @@ async def list_own_results(
                 ),
                 confirmed_at=panel.confirmed_at,
                 document_sha256=panel.document_sha256,
+                marker_count=len(panel.markers),
+                status="confirmed",
                 markers=[
                     OwnedMarkerView(
                         raw_name=marker.raw_name,

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TabType, LabPanelData, HistoricalTestRecord, AccountState, PhenoAgeCalculation } from './types';
 import { INITIAL_BIOMARKERS } from './data/phenoAgeData';
-import { deleteOwnLabResults, fetchOwnLabResults } from './api/uploads';
+import { deleteOwnLabResult, deleteOwnLabResults, fetchOwnLabResults } from './api/uploads';
 import { isBiomarkerId } from './i18n/biomarkerIds';
 import { fetchPhenoAge, PhenoAgeScore } from './api/phenoage';
 import { displayBiomarkerScores, displayPercentile } from './utils/phenoAgeMath';
@@ -222,8 +222,9 @@ export default function App() {
           // The saved numbers still load when the score request fails.
         }
         records.push({
-          id: panel.documentSha256 || panel.confirmedAt,
+          id: panel.id,
           date: panel.collectedAt ?? panel.confirmedAt.slice(0, 10),
+          collectedAt: panel.collectedAt,
           chronologicalAge: age,
           phenoAge,
           delta,
@@ -231,6 +232,7 @@ export default function App() {
           biomarkers: panelBiomarkers,
           hash: panel.documentSha256,
           markerIds,
+          markerCount: panel.markerCount,
           sessionOnly: false,
         });
       }
@@ -251,6 +253,7 @@ export default function App() {
     const newRecord: HistoricalTestRecord = {
       id: `session-${Date.now()}`,
       date: today,
+      collectedAt: null,
       chronologicalAge,
       phenoAge: phenoAgeCalculation.phenoAge,
       delta: phenoAgeCalculation.ageDelta,
@@ -259,6 +262,7 @@ export default function App() {
       biomarkers: { ...biomarkers },
       hash: currentPanel.hash.length === 64 ? currentPanel.hash : '',
       markerIds: [...currentPanel.focusMarkerIds],
+      markerCount: currentPanel.focusMarkerIds.length,
       sessionOnly: true,
     };
     setHistory((prev) => [...prev, newRecord]);
@@ -270,8 +274,27 @@ export default function App() {
     setCurrentPanel(panelFromHistory(record));
   };
 
-  const handleDeleteHistory = (id: string) => {
-    setHistory((prev) => prev.filter((h) => h.id !== id));
+  const handleDeleteHistory = async (id: string) => {
+    const row = history.find((item) => item.id === id);
+    if (!row) {
+      return;
+    }
+    if (!row.sessionOnly) {
+      await deleteOwnLabResult(id);
+    }
+    const remaining = history.filter((item) => item.id !== id);
+    setHistory(remaining);
+    if (currentPanel.id !== id) {
+      return;
+    }
+    const nextSaved = [...remaining].reverse().find((item) => !item.sessionOnly);
+    if (nextSaved) {
+      handleSelectHistoricalRecord(nextSaved);
+      return;
+    }
+    setBiomarkers({ ...INITIAL_BIOMARKERS });
+    setChronologicalAge(42.0);
+    setCurrentPanel(tutorialPanel());
   };
 
   const handlePurgeMemory = async () => {

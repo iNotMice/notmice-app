@@ -89,6 +89,8 @@ export interface PhenoAgeCalculation {
 export interface HistoricalTestRecord {
   id: string;
   date: string;
+  /** Specimen date from the laboratory report. Null when the report did not state one. */
+  collectedAt: string | null;
   chronologicalAge: number;
   phenoAge: number;
   delta: number;
@@ -98,6 +100,8 @@ export interface HistoricalTestRecord {
   hash: string;
   /** Canonical marker ids from the panel. Not the full default biomarker map. */
   markerIds: string[];
+  /** Every analyte row on the upload, including names the dictionary did not map. */
+  markerCount: number;
   /** True when the row exists only in this browser session and is not stored on the account. */
   sessionOnly: boolean;
 }

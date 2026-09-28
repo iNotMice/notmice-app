@@ -222,6 +222,7 @@ class InMemoryLabStore:
             (
                 user_id,
                 OwnedLabPanel(
+                    id=result.lab_result_id,
                     collected_at=collected_at,
                     lab_name=lab_name,
                     chronological_age=chronological_age,
@@ -260,6 +261,20 @@ class InMemoryLabStore:
         self._owners = [(owner, panel) for owner, panel in self._owners if owner != user_id]
         self.saved = [row for row in self.saved if row.document_sha256 not in removed_hashes]
         return before - len(self._owners)
+
+    async def delete_one(self, user_id: UUID, lab_result_id: UUID) -> bool:
+        kept: list[tuple[UUID, OwnedLabPanel]] = []
+        removed = False
+        for owner, panel in self._owners:
+            if owner == user_id and panel.id == lab_result_id:
+                removed = True
+                continue
+            kept.append((owner, panel))
+        if not removed:
+            return False
+        self._owners = kept
+        self.saved = [row for row in self.saved if row.lab_result_id != lab_result_id]
+        return True
 
 
 def _account_service() -> AccountService:
@@ -949,6 +964,64 @@ async def test_delete_results_removes_only_the_caller() -> None:
         assert labs.saved == []
         me = await client.get("/api/v1/accounts/me")
         assert me.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_delete_one_upload_keeps_the_rest() -> None:
+    """DELETE /results/{id} removes that upload and leaves every other panel in place."""
+    accounts = _account_service()
+    uploads, _vision, labs = _upload_bundle()
+    application = _app(accounts, uploads)
+    transport = ASGITransport(app=application)
+
+    async def confirm(client: AsyncClient, lab_name: str, collected_at: str) -> str:
+        extracted = await client.post(
+            "/api/v1/uploads/extract",
+            files={"file": ("panel.jpg", b"\xff\xd8\xff\xe0" + lab_name.encode(), "image/jpeg")},
+        )
+        assert extracted.status_code == 200
+        confirmed = await client.post(
+            "/api/v1/uploads/confirm",
+            json={
+                "extract_token": extracted.json()["extract_token"],
+                "lab_name": lab_name,
+                "collected_at": collected_at,
+                "markers": [
+                    {"raw_name": "Serum Albumin", "value": 46.1, "unit": "g/L"},
+                    {"raw_name": "hs-CRP", "value": 1.2, "unit": "mg/L"},
+                ],
+            },
+        )
+        assert confirmed.status_code == 200
+        return str(confirmed.json()["lab_result_id"])
+
+    async with (
+        AsyncClient(transport=transport, base_url="http://test") as owner,
+        AsyncClient(transport=transport, base_url="http://test") as other,
+    ):
+        owner.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
+        other.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
+        first = await confirm(owner, "Quest Diagnostics", "2024-03-02")
+        second = await confirm(owner, "Synlab", "2025-01-09")
+        foreign = await confirm(other, "Invitro", "2024-06-01")
+
+        listed = await owner.get("/api/v1/uploads/results")
+        rows = listed.json()["results"]
+        assert [row["id"] for row in rows] == [first, second]
+        assert rows[0]["collected_at"] == "2024-03-02"
+        assert rows[0]["lab_name"] == "Quest Diagnostics"
+        assert rows[0]["marker_count"] == 2
+        assert rows[0]["status"] == "confirmed"
+
+        assert (await owner.delete(f"/api/v1/uploads/results/{foreign}")).status_code == 404
+        assert (await owner.delete(f"/api/v1/uploads/results/{uuid4()}")).status_code == 404
+        foreign_list = await other.get("/api/v1/uploads/results")
+        assert [row["id"] for row in foreign_list.json()["results"]] == [foreign]
+
+        assert (await owner.delete(f"/api/v1/uploads/results/{first}")).status_code == 204
+        left = (await owner.get("/api/v1/uploads/results")).json()["results"]
+        assert [row["id"] for row in left] == [second]
+        assert {row.lab_result_id for row in labs.saved} == {UUID(second), UUID(foreign)}
 
 
 def test_rate_limiter_forgets_expired_keys() -> None:

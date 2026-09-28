@@ -66,6 +66,10 @@ class ExtractSessionNotFoundError(UploadError):
     """The extract token is missing, expired, or belongs to another user."""
 
 
+class LabResultNotFoundError(UploadError):
+    """The confirmed upload is missing or belongs to another account."""
+
+
 class NoMarkersError(UploadError):
     """Extraction produced no numeric analytes."""
 
@@ -197,6 +201,7 @@ class OwnedMarker:
 class OwnedLabPanel:
     """A confirmed panel for its owner. No internal user id."""
 
+    id: UUID
     collected_at: date | None
     lab_name: str | None
     chronological_age: Decimal | None

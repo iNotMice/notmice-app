@@ -38,7 +38,7 @@ import {
 
 interface BiomarkerHistoryTabProps {
   history: HistoricalTestRecord[];
-  onDeleteHistory: (id: string) => void;
+  onDeleteHistory: (id: string) => void | Promise<void>;
   onSelectRecord: (record: HistoricalTestRecord) => void;
   setActiveTab: (tab: TabType) => void;
 }
@@ -54,6 +54,14 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   const [selectedBiomarker, setSelectedBiomarker] = useState<string>('crp');
   const [chartViewMode, setChartViewMode] = useState<'both' | 'delta'>('both');
   const [showReportModal, setShowReportModal] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const removeUpload = (id: string) => {
+    setDeleteError(null);
+    void Promise.resolve(onDeleteHistory(id)).catch((err: unknown) => {
+      setDeleteError(err instanceof Error ? err.message : copy.deleteFailed);
+    });
+  };
 
   const activeBioDef = PHENOAGE_BIOMARKERS.find((b) => b.id === selectedBiomarker);
 
@@ -735,12 +743,19 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
           </div>
         </div>
 
+        {deleteError && (
+          <p className="px-5 py-2 font-['Inter'] text-xs text-[#3f4850] bg-[#f8f9ff] border-b border-[#e2e8f0]">
+            {deleteError}
+          </p>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left font-['Inter'] text-xs">
             <thead>
               <tr className="bg-[#f8f9ff] text-[#565e74] font-['JetBrains_Mono'] text-[11px] uppercase tracking-wider border-b border-[#e2e8f0]">
                 <th className="py-3 px-4">{copy.colDate}</th>
                 <th className="py-3 px-3">{copy.colLab}</th>
+                <th className="py-3 px-3">{copy.colMarkers}</th>
+                <th className="py-3 px-3">{copy.colStatus}</th>
                 <th className="py-3 px-3">{copy.colChrono}</th>
                 <th className="py-3 px-3">{copy.colPheno}</th>
                 <th className="py-3 px-3">{copy.colVariance}</th>
@@ -752,17 +767,18 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                 <tr key={record.id} className="hover:bg-[#f8f9ff] transition-colors">
                   <td className="py-3.5 px-4 font-bold text-[#0b1c30] flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5 text-[#006194]" />
-                    <span>{record.date}</span>
+                    <span>{record.sessionOnly ? record.date : (record.collectedAt ?? copy.dateMissing)}</span>
                   </td>
                   <td className="py-3.5 px-3 text-[#3f4850]">
-                    <div className="flex flex-col gap-1">
-                      <span>{record.labSource}</span>
-                      {record.sessionOnly && (
-                        <span className="font-['JetBrains_Mono'] text-[10px] text-[#004b73] font-semibold">
-                          {copy.sessionOnly}
-                        </span>
-                      )}
-                    </div>
+                    <span>{record.labSource}</span>
+                  </td>
+                  <td className="py-3.5 px-3 font-['JetBrains_Mono'] text-[#0b1c30]">
+                    {record.markerCount}
+                  </td>
+                  <td className="py-3.5 px-3">
+                    <span className="font-['JetBrains_Mono'] text-[10px] font-semibold text-[#3f4850]">
+                      {record.sessionOnly ? copy.sessionOnly : copy.confirmedStatus}
+                    </span>
                   </td>
                   <td className="py-3.5 px-3 font-['JetBrains_Mono'] text-[#565e74]">
                     {record.chronologicalAge.toFixed(1)}y
@@ -792,15 +808,13 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                       >
                         {copy.loadEngine}
                       </button>
-                      {(record.sessionOnly || history.length > 1) && (
-                        <button
-                          onClick={() => onDeleteHistory(record.id)}
-                          className="p-1 rounded text-[#ba1a1a] hover:bg-[#fff1f2] transition-colors cursor-pointer"
-                          title={copy.deleteEntry}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => removeUpload(record.id)}
+                        className="p-1 rounded text-[#565e74] hover:bg-[#f1f5f9] transition-colors cursor-pointer"
+                        title={copy.deleteEntry}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>

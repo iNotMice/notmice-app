@@ -38,11 +38,14 @@ export interface OwnMarker {
 }
 
 export interface OwnLabResult {
+  id: string;
   collectedAt: string | null;
   labName: string | null;
   chronologicalAge: number | null;
   confirmedAt: string;
   documentSha256: string;
+  markerCount: number;
+  status: 'confirmed';
   markers: OwnMarker[];
 }
 
@@ -99,11 +102,14 @@ interface OwnMarkerPayload {
 }
 
 interface OwnLabResultPayload {
+  id: string;
   collected_at: string | null;
   lab_name: string | null;
   chronological_age: number | null;
   confirmed_at: string;
   document_sha256: string;
+  marker_count: number;
+  status: 'confirmed';
   markers: OwnMarkerPayload[];
 }
 
@@ -280,11 +286,14 @@ export async function fetchOwnLabResults(): Promise<OwnLabResult[]> {
   }
   const payload = (await response.json()) as OwnLabResultsPayload;
   return payload.results.map((panel) => ({
+    id: panel.id,
     collectedAt: panel.collected_at,
     labName: panel.lab_name,
     chronologicalAge: panel.chronological_age,
     confirmedAt: panel.confirmed_at,
     documentSha256: panel.document_sha256,
+    markerCount: panel.marker_count,
+    status: panel.status,
     markers: panel.markers.map((marker) => ({
       rawName: marker.raw_name,
       canonicalId: marker.canonical_id,
@@ -305,6 +314,13 @@ export async function deleteOwnLabResults(): Promise<void> {
   const response = await authed('/api/v1/uploads/results', { method: 'DELETE' });
   if (!response.ok) {
     throw new Error('Could not delete saved panels');
+  }
+}
+
+export async function deleteOwnLabResult(labResultId: string): Promise<void> {
+  const response = await authed(`/api/v1/uploads/results/${labResultId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error(await readError(response));
   }
 }
 

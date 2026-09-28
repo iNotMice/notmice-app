@@ -19,6 +19,7 @@ from app.domain.uploads import (
     ConfirmedLabResult,
     EmptyPayloadError,
     ExtractedPanel,
+    LabResultNotFoundError,
     MappedMarker,
     NoMarkersError,
     OwnedLabPanel,
@@ -81,6 +82,9 @@ class LabResultStore(Protocol):
 
     async def delete_confirmed(self, user_id: UUID) -> int:
         """Delete confirmed panels owned by ``user_id``. The account itself stays."""
+
+    async def delete_one(self, user_id: UUID, lab_result_id: UUID) -> bool:
+        """Delete one confirmed panel owned by ``user_id``. Return whether a row went."""
 
 
 class UploadService:
@@ -401,6 +405,18 @@ class UploadService:
         """
         removed = await self._lab_results.delete_confirmed(user_id)
         logger.info("lab_results_deleted", removed=removed)
+
+    async def delete_one(self, user_id: UUID, lab_result_id: UUID) -> None:
+        """Delete one confirmed upload. A missing or foreign id is the same error.
+
+        Args:
+            user_id: Authenticated owner.
+            lab_result_id: Panel id from the owner's list.
+        """
+        removed = await self._lab_results.delete_one(user_id, lab_result_id)
+        if not removed:
+            raise LabResultNotFoundError("Upload not found")
+        logger.info("lab_result_deleted", lab_result_id=str(lab_result_id))
 
 
 def _label_without_personal_text(value: str | None) -> str | None:

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -114,6 +116,7 @@ class LabResultRepository:
             provenance = row.provenance
             panels.append(
                 OwnedLabPanel(
+                    id=row.id,
                     collected_at=row.collected_at,
                     lab_name=row.lab_name,
                     chronological_age=row.chronological_age,
@@ -154,3 +157,29 @@ class LabResultRepository:
         await self._session.execute(delete(LabResult).where(LabResult.user_id == user_id))
         await self._session.flush()
         return int(count or 0)
+
+    async def delete_one(self, user_id: UUID, lab_result_id: UUID) -> bool:
+        """Delete one confirmed panel when this account owns it.
+
+        Biomarkers and provenance follow the foreign key. Another account's row
+        is left in place, and the caller cannot tell it from a missing id.
+
+        Args:
+            user_id: Owner.
+            lab_result_id: Panel to remove.
+
+        Returns:
+            True when a row was deleted.
+        """
+        outcome = cast(
+            CursorResult[Any],
+            await self._session.execute(
+                delete(LabResult).where(
+                    LabResult.id == lab_result_id,
+                    LabResult.user_id == user_id,
+                    LabResult.confirmed_at.is_not(None),
+                )
+            ),
+        )
+        await self._session.flush()
+        return (outcome.rowcount or 0) > 0
