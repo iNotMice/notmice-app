@@ -415,12 +415,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
         </div>
       </div>
 
-      {/* Dynamic Actionable Longevity & Lifestyle Advisor based on current biomarkers */}
-      <LifestyleLongevityAdvisor
-        biomarkers={biomarkers}
-        calculation={calculation}
-        chronologicalAge={chronologicalAge}
-      />
+      <LifestyleLongevityAdvisor />
     </div>
   );
 };

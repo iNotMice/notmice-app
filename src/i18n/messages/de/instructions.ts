@@ -20,7 +20,7 @@ export const instructions = {
     },
     {
       name: 'PhenoAge',
-      body: 'Die PhenoAge-Engine zeigt den Forschungsindex und Hinweise zum Lebensstil. Der Biomarker-Verlauf behält Panels, die Sie in dieser Browsersitzung speichern.',
+      body: 'Die PhenoAge-Engine zeigt den Forschungsindex und die Marker-Karten. Der Biomarker-Verlauf behält Panels, die Sie in dieser Browsersitzung speichern.',
     },
     {
       name: 'Daten',
@@ -48,7 +48,7 @@ export const instructions = {
     'Legen Sie ein Konto an und schreiben Sie die 12 Wörter auf. Nur damit kommen Sie wieder hinein. Der Server speichert die Wörter nicht.',
     'Öffnen Sie Labor, dann Labor hochladen. Legen Sie ein PDF ab, oder nutzen Sie ein Demo-Beispiel, wenn Sie nur den Ablauf sehen wollen.',
     'Vergleichen Sie unter Prüfung und Extraktion jede Zahl mit Ihrem Befund und korrigieren Sie Einheiten, bevor Sie weitergehen.',
-    'Öffnen Sie die PhenoAge-Engine, um den Index neben dem Kalenderalter zu sehen, und die Hinweise zum Lebensstil unter der Punktzahl.',
+    'Öffnen Sie die PhenoAge-Engine, um den Index neben dem Kalenderalter zu sehen, und die Marker-Karten unter der Punktzahl.',
     'Speichern Sie in den Verlauf nur, wenn dieses Panel im Diagramm dieser Browsersitzung bleiben soll. Die Liste wird nicht aus dem Labordatensatz geladen.',
     'Schalten Sie unter Daten das öffentliche Teilen nur ein, wenn bestätigte Zeilen in den offenen Datensatz sollen. Lassen Sie es aus, wenn nicht.',
   ],
@@ -72,7 +72,7 @@ export const instructions = {
     {
       tab: 'phenoage-engine',
       title: 'PhenoAge-Engine',
-      body: 'Zeigt PhenoAge, den Abstand zum Kalenderalter und wie jeder der neun Biomarker den Index zieht. Mit den Reglern können Sie Werte ausprobieren. Weiter unten schlagen Hinweise zum Lebensstil Gewohnheiten vor, die zu diesen Markern passen. Das ist der Forschungsindex nach Levine 2018, kein medizinischer Dienst.',
+      body: 'Zeigt PhenoAge, den Abstand zum Kalenderalter und wie jeder der neun Biomarker den Index zieht. Mit den Reglern können Sie Werte ausprobieren. Weiter unten stehen dieselben Marker-Karten für jedes Konto. Das ist der Forschungsindex nach Levine 2018, kein medizinischer Dienst.',
     },
     {
       tab: 'biomarker-history',

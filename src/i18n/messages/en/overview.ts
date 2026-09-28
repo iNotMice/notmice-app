@@ -33,7 +33,7 @@ export const overview = {
   crpMid: '3.0 (Moderate)',
   crpHigh: '> 5.0 (High Risk)',
   noLabFile: 'No lab file yet • SHA-256 appears after a real upload',
-  longevityAdvice: 'Longevity Advice',
+  longevityAdvice: 'Marker cards',
   inspectProof: 'Inspect Proof',
   whyNotMice: "Why 'NotMice'?",
   whyBody:

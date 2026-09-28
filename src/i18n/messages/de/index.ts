@@ -2,7 +2,6 @@ import type { AppMessages } from '../en';
 import { biomarkers } from './biomarkers';
 import { history } from './history';
 import { instructions } from './instructions';
-import { lifestyle } from './lifestyle';
 import { lifestyleUi } from './lifestyleUi';
 import { modals } from './modals';
 import { nav } from './nav';
@@ -30,5 +29,4 @@ export const deMessages = {
   report,
   biomarkers,
   lifestyleUi,
-  lifestyle,
 } satisfies AppMessages;

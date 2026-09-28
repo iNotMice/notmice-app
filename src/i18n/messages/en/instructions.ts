@@ -20,7 +20,7 @@ export const instructions = {
     },
     {
       name: 'PhenoAge',
-      body: 'PhenoAge Engine shows the research index and lifestyle notes. Biomarker History keeps panels you save during this browser session.',
+      body: 'PhenoAge Engine shows the research index and marker cards. Biomarker History keeps panels you save during this browser session.',
     },
     {
       name: 'Data',
@@ -48,7 +48,7 @@ export const instructions = {
     'Create an account and write down the 12 words. They are the only way back in. The server does not store the words.',
     'Open Lab, then Upload Lab. Drop a PDF, or use a demo fixture if you only want to see the flow.',
     'On Review and Extraction, compare each number with your report and correct units before you continue.',
-    'Open PhenoAge Engine to see the index beside your calendar age, and the lifestyle notes under the score.',
+    'Open PhenoAge Engine to see the index beside your calendar age, and the marker cards under the score.',
     'Save to History only if you want that panel in the chart for this browser session. The list is not loaded from the laboratory dataset.',
     'On Data, turn public sharing on only if you want confirmed rows in the open dataset. Leave it off if you do not.',
   ],
@@ -72,7 +72,7 @@ export const instructions = {
     {
       tab: 'phenoage-engine',
       title: 'PhenoAge Engine',
-      body: 'Shows PhenoAge, the gap versus calendar age, and how each of the nine biomarkers pulls the index. Sliders let you try values. Lower on the page, lifestyle notes suggest habits tied to those markers. This is the Levine 2018 research index, not a medical service.',
+      body: 'Shows PhenoAge, the gap versus calendar age, and how each of the nine biomarkers pulls the index. Sliders let you try values. Lower on the page, the same marker cards appear for every account. This is the Levine 2018 research index, not a medical service.',
     },
     {
       tab: 'biomarker-history',

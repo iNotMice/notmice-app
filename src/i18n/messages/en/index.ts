@@ -1,7 +1,6 @@
 import { biomarkers } from './biomarkers';
 import { history } from './history';
 import { instructions } from './instructions';
-import { buildEnglishLifestyle } from './lifestyle';
 import { lifestyleUi } from './lifestyleUi';
 import { modals } from './modals';
 import { nav } from './nav';
@@ -29,7 +28,6 @@ export const enMessages = {
   report,
   biomarkers,
   lifestyleUi,
-  lifestyle: buildEnglishLifestyle(),
 };
 
 export type Messages = typeof enMessages;
