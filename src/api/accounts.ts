@@ -6,21 +6,12 @@ export interface Account {
   createdAt: string;
 }
 
-export interface AccountWithToken extends Account {
-  accessToken: string;
-}
-
-const TOKEN_KEY = 'notmice.access_token';
+const LEGACY_TOKEN_KEY = 'notmice.access_token';
 
 interface AccountViewPayload {
   public_id: string;
   is_public: boolean;
   created_at: string;
-}
-
-interface SessionPayload extends AccountViewPayload {
-  access_token: string;
-  token_type: string;
 }
 
 function apiUrl(path: string): string {
@@ -52,7 +43,7 @@ async function readError(response: Response): Promise<string> {
 }
 
 async function requestJson<T>(path: string, init: RequestInit): Promise<T> {
-  const response = await fetch(apiUrl(path), init);
+  const response = await fetch(apiUrl(path), { ...init, credentials: 'include' });
   if (response.status === 204) {
     return undefined as T;
   }
@@ -62,40 +53,17 @@ async function requestJson<T>(path: string, init: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-function jsonHeaders(token?: string): HeadersInit {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
+function jsonHeaders(): HeadersInit {
+  return { 'Content-Type': 'application/json' };
 }
 
-export function readStoredToken(): string | null {
+export function forgetLegacyToken(): void {
   try {
-    const lasting = localStorage.getItem(TOKEN_KEY);
-    if (lasting) {
-      return lasting;
-    }
-    const legacy = sessionStorage.getItem(TOKEN_KEY);
-    if (!legacy) {
-      return null;
-    }
-    localStorage.setItem(TOKEN_KEY, legacy);
-    sessionStorage.removeItem(TOKEN_KEY);
-    return legacy;
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    sessionStorage.removeItem(LEGACY_TOKEN_KEY);
   } catch {
-    return null;
+    // Storage can be blocked. The cookie is the session either way.
   }
-}
-
-export function storeToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-  sessionStorage.removeItem(TOKEN_KEY);
-}
-
-export function clearStoredToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(TOKEN_KEY);
 }
 
 export const HEALTH_CONSENT_VERSION = '2026-09-28';
@@ -129,28 +97,22 @@ export async function registerAccount(input: RegisterInput): Promise<void> {
   });
 }
 
-export async function loginWithEmail(email: string, password: string): Promise<AccountWithToken> {
-  const payload = await requestJson<SessionPayload>('/api/v1/accounts/login/email', {
+export async function loginWithEmail(email: string, password: string): Promise<Account> {
+  const payload = await requestJson<AccountViewPayload>('/api/v1/accounts/login/email', {
     method: 'POST',
     headers: jsonHeaders(),
     body: JSON.stringify({ email, password }),
   });
-  return {
-    ...mapAccount(payload),
-    accessToken: payload.access_token,
-  };
+  return mapAccount(payload);
 }
 
-export async function confirmEmail(token: string): Promise<AccountWithToken> {
-  const payload = await requestJson<SessionPayload>('/api/v1/accounts/confirm', {
+export async function confirmEmail(token: string): Promise<Account> {
+  const payload = await requestJson<AccountViewPayload>('/api/v1/accounts/confirm', {
     method: 'POST',
     headers: jsonHeaders(),
     body: JSON.stringify({ token }),
   });
-  return {
-    ...mapAccount(payload),
-    accessToken: payload.access_token,
-  };
+  return mapAccount(payload);
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
@@ -169,9 +131,9 @@ export async function confirmPasswordReset(token: string, password: string): Pro
   });
 }
 
-export async function downloadOwnExport(token: string, kind: 'json' | 'csv'): Promise<void> {
+export async function downloadOwnExport(kind: 'json' | 'csv'): Promise<void> {
   const path = kind === 'json' ? '/api/v1/accounts/me/export.json' : '/api/v1/accounts/me/export.csv';
-  const response = await fetch(apiUrl(path), { headers: jsonHeaders(token) });
+  const response = await fetch(apiUrl(path), { credentials: 'include' });
   if (!response.ok) {
     throw new Error(await readError(response));
   }
@@ -186,47 +148,47 @@ export async function downloadOwnExport(token: string, kind: 'json' | 'csv'): Pr
   URL.revokeObjectURL(url);
 }
 
-export async function deleteOwnAccount(token: string): Promise<void> {
+export async function deleteOwnAccount(): Promise<void> {
   await requestJson<void>('/api/v1/accounts/me', {
     method: 'DELETE',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders(),
   });
 }
 
-export async function loginWithMnemonic(mnemonic: string): Promise<AccountWithToken> {
-  const payload = await requestJson<SessionPayload>('/api/v1/accounts/login', {
+export async function loginWithMnemonic(mnemonic: string): Promise<Account> {
+  const payload = await requestJson<AccountViewPayload>('/api/v1/accounts/login', {
     method: 'POST',
     headers: jsonHeaders(),
     body: JSON.stringify({ mnemonic }),
   });
-  return {
-    ...mapAccount(payload),
-    accessToken: payload.access_token,
-  };
-}
-
-export async function logoutAccount(token: string): Promise<void> {
-  await requestJson<void>('/api/v1/accounts/logout', {
-    method: 'POST',
-    headers: jsonHeaders(token),
-  });
-}
-
-export async function fetchCurrentAccount(token: string): Promise<Account> {
-  const payload = await requestJson<AccountViewPayload>('/api/v1/accounts/me', {
-    method: 'GET',
-    headers: jsonHeaders(token),
-  });
   return mapAccount(payload);
 }
 
-export async function updateShareSettings(
-  token: string,
-  isPublic: boolean
-): Promise<Account> {
+export async function logoutAccount(): Promise<void> {
+  await requestJson<void>('/api/v1/accounts/logout', {
+    method: 'POST',
+    headers: jsonHeaders(),
+  });
+}
+
+export async function fetchCurrentAccount(): Promise<Account | null> {
+  const response = await fetch(apiUrl('/api/v1/accounts/me'), {
+    method: 'GET',
+    credentials: 'include',
+  });
+  if (response.status === 401) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return mapAccount((await response.json()) as AccountViewPayload);
+}
+
+export async function updateShareSettings(isPublic: boolean): Promise<Account> {
   const payload = await requestJson<AccountViewPayload>('/api/v1/accounts/me/share', {
     method: 'PATCH',
-    headers: jsonHeaders(token),
+    headers: jsonHeaders(),
     body: JSON.stringify({ is_public: isPublic }),
   });
   return mapAccount(payload);

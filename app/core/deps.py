@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import get_settings
 from app.core.rate_limit import SlidingWindowRateLimiter
-from app.core.security import Argon2PasswordHasher, Argon2SeedHasher, JwtTokenIssuer
+from app.core.security import Argon2PasswordHasher, Argon2SeedHasher
 from app.repositories.dataset import DatasetRepository
 from app.repositories.health import HealthRepository
 from app.repositories.lab_results import LabResultRepository
@@ -98,12 +98,12 @@ async def get_account_service(
     return AccountService(
         users=UserRepository(session),
         hasher=Argon2SeedHasher(settings.seed_hash_secret),
-        tokens=JwtTokenIssuer(settings.jwt_secret, settings.access_token_ttl_seconds),
         passwords=get_password_hasher(),
         mailer=get_mailer(),
         auth_seed_enabled=settings.auth_seed_enabled,
         app_url=settings.public_app_url,
         token_ttl=timedelta(seconds=settings.auth_token_ttl_seconds),
+        session_ttl=timedelta(seconds=settings.access_token_ttl_seconds),
     )
 
 

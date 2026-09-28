@@ -13,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from PIL import Image, ImageDraw, ImageFont
 from structlog.testing import capture_logs
 
+from app.api.accounts import SESSION_COOKIE_NAME
 from app.domain.accounts import UserRecord
 from app.domain.uploads import ExtractSessionNotFoundError
 from app.services.extract_sessions import InMemoryExtractSessionStore
@@ -212,11 +213,9 @@ async def test_http_confirm_sends_only_the_painted_frame() -> None:
     original = b"\xff\xd8\xff\xe0" + b"\x33" * 24
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        token = (await accounts.create()).access_token
-        headers = {"Authorization": f"Bearer {token}"}
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
         extracted = await client.post(
             "/api/v1/uploads/extract",
-            headers=headers,
             files={"file": ("scan.jpg", original, "image/jpeg")},
         )
         assert extracted.status_code == 202
@@ -226,7 +225,6 @@ async def test_http_confirm_sends_only_the_painted_frame() -> None:
         assert vision.media_calls == 0
         confirmed = await client.post(
             "/api/v1/uploads/redaction/confirm",
-            headers=headers,
             json={"redaction_token": body["redaction_token"]},
         )
         assert confirmed.status_code == 200

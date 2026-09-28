@@ -68,19 +68,19 @@ class UserRecord:
 
 @dataclass(frozen=True, slots=True)
 class CreatedAccount:
-    """Result of registration. The mnemonic is present only here, once."""
+    """Result of phrase-account creation. The mnemonic is present only here, once."""
 
     user: UserRecord
     mnemonic: str
-    access_token: str
+    session_token: str
 
 
 @dataclass(frozen=True, slots=True)
 class AuthenticatedSession:
-    """Result of login or token refresh of the current user."""
+    """A signed-in participant and the raw cookie value, returned once."""
 
     user: UserRecord
-    access_token: str
+    session_token: str
 
 
 @dataclass(frozen=True, slots=True)

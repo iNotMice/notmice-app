@@ -6,7 +6,6 @@ import hashlib
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_settings
 from app.core.deps import (
@@ -35,7 +34,6 @@ from app.domain.schemas import (
     AccountLoginRequest,
     AccountRegisterRequest,
     AccountRegisterResponse,
-    AccountSessionResponse,
     AccountView,
     AuthTokenRequest,
     ConsentInput,
@@ -49,7 +47,7 @@ from app.domain.schemas import (
 from app.services.accounts import AccountService
 
 router = APIRouter(prefix="/api/v1/accounts", tags=["accounts"])
-_bearer = HTTPBearer(auto_error=False)
+SESSION_COOKIE_NAME = "notmice_session"
 
 
 async def enforce_account_rate_limit(
@@ -121,14 +119,44 @@ def _parse_email(value: str) -> str:
         ) from exc
 
 
-def _session_response(session: AuthenticatedSession) -> AccountSessionResponse:
-    """Map a service session onto the bearer response."""
-    return AccountSessionResponse(
-        public_id=session.user.public_id,
-        is_public=session.user.is_public,
-        created_at=session.user.created_at,
-        access_token=session.access_token,
+def _account_view(session: AuthenticatedSession) -> AccountView:
+    """Map a signed-in participant onto the JSON body. The cookie carries the secret."""
+    user = session.user
+    return AccountView(
+        public_id=user.public_id, is_public=user.is_public, created_at=user.created_at
     )
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    """Store the session in an HttpOnly cookie. Production also sets Secure."""
+    settings = get_settings()
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=settings.access_token_ttl_seconds,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_session_cookie(response: Response) -> None:
+    """Drop the session cookie. Flags match the setter so the browser removes it."""
+    settings = get_settings()
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _start_session(response: Response, session: AuthenticatedSession) -> AccountView:
+    """Set the session cookie and return the account view."""
+    _set_session_cookie(response, session.session_token)
+    return _account_view(session)
 
 
 def _email_http_for(exc: AccountError) -> HTTPException:
@@ -171,19 +199,17 @@ def _http_for(exc: AccountError) -> HTTPException:
         return HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Account request failed")
 
 
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    request: Request,
     account_service: Annotated[AccountService, Depends(get_account_service)],
 ) -> UserRecord:
-    """Require a valid bearer token and return the current user."""
-    token = credentials.credentials if credentials is not None else None
+    """Require a live session cookie and return the current user."""
     try:
-        return await account_service.authenticate(token)
+        return await account_service.authenticate(request.cookies.get(SESSION_COOKIE_NAME))
     except AccountError as exc:
         raise _http_for(exc) from exc
 
@@ -216,21 +242,22 @@ async def register_account(
     return AccountRegisterResponse()
 
 
-@router.post("/confirm", response_model=AccountSessionResponse)
+@router.post("/confirm", response_model=AccountView)
 async def confirm_email(
     payload: AuthTokenRequest,
+    response: Response,
     account_service: Annotated[AccountService, Depends(get_account_service)],
     _: Annotated[None, Depends(enforce_account_rate_limit)],
-) -> AccountSessionResponse:
-    """Consume a one-time confirmation token and return a bearer token."""
+) -> AccountView:
+    """Consume a one-time confirmation token and start a session."""
     try:
         session = await account_service.confirm_email(payload.token)
     except AccountError as exc:
         raise _http_for(exc) from exc
-    return _session_response(session)
+    return _start_session(response, session)
 
 
-@router.post("/login", response_model=AccountSessionResponse)
+@router.post("/login", response_model=AccountView)
 async def login(
     payload: AccountLoginRequest,
     response: Response,
@@ -239,7 +266,7 @@ async def login(
         SlidingWindowRateLimiter, Depends(get_account_identity_rate_limiter)
     ],
     _: Annotated[None, Depends(enforce_account_rate_limit)],
-) -> AccountSessionResponse:
+) -> AccountView:
     """Sign in with the 12-word recovery phrase when seed login is enabled."""
     try:
         reject_pii(payload.model_dump())
@@ -253,10 +280,10 @@ async def login(
         ) from exc
     except AccountError as exc:
         raise _http_for(exc) from exc
-    return _session_response(session)
+    return _start_session(response, session)
 
 
-@router.post("/login/email", response_model=AccountSessionResponse)
+@router.post("/login/email", response_model=AccountView)
 async def login_email(
     payload: EmailLoginRequest,
     response: Response,
@@ -265,7 +292,7 @@ async def login_email(
         SlidingWindowRateLimiter, Depends(get_account_identity_rate_limiter)
     ],
     _: Annotated[None, Depends(enforce_account_rate_limit)],
-) -> AccountSessionResponse:
+) -> AccountView:
     """Sign in with email and password. Failures share one response."""
     email = _parse_email(payload.email)
     await _charge_identity(identity_limiter, _identity_key("login", email), response)
@@ -273,7 +300,7 @@ async def login_email(
         session = await account_service.login_email(email, payload.password)
     except AccountError as exc:
         raise _email_http_for(exc) from exc
-    return _session_response(session)
+    return _start_session(response, session)
 
 
 @router.post(
@@ -300,22 +327,28 @@ async def request_password_reset(
 @router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
 async def confirm_password_reset(
     payload: PasswordResetConfirmRequest,
+    response: Response,
     account_service: Annotated[AccountService, Depends(get_account_service)],
     _: Annotated[None, Depends(enforce_account_rate_limit)],
 ) -> None:
-    """Set a new password with a one-time token."""
+    """Set a new password with a one-time token and drop every session."""
     try:
         await account_service.reset_password(payload.token, payload.password)
     except AccountError as exc:
         raise _http_for(exc) from exc
+    _clear_session_cookie(response)
     return None
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    _current: Annotated[UserRecord, Depends(get_current_user)],
+    request: Request,
+    response: Response,
+    account_service: Annotated[AccountService, Depends(get_account_service)],
 ) -> None:
-    """Acknowledge logout. Tokens are stateless; the client must discard them."""
+    """Revoke the current session and clear the cookie."""
+    await account_service.logout(request.cookies.get(SESSION_COOKIE_NAME))
+    _clear_session_cookie(response)
     return None
 
 
@@ -410,6 +443,7 @@ async def export_account_csv(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_account(
+    response: Response,
     current: Annotated[UserRecord, Depends(get_current_user)],
     account_service: Annotated[AccountService, Depends(get_account_service)],
 ) -> None:
@@ -418,6 +452,7 @@ async def delete_account(
         await account_service.delete_account(current.id)
     except AccountError as exc:
         raise _http_for(exc) from exc
+    _clear_session_cookie(response)
     return None
 
 

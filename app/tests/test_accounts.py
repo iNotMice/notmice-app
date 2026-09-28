@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from app.api.accounts import SESSION_COOKIE_NAME
+from app.core.config import get_settings
 from app.core.deps import (
     get_account_identity_rate_limiter,
     get_account_rate_limiter,
@@ -17,7 +19,7 @@ from app.core.deps import (
 from app.core.rate_limit import SlidingWindowRateLimiter
 from app.core.security import (
     Argon2SeedHasher,
-    JwtTokenIssuer,
+    auth_token_digest,
     generate_mnemonic,
     is_valid_mnemonic,
 )
@@ -53,6 +55,12 @@ class _MemoryToken:
         self.used_at: datetime | None = None
 
 
+class _MemorySession:
+    def __init__(self, user_id: UUID, expires_at: datetime) -> None:
+        self.user_id = user_id
+        self.expires_at = expires_at
+
+
 class InMemoryUserStore:
     """Process-local stand-in for UserRepository."""
 
@@ -64,6 +72,7 @@ class InMemoryUserStore:
         self._credential_by_user: dict[UUID, _MemoryCredential] = {}
         self._tokens: list[_MemoryToken] = []
         self._consents: dict[UUID, list[ConsentRecord]] = {}
+        self._sessions: dict[str, _MemorySession] = {}
 
     async def create(self, *, public_id: str, seed_phrase_hash: str) -> UserRecord:
         user_id = uuid4()
@@ -239,6 +248,9 @@ class InMemoryUserStore:
             self._credentials.pop(credential.email, None)
         self._tokens = [token for token in self._tokens if token.user_id != user_id]
         self._consents.pop(user_id, None)
+        self._sessions = {
+            digest: row for digest, row in self._sessions.items() if row.user_id != user_id
+        }
         return True
 
     async def export_account(self, user_id: UUID) -> AccountExport | None:
@@ -255,13 +267,38 @@ class InMemoryUserStore:
             markers=(),
         )
 
+    async def open_session(
+        self,
+        *,
+        user_id: UUID,
+        token_sha256: str,
+        expires_at: datetime,
+    ) -> None:
+        self._sessions[token_sha256] = _MemorySession(user_id, expires_at)
+
+    async def user_for_session(self, token_sha256: str, now: datetime) -> UserRecord | None:
+        row = self._sessions.get(token_sha256)
+        if row is None:
+            return None
+        if row.expires_at <= now:
+            self._sessions.pop(token_sha256, None)
+            return None
+        return self._by_id.get(row.user_id)
+
+    async def revoke_session(self, token_sha256: str) -> None:
+        self._sessions.pop(token_sha256, None)
+
+    async def revoke_sessions(self, user_id: UUID) -> None:
+        self._sessions = {
+            digest: row for digest, row in self._sessions.items() if row.user_id != user_id
+        }
+
 
 def _service(store: InMemoryUserStore | None = None) -> tuple[AccountService, InMemoryUserStore]:
     users = store if store is not None else InMemoryUserStore()
     service = AccountService(
         users=users,
         hasher=Argon2SeedHasher("test-pepper-secret-key-32-bytes!!"),
-        tokens=JwtTokenIssuer("test-jwt-secret-key-32-bytes-min!", ttl_seconds=3600),
     )
     return service, users
 
@@ -280,7 +317,7 @@ async def test_create_returns_valid_bip39_and_private_share() -> None:
     assert is_valid_mnemonic(created.mnemonic) is True
     assert created.user.is_public is False
     assert created.user.public_id.startswith("nm")
-    assert created.access_token
+    assert created.session_token
 
 
 async def test_create_does_not_persist_mnemonic_on_user_record() -> None:
@@ -289,7 +326,7 @@ async def test_create_does_not_persist_mnemonic_on_user_record() -> None:
     created = await service.create()
     assert not hasattr(created.user, "mnemonic")
     assert created.mnemonic not in created.user.public_id
-    assert created.mnemonic not in created.access_token
+    assert created.mnemonic not in created.session_token
 
 
 async def test_login_with_same_phrase_succeeds() -> None:
@@ -338,10 +375,36 @@ async def test_set_public_toggles_share_settings() -> None:
 
 
 async def test_authenticate_requires_token() -> None:
-    """Missing bearer tokens are unauthenticated."""
+    """A missing session cookie is unauthenticated."""
     service, _users = _service()
     with pytest.raises(UnauthenticatedError):
         await service.authenticate(None)
+
+
+async def test_session_stores_the_digest_and_logout_revokes_it() -> None:
+    """The store keeps SHA-256 only. Logout makes that cookie unusable."""
+    service, users = _service()
+    created = await service.create()
+    digest = auth_token_digest(created.session_token)
+    assert digest is not None
+    assert created.session_token not in users._sessions
+    assert digest in users._sessions
+    assert (await service.authenticate(created.session_token)).id == created.user.id
+    await service.logout(created.session_token)
+    with pytest.raises(UnauthenticatedError):
+        await service.authenticate(created.session_token)
+
+
+async def test_expired_session_is_rejected() -> None:
+    """A cookie past its expiry does not open the account."""
+    service, _users = _service()
+    start = datetime(2026, 9, 28, tzinfo=UTC)
+    service._now = lambda: start
+    service._session_ttl = timedelta(seconds=30)
+    created = await service.create()
+    service._now = lambda: start + timedelta(seconds=31)
+    with pytest.raises(UnauthenticatedError):
+        await service.authenticate(created.session_token)
 
 
 def _override_app(service: AccountService) -> FastAPI:
@@ -395,33 +458,33 @@ async def test_create_logout_login_http_flow() -> None:
     created = await service.create()
     mnemonic = created.mnemonic
     public_id = created.user.public_id
-    token = created.access_token
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        me = await client.get(
-            "/api/v1/accounts/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        client.cookies.set(SESSION_COOKIE_NAME, created.session_token)
+        me = await client.get("/api/v1/accounts/me")
         assert me.status_code == 200
         assert me.json()["public_id"] == public_id
         assert "mnemonic" not in me.json()
+        assert "access_token" not in me.json()
 
-        logged_out = await client.post(
-            "/api/v1/accounts/logout",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        logged_out = await client.post("/api/v1/accounts/logout")
         assert logged_out.status_code == 204
+        signed_out = await client.get("/api/v1/accounts/me")
+        assert signed_out.status_code == 401
 
         login = await client.post("/api/v1/accounts/login", json={"mnemonic": mnemonic})
         assert login.status_code == 200
         assert login.json()["public_id"] == public_id
         assert "mnemonic" not in login.json()
-        new_token = login.json()["access_token"]
+        assert "access_token" not in login.json()
+        set_cookie = login.headers["set-cookie"]
+        flags = {part.strip().lower() for part in set_cookie.split(";")[1:]}
+        assert set_cookie.lower().startswith(f"{SESSION_COOKIE_NAME}=")
+        assert "httponly" in flags
+        assert "samesite=lax" in flags
+        assert ("secure" in flags) is get_settings().session_cookie_secure
 
-        me_again = await client.get(
-            "/api/v1/accounts/me",
-            headers={"Authorization": f"Bearer {new_token}"},
-        )
+        me_again = await client.get("/api/v1/accounts/me")
         assert me_again.status_code == 200
         assert me_again.json()["public_id"] == public_id
 
@@ -499,16 +562,14 @@ async def test_share_toggle_http() -> None:
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         created = await service.create()
-        token = created.access_token
-        headers = {"Authorization": f"Bearer {token}"}
+        client.cookies.set(SESSION_COOKIE_NAME, created.session_token)
         public = await client.patch(
             "/api/v1/accounts/me/share",
-            headers=headers,
             json={"is_public": True},
         )
         assert public.status_code == 200
         assert public.json()["is_public"] is True
-        me = await client.get("/api/v1/accounts/me", headers=headers)
+        me = await client.get("/api/v1/accounts/me")
         assert me.json()["is_public"] is True
 
 

@@ -28,7 +28,6 @@ interface DataSovereigntyTabProps {
   isAuthenticated: boolean;
   isPublic: boolean;
   onTogglePublic: (isPublic: boolean) => void;
-  accessToken: string | null;
   onAccountDeleted: () => void;
   onPurgeMemory: () => void | Promise<void>;
   onOpenSeedPhrase: () => void;
@@ -40,7 +39,6 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   isAuthenticated,
   isPublic,
   onTogglePublic,
-  accessToken,
   onAccountDeleted,
   onPurgeMemory,
   onOpenSeedPhrase,
@@ -158,23 +156,23 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   };
 
   const downloadOwn = (kind: 'json' | 'csv') => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       return;
     }
     setOwnError(null);
     setOwnBusy(true);
-    void downloadOwnExport(accessToken, kind)
+    void downloadOwnExport(kind)
       .catch(() => setOwnError(copy.ownExportFailed))
       .finally(() => setOwnBusy(false));
   };
 
   const deleteAccount = () => {
-    if (!accessToken || !window.confirm(copy.deleteAccountConfirm)) {
+    if (!isAuthenticated || !window.confirm(copy.deleteAccountConfirm)) {
       return;
     }
     setOwnError(null);
     setOwnBusy(true);
-    void deleteOwnAccount(accessToken)
+    void deleteOwnAccount()
       .then(() => onAccountDeleted())
       .catch(() => setOwnError(copy.deleteFailed))
       .finally(() => setOwnBusy(false));
@@ -218,7 +216,7 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
         </div>
       </div>
 
-      {isAuthenticated && accessToken && (
+      {isAuthenticated && (
         <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
           <span className="font-['Inter'] text-base font-bold text-[#0b1c30]">{copy.ownTitle}</span>
           <p className="font-['Inter'] text-sm text-[#3f4850]">{copy.ownLead}</p>

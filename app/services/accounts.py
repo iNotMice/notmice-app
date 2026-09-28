@@ -17,8 +17,6 @@ import structlog
 from app.core.security import (
     Argon2PasswordHasher,
     Argon2SeedHasher,
-    JwtTokenIssuer,
-    TokenError,
     auth_token_digest,
     generate_mnemonic,
     is_valid_mnemonic,
@@ -51,6 +49,7 @@ _PUBLIC_ID_ATTEMPTS = 8
 _PASSWORD_MIN = 12
 _PASSWORD_MAX = 128
 _TOKEN_TTL = timedelta(hours=24, minutes=30)
+_SESSION_TTL = timedelta(hours=12)
 _PURPOSE_CONFIRM = "confirm_email"
 _PURPOSE_RESET = "reset_password"
 
@@ -134,6 +133,24 @@ class UserStore(Protocol):
     async def delete_account(self, user_id: UUID) -> bool:
         """Delete the participant and cascaded rows."""
 
+    async def open_session(
+        self,
+        *,
+        user_id: UUID,
+        token_sha256: str,
+        expires_at: datetime,
+    ) -> None:
+        """Store a session digest. The raw cookie value is not passed here."""
+
+    async def user_for_session(self, token_sha256: str, now: datetime) -> UserRecord | None:
+        """Return the participant for a live session digest."""
+
+    async def revoke_session(self, token_sha256: str) -> None:
+        """Delete one session. Unknown digests are ignored."""
+
+    async def revoke_sessions(self, user_id: UUID) -> None:
+        """Delete every session for the participant."""
+
     async def export_account(self, user_id: UUID) -> AccountExport | None:
         """Return the owner's copy of the account, including the address."""
 
@@ -150,23 +167,23 @@ class AccountService:
         self,
         users: UserStore,
         hasher: Argon2SeedHasher,
-        tokens: JwtTokenIssuer,
         passwords: Argon2PasswordHasher | None = None,
         mailer: Mailer | None = None,
         *,
         auth_seed_enabled: bool = True,
         app_url: str = "http://localhost:8080",
         token_ttl: timedelta = _TOKEN_TTL,
+        session_ttl: timedelta = _SESSION_TTL,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._users = users
         self._hasher = hasher
-        self._tokens = tokens
         self._passwords = passwords if passwords is not None else Argon2PasswordHasher()
         self._mailer = mailer
         self._auth_seed_enabled = auth_seed_enabled
         self._app_url = app_url.rstrip("/")
         self._token_ttl = token_ttl
+        self._session_ttl = session_ttl
         self._now = now if now is not None else _utc_now
 
     async def create(self) -> CreatedAccount:
@@ -175,9 +192,9 @@ class AccountService:
         seed_phrase_hash = self._hasher.hash_phrase(mnemonic)
         public_id = await self._allocate_public_id()
         user = await self._users.create(public_id=public_id, seed_phrase_hash=seed_phrase_hash)
-        access_token = self._tokens.issue(user.id, user.public_id)
+        opened = await self._open_session(user)
         logger.info("account_created", public_id=user.public_id)
-        return CreatedAccount(user=user, mnemonic=mnemonic, access_token=access_token)
+        return CreatedAccount(user=user, mnemonic=mnemonic, session_token=opened.session_token)
 
     async def login(self, mnemonic_raw: str) -> AuthenticatedSession:
         """Authenticate with a recovery phrase.
@@ -199,30 +216,42 @@ class AccountService:
         user = await self._users.get_by_seed_phrase_hash(seed_phrase_hash)
         if user is None:
             raise InvalidCredentialsError
-        access_token = self._tokens.issue(user.id, user.public_id)
+        opened = await self._open_session(user)
         logger.info("account_login", public_id=user.public_id)
-        return AuthenticatedSession(user=user, access_token=access_token)
+        return opened
 
     async def authenticate(self, token: str | None) -> UserRecord:
-        """Resolve a bearer token to a user.
+        """Resolve a session cookie to a user.
 
         Args:
-            token: Raw JWT, or None if the header was missing.
+            token: Raw cookie value, or None when the cookie was missing.
 
         Raises:
-            UnauthenticatedError: Token missing or invalid.
-            AccountNotFoundError: Subject was deleted.
+            UnauthenticatedError: Cookie missing, unknown, or expired.
         """
         if token is None or token.strip() == "":
             raise UnauthenticatedError
-        try:
-            claims = self._tokens.parse(token)
-        except TokenError as exc:
-            raise UnauthenticatedError from exc
-        user = await self._users.get_by_id(claims.user_id)
+        digest = auth_token_digest(token.strip())
+        if digest is None:
+            raise UnauthenticatedError
+        user = await self._users.user_for_session(digest, self._now())
         if user is None:
-            raise AccountNotFoundError
+            raise UnauthenticatedError
         return user
+
+    async def logout(self, token: str | None) -> None:
+        """Revoke the session carried by this cookie. A missing cookie is a no-op.
+
+        Args:
+            token: Raw cookie value.
+        """
+        if token is None or token.strip() == "":
+            return
+        digest = auth_token_digest(token.strip())
+        if digest is None:
+            return
+        await self._users.revoke_session(digest)
+        logger.info("account_logout")
 
     async def set_public(self, user_id: UUID, is_public: bool) -> UserRecord:
         """Persist the opt-in sharing toggle.
@@ -303,9 +332,9 @@ class AccountService:
         user = await self._users.get_by_id(existing.user_id)
         if user is None:
             raise InvalidCredentialsError
-        access_token = self._tokens.issue(user.id, user.public_id)
+        opened = await self._open_session(user)
         logger.info("account_email_login", public_id=user.public_id)
-        return AuthenticatedSession(user=user, access_token=access_token)
+        return opened
 
     async def confirm_email(self, presented: str) -> AuthenticatedSession:
         """Consume a confirmation token and sign the participant in.
@@ -323,9 +352,9 @@ class AccountService:
         user = await self._users.get_by_id(user_id)
         if user is None:
             raise AccountNotFoundError
-        access_token = self._tokens.issue(user.id, user.public_id)
+        opened = await self._open_session(user)
         logger.info("email_confirmed", public_id=user.public_id)
-        return AuthenticatedSession(user=user, access_token=access_token)
+        return opened
 
     async def request_password_reset(self, email: str) -> None:
         """Send a reset link when the address belongs to a confirmed account.
@@ -352,6 +381,7 @@ class AccountService:
         user_id = await self._consume(presented, _PURPOSE_RESET)
         password_hash = self._passwords.hash_password(password)
         await self._users.set_password_hash(user_id, password_hash)
+        await self._users.revoke_sessions(user_id)
         logger.info("password_reset")
 
     async def list_consents(self, user_id: UUID) -> tuple[ConsentRecord, ...]:
@@ -474,6 +504,21 @@ class AccountService:
                 }
             )
         return buffer.getvalue()
+
+    async def _open_session(self, user: UserRecord) -> AuthenticatedSession:
+        """Persist a session digest and return the raw cookie value once.
+
+        Args:
+            user: Participant who just signed in or confirmed their address.
+        """
+        presented, digest = new_auth_token()
+        now = self._now()
+        await self._users.open_session(
+            user_id=user.id,
+            token_sha256=digest,
+            expires_at=now + self._session_ttl,
+        )
+        return AuthenticatedSession(user=user, session_token=presented)
 
     async def _issue_token(self, user_id: UUID, purpose: str, email: str, now: datetime) -> None:
         """Store a digest and mail the raw token. Mail failures stay off the HTTP result."""

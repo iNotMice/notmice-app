@@ -7,10 +7,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.api.accounts import SESSION_COOKIE_NAME
 from app.core.deps import get_account_identity_rate_limiter
 from app.core.rate_limit import SlidingWindowRateLimiter
 from app.core.security import auth_token_digest
-from app.domain.accounts import InvalidAuthTokenError, InvalidCredentialsError
+from app.domain.accounts import InvalidAuthTokenError, InvalidCredentialsError, UnauthenticatedError
 from app.domain.consents import HEALTH_DATA, RESEARCH_REUSE, ConsentChoice
 from app.repositories.models import User
 from app.services.accounts import AccountService
@@ -84,7 +85,7 @@ async def test_confirm_is_one_time_and_then_login_works() -> None:
     await service.register(email="person@example.com", password=_PASSWORD, consents=(_HEALTH,))
     presented = _token_from(mailer)
     session = await service.confirm_email(presented)
-    assert session.access_token
+    assert session.session_token
     with pytest.raises(InvalidAuthTokenError):
         await service.confirm_email(presented)
     signed_in = await service.login_email("person@example.com", _PASSWORD)
@@ -116,6 +117,21 @@ async def test_reset_token_is_one_time() -> None:
     assert signed_in.user.public_id
     with pytest.raises(InvalidCredentialsError):
         await service.login_email("person@example.com", _PASSWORD)
+
+
+async def test_password_reset_revokes_every_session() -> None:
+    """A new password signs out every device that was already in."""
+    service, _users, mailer = _email_service()
+    await service.register(email="person@example.com", password=_PASSWORD, consents=(_HEALTH,))
+    await service.confirm_email(_token_from(mailer))
+    first = await service.login_email("person@example.com", _PASSWORD)
+    second = await service.login_email("person@example.com", _PASSWORD)
+    await service.request_password_reset("person@example.com")
+    await service.reset_password(_token_from(mailer), "another-password-ok")
+    with pytest.raises(UnauthenticatedError):
+        await service.authenticate(first.session_token)
+    with pytest.raises(UnauthenticatedError):
+        await service.authenticate(second.session_token)
 
 
 async def test_optional_consent_is_off_unless_accepted() -> None:
@@ -217,21 +233,24 @@ async def test_export_and_delete_round_trip() -> None:
             "/api/v1/accounts/confirm",
             json={"token": _token_from(mailer)},
         )
-        token = confirmed.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
-        exported = await client.get("/api/v1/accounts/me/export.json", headers=headers)
+        assert "access_token" not in confirmed.json()
+        assert SESSION_COOKIE_NAME in confirmed.cookies
+        exported = await client.get("/api/v1/accounts/me/export.json")
         assert exported.status_code == 200
         body = exported.json()
         assert body["email"] == "person@example.com"
         assert body["consents"][0]["type"] == HEALTH_DATA
         assert "password_hash" not in exported.text
         assert "seed_phrase_hash" not in exported.text
-        csv_export = await client.get("/api/v1/accounts/me/export.csv", headers=headers)
+        csv_export = await client.get("/api/v1/accounts/me/export.csv")
         assert csv_export.status_code == 200
         assert csv_export.text.startswith("public_id,email,")
-        deleted = await client.delete("/api/v1/accounts/me", headers=headers)
+        kept = client.cookies.get(SESSION_COOKIE_NAME)
+        deleted = await client.delete("/api/v1/accounts/me")
         assert deleted.status_code == 204
-        gone = await client.get("/api/v1/accounts/me", headers=headers)
+        assert kept is not None
+        client.cookies.set(SESSION_COOKIE_NAME, kept)
+        gone = await client.get("/api/v1/accounts/me")
         assert gone.status_code == 401
 
 
@@ -249,10 +268,9 @@ async def test_research_consent_can_be_withdrawn() -> None:
             "/api/v1/accounts/confirm",
             json={"token": _token_from(mailer)},
         )
-        headers = {"Authorization": f"Bearer {confirmed.json()['access_token']}"}
+        assert SESSION_COOKIE_NAME in confirmed.cookies
         withdrawn = await client.post(
             "/api/v1/accounts/me/consents",
-            headers=headers,
             json={"type": RESEARCH_REUSE, "version": "2026-09-28", "accepted": False},
         )
         assert withdrawn.status_code == 200

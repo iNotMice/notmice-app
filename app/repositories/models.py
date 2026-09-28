@@ -234,6 +234,27 @@ class AuthToken(Base):
     )
 
 
+class LoginSession(Base):
+    """A server session. Only the SHA-256 of the cookie value is stored."""
+
+    __tablename__ = "login_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class Consent(Base):
     """A grant of a named text version, and the moment it was withdrawn."""
 

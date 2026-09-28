@@ -124,6 +124,10 @@ function apiUrl(path: string): string {
   return `${base}${path}`;
 }
 
+function authed(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(apiUrl(path), { ...init, credentials: 'include' });
+}
+
 function readTokenUsage(record: Record<string, unknown>, limitReached: boolean): TokenUsageNotice | null {
   if (typeof record.tokens_used !== 'number' || typeof record.tokens_limit !== 'number') {
     return null;
@@ -220,12 +224,11 @@ function mapExtract(payload: ExtractPayload): ExtractResult {
   };
 }
 
-export async function extractLabFile(token: string, file: File): Promise<LabExtract> {
+export async function extractLabFile(file: File): Promise<LabExtract> {
   const body = new FormData();
   body.append('file', file);
-  const response = await fetch(apiUrl('/api/v1/uploads/extract'), {
+  const response = await authed('/api/v1/uploads/extract', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body,
   });
   if (!response.ok && response.status !== 202) {
@@ -247,16 +250,10 @@ export async function extractLabFile(token: string, file: File): Promise<LabExtr
   return { kind: 'markers', result: mapExtract(payload) };
 }
 
-export async function confirmRedactedFrame(
-  token: string,
-  redactionToken: string,
-): Promise<ExtractResult> {
-  const response = await fetch(apiUrl('/api/v1/uploads/redaction/confirm'), {
+export async function confirmRedactedFrame(redactionToken: string): Promise<ExtractResult> {
+  const response = await authed('/api/v1/uploads/redaction/confirm', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ redaction_token: redactionToken }),
   });
   if (!response.ok) {
@@ -265,13 +262,10 @@ export async function confirmRedactedFrame(
   return mapExtract((await response.json()) as ExtractPayload);
 }
 
-export async function discardRedactedFrame(token: string, redactionToken: string): Promise<void> {
-  const response = await fetch(apiUrl('/api/v1/uploads/redaction/discard'), {
+export async function discardRedactedFrame(redactionToken: string): Promise<void> {
+  const response = await authed('/api/v1/uploads/redaction/discard', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ redaction_token: redactionToken }),
   });
   if (!response.ok) {
@@ -279,10 +273,8 @@ export async function discardRedactedFrame(token: string, redactionToken: string
   }
 }
 
-export async function fetchOwnLabResults(token: string): Promise<OwnLabResult[]> {
-  const response = await fetch(apiUrl('/api/v1/uploads/results'), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function fetchOwnLabResults(): Promise<OwnLabResult[]> {
+  const response = await authed('/api/v1/uploads/results');
   if (!response.ok) {
     throw new Error(await readError(response));
   }
@@ -309,19 +301,14 @@ export async function fetchOwnLabResults(token: string): Promise<OwnLabResult[]>
   }));
 }
 
-export async function deleteOwnLabResults(token: string): Promise<void> {
-  const response = await fetch(apiUrl('/api/v1/uploads/results'), {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function deleteOwnLabResults(): Promise<void> {
+  const response = await authed('/api/v1/uploads/results', { method: 'DELETE' });
   if (!response.ok) {
     throw new Error('Could not delete saved panels');
   }
 }
 
-export async function confirmLabExtraction(
-  token: string,
-  input: {
+export async function confirmLabExtraction(input: {
     extractToken: string;
     labName: string | null;
     collectedAt: string | null;
@@ -339,12 +326,9 @@ export async function confirmLabExtraction(
     }[];
   }
 ): Promise<ConfirmResult> {
-  const response = await fetch(apiUrl('/api/v1/uploads/confirm'), {
+  const response = await authed('/api/v1/uploads/confirm', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       extract_token: input.extractToken,
       lab_name: input.labName,

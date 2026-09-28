@@ -106,5 +106,4 @@ export interface AccountState {
   publicId: string;
   isPublic: boolean;
   createdAt: string;
-  accessToken: string;
 }

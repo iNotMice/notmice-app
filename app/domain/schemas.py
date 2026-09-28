@@ -108,19 +108,6 @@ class AccountView(BaseModel):
     created_at: datetime
 
 
-class AccountSessionResponse(AccountView):
-    """Account view plus a bearer token. Used after login."""
-
-    access_token: str
-    token_type: str = "bearer"
-
-
-class AccountCreatedResponse(AccountSessionResponse):
-    """Phrase-account payload kept for the legacy service path. New HTTP registration omits it."""
-
-    mnemonic: str = Field(description="12-word BIP-39 phrase, shown once. Not stored.")
-
-
 class ConsentView(BaseModel):
     """One stored consent. Withdrawal is null until the person turns it off."""
 

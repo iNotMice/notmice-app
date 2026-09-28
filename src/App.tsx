@@ -6,17 +6,15 @@ import { isBiomarkerId } from './i18n/biomarkerIds';
 import { fetchPhenoAge, PhenoAgeScore } from './api/phenoage';
 import { displayBiomarkerScores, displayPercentile } from './utils/phenoAgeMath';
 import {
-  clearStoredToken,
   confirmEmail,
   confirmPasswordReset,
   fetchCurrentAccount,
+  forgetLegacyToken,
   loginWithEmail,
   loginWithMnemonic,
   logoutAccount,
-  readStoredToken,
   registerAccount,
   requestPasswordReset,
-  storeToken,
   updateShareSettings,
 } from './api/accounts';
 import { Header } from './components/Header';
@@ -115,25 +113,17 @@ export default function App() {
   const [currentPanel, setCurrentPanel] = useState<LabPanelData>(tutorialPanel);
 
   useEffect(() => {
-    const token = readStoredToken();
-    if (!token) {
-      return;
-    }
+    forgetLegacyToken();
     let cancelled = false;
     void (async () => {
       try {
-        const current = await fetchCurrentAccount(token);
-        if (!cancelled) {
-          setAccount({
-            publicId: current.publicId,
-            isPublic: current.isPublic,
-            createdAt: current.createdAt,
-            accessToken: token,
-          });
-          await restoreSavedPanels(token);
+        const current = await fetchCurrentAccount();
+        if (!cancelled && current) {
+          setAccount(current);
+          await restoreSavedPanels();
         }
       } catch {
-        clearStoredToken();
+        // A failed restore leaves the visitor signed out.
       }
     })();
     return () => {
@@ -204,9 +194,9 @@ export default function App() {
     setChronologicalAge(panel.chronologicalAge);
   };
 
-  const restoreSavedPanels = async (token: string) => {
+  const restoreSavedPanels = async () => {
     try {
-      const panels = await fetchOwnLabResults(token);
+      const panels = await fetchOwnLabResults();
       if (panels.length === 0) {
         return;
       }
@@ -285,9 +275,8 @@ export default function App() {
   };
 
   const handlePurgeMemory = async () => {
-    const token = account?.accessToken;
-    if (token) {
-      await deleteOwnLabResults(token);
+    if (account) {
+      await deleteOwnLabResults();
     }
     setBiomarkers({ ...INITIAL_BIOMARKERS });
     setChronologicalAge(42.0);
@@ -295,24 +284,13 @@ export default function App() {
     setCurrentPanel(tutorialPanel());
   };
 
-  const applySession = async (session: {
-    publicId: string;
-    isPublic: boolean;
-    createdAt: string;
-    accessToken: string;
-  }) => {
-    storeToken(session.accessToken);
-    setAccount({
-      publicId: session.publicId,
-      isPublic: session.isPublic,
-      createdAt: session.createdAt,
-      accessToken: session.accessToken,
-    });
+  const applySession = async (session: AccountState) => {
+    setAccount(session);
     setRevealedMnemonic(null);
     setAuthNotice(null);
     setResetToken(null);
     setIsSeedPhraseModalOpen(false);
-    await restoreSavedPanels(session.accessToken);
+    await restoreSavedPanels();
   };
 
   const handleRegister = async (email: string, password: string, researchReuse: boolean) => {
@@ -320,7 +298,6 @@ export default function App() {
     setAuthError(null);
     try {
       await registerAccount({ email, password, researchReuse });
-      clearStoredToken();
       setAccount(null);
       setAuthNotice('check-email');
     } catch (err) {
@@ -421,17 +398,13 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
-    const token = account?.accessToken;
     setAuthBusy(true);
     setAuthError(null);
     try {
-      if (token) {
-        await logoutAccount(token);
-      }
+      await logoutAccount();
     } catch {
-      // Client still signs out even if the API is unreachable.
+      // The screen still signs out when the API is unreachable.
     } finally {
-      clearStoredToken();
       setAccount(null);
       setRevealedMnemonic(null);
       setAuthBusy(false);
@@ -446,7 +419,7 @@ export default function App() {
     const previous = account.isPublic;
     setAccount({ ...account, isPublic });
     try {
-      const updated = await updateShareSettings(account.accessToken, isPublic);
+      const updated = await updateShareSettings(isPublic);
       setAccount({ ...account, isPublic: updated.isPublic });
     } catch {
       setAccount({ ...account, isPublic: previous });
@@ -507,7 +480,6 @@ export default function App() {
             onLoadPanel={handleLoadPanel}
             setActiveTab={setActiveTab}
             accountAddress={publicIdLabel}
-            accessToken={account?.accessToken ?? null}
             isAuthenticated={account !== null}
             onRequestAuth={() => {
               setAuthError(null);
@@ -522,11 +494,7 @@ export default function App() {
             currentPanel={currentPanel}
             onUpdateBiomarkers={setBiomarkers}
             setActiveTab={setActiveTab}
-            accessToken={account?.accessToken ?? null}
-            onSaved={() => {
-              const token = account?.accessToken;
-              return token ? restoreSavedPanels(token) : Promise.resolve();
-            }}
+            onSaved={() => restoreSavedPanels()}
           />
         )}
 
@@ -562,9 +530,7 @@ export default function App() {
             isAuthenticated={account !== null}
             isPublic={account?.isPublic ?? false}
             onTogglePublic={handleTogglePublic}
-            accessToken={account?.accessToken ?? null}
             onAccountDeleted={() => {
-              clearStoredToken();
               setAccount(null);
               setRevealedMnemonic(null);
             }}
@@ -633,9 +599,6 @@ export default function App() {
           void handleLogout();
         }}
         onConfirmPhraseSaved={() => {
-          if (account?.accessToken) {
-            storeToken(account.accessToken);
-          }
           setRevealedMnemonic(null);
           setIsSeedPhraseModalOpen(false);
         }}

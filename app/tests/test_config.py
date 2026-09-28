@@ -59,6 +59,19 @@ def test_production_rejects_short_secret() -> None:
         validate_runtime_secrets(settings)
 
 
+def test_session_cookie_is_secure_only_in_production() -> None:
+    """Local HTTP can store the cookie. Production marks it Secure."""
+    assert Settings(app_env="development").session_cookie_secure is False
+    assert (
+        Settings(
+            app_env="production",
+            seed_hash_secret=_PROD_SEED,
+            jwt_secret=_PROD_JWT,
+        ).session_cookie_secure
+        is True
+    )
+
+
 def test_production_accepts_distinct_long_secrets() -> None:
     """Two different long secrets are enough for a production boot."""
     validate_runtime_secrets(

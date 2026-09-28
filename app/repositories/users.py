@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +25,7 @@ from app.repositories.models import (
     Consent,
     Credential,
     LabResult,
+    LoginSession,
     ShareSettings,
     User,
 )
@@ -328,6 +329,71 @@ class UserRepository:
             row.withdrawn_at = None
         await self._session.flush()
         return _consent_record(row)
+
+    async def open_session(
+        self,
+        *,
+        user_id: UUID,
+        token_sha256: str,
+        expires_at: datetime,
+    ) -> None:
+        """Insert a session row. ``token_sha256`` is the digest of the cookie.
+
+        Args:
+            user_id: Signed-in participant.
+            token_sha256: Hex SHA-256 of the raw cookie value.
+            expires_at: Moment after which the cookie is rejected.
+        """
+        self._session.add(
+            LoginSession(
+                id=uuid4(),
+                user_id=user_id,
+                token_sha256=token_sha256,
+                expires_at=expires_at,
+            )
+        )
+        await self._session.flush()
+
+    async def user_for_session(self, token_sha256: str, now: datetime) -> UserRecord | None:
+        """Return the participant for a live digest, or None.
+
+        An expired row is deleted so it cannot be reused.
+
+        Args:
+            token_sha256: Hex SHA-256 of the presented cookie.
+            now: Current time. The caller owns the clock.
+        """
+        result = await self._session.execute(
+            select(LoginSession).where(LoginSession.token_sha256 == token_sha256)
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            return None
+        if row.expires_at <= now:
+            await self._session.delete(row)
+            await self._session.flush()
+            return None
+        return await self.get_by_id(row.user_id)
+
+    async def revoke_session(self, token_sha256: str) -> None:
+        """Delete one session. A missing digest is ignored.
+
+        Args:
+            token_sha256: Hex SHA-256 of the cookie being logged out.
+        """
+        await self._session.execute(
+            delete(LoginSession).where(LoginSession.token_sha256 == token_sha256)
+        )
+        await self._session.flush()
+
+    async def revoke_sessions(self, user_id: UUID) -> None:
+        """Delete every session for the participant.
+
+        Args:
+            user_id: Participant whose password just changed.
+        """
+        await self._session.execute(delete(LoginSession).where(LoginSession.user_id == user_id))
+        await self._session.flush()
 
     async def delete_account(self, user_id: UUID) -> bool:
         """Delete the participant. Credentials, consents, and lab rows cascade.

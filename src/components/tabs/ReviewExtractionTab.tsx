@@ -24,7 +24,6 @@ interface ReviewExtractionTabProps {
   currentPanel: LabPanelData;
   onUpdateBiomarkers: (biomarkers: Record<string, number>) => void;
   setActiveTab: (tab: TabType) => void;
-  accessToken: string | null;
   onSaved?: () => Promise<void>;
 }
 
@@ -32,7 +31,6 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
   currentPanel,
   onUpdateBiomarkers,
   setActiveTab,
-  accessToken,
   onSaved,
 }) => {
   const { m } = useI18n();
@@ -103,12 +101,12 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
       PHENOAGE_BIOMARKERS.forEach((b) => (allTrue[b.id] = true));
       setVerifiedMap(allTrue);
       onUpdateBiomarkers(localValues);
-      if (currentPanel.extractToken && accessToken) {
+      if (currentPanel.extractToken) {
         setConfirmBusy(true);
         setConfirmError(null);
         try {
           const age = currentPanel.chronologicalAge;
-          await confirmLabExtraction(accessToken, {
+          await confirmLabExtraction({
             extractToken: currentPanel.extractToken,
             labName: currentPanel.labName,
             collectedAt: currentPanel.testDate,

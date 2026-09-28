@@ -29,7 +29,6 @@ interface UploadLabTabProps {
   onLoadPanel: (panel: LabPanelData) => void;
   setActiveTab: (tab: TabType) => void;
   accountAddress: string;
-  accessToken: string | null;
   isAuthenticated: boolean;
   onRequestAuth: () => void;
 }
@@ -38,7 +37,6 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
   onLoadPanel,
   setActiveTab,
   accountAddress,
-  accessToken,
   isAuthenticated,
   onRequestAuth,
 }) => {
@@ -128,7 +126,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
   };
 
   const processLabFile = async (file: File) => {
-    if (!isAuthenticated || !accessToken) {
+    if (!isAuthenticated) {
       onRequestAuth();
       return;
     }
@@ -142,7 +140,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
     try {
       setProgressStep(2);
       setProgressMsg(getActiveI18n().messages.upload.masking);
-      const outcome = await extractLabFile(accessToken, file);
+      const outcome = await extractLabFile(file);
       if (outcome.kind === 'confirm-redaction') {
         setRedactionPreview(outcome.preview);
         setProgressMsg(getActiveI18n().messages.upload.redactionTitle);
@@ -174,7 +172,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
   };
 
   const beginFile = (file: File) => {
-    if (!isAuthenticated || !accessToken) {
+    if (!isAuthenticated) {
       onRequestAuth();
       return;
     }
@@ -188,14 +186,14 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
   };
 
   const acceptPaintedFrame = async () => {
-    if (!accessToken || !redactionPreview) {
+    if (!redactionPreview) {
       return;
     }
     setUploadError(null);
     setIsProcessing(true);
     setProgressMsg(getActiveI18n().messages.upload.hashing);
     try {
-      const extracted = await confirmRedactedFrame(accessToken, redactionPreview.redactionToken);
+      const extracted = await confirmRedactedFrame(redactionPreview.redactionToken);
       const name = selectedFileName ?? 'lab-photo.png';
       setRedactionPreview(null);
       openReview(name, extracted);
@@ -214,8 +212,8 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
   };
 
   const cancelPaintedFrame = () => {
-    if (accessToken && redactionPreview) {
-      void discardRedactedFrame(accessToken, redactionPreview.redactionToken).catch(() => undefined);
+    if (redactionPreview) {
+      void discardRedactedFrame(redactionPreview.redactionToken).catch(() => undefined);
     }
     setRedactionPreview(null);
     setIsProcessing(false);

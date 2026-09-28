@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     trust_proxy_headers: bool = True
 
     @property
+    def session_cookie_secure(self) -> bool:
+        """Return True when the session cookie must be Secure.
+
+        Production is served over HTTPS. Local compose is HTTP, and a Secure
+        cookie would never be stored by the browser there.
+        """
+        return self.app_env.strip().casefold() == "production"
+
+    @property
     def cors_origin_list(self) -> list[str]:
         """Return CORS origins as a stripped list."""
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

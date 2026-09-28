@@ -11,9 +11,10 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
+from app.api.accounts import SESSION_COOKIE_NAME
 from app.core.deps import get_account_rate_limiter, get_account_service, get_upload_service
 from app.core.rate_limit import SlidingWindowRateLimiter
-from app.core.security import Argon2SeedHasher, JwtTokenIssuer
+from app.core.security import Argon2SeedHasher
 from app.domain.accounts import UserRecord
 from app.domain.enums import MappingStatus
 from app.domain.schemas import ConfirmedMarkerInput, ConfirmRequest
@@ -265,7 +266,6 @@ def _account_service() -> AccountService:
     return AccountService(
         users=InMemoryUserStore(),
         hasher=Argon2SeedHasher("test-pepper-secret-key-32-bytes!!"),
-        tokens=JwtTokenIssuer("test-jwt-secret-key-32-bytes-min!", ttl_seconds=3600),
     )
 
 
@@ -620,11 +620,9 @@ async def test_extract_confirm_http_flow() -> None:
     jpeg = b"\xff\xd8\xff\xe0" + b"\x22" * 48
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        token = (await accounts.create()).access_token
-        headers = {"Authorization": f"Bearer {token}"}
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
         extracted = await client.post(
             "/api/v1/uploads/extract",
-            headers=headers,
             files={"file": ("panel.jpg", jpeg, "image/jpeg")},
         )
         assert extracted.status_code == 200
@@ -640,7 +638,6 @@ async def test_extract_confirm_http_flow() -> None:
         assert vision.media_calls == 1
         confirmed = await client.post(
             "/api/v1/uploads/confirm",
-            headers=headers,
             json={
                 "extract_token": body["extract_token"],
                 "lab_name": "Quest Diagnostics",
@@ -655,7 +652,6 @@ async def test_extract_confirm_http_flow() -> None:
         assert labs.saved[0].document_sha256 == sha256_hex(jpeg)
         replay = await client.post(
             "/api/v1/uploads/confirm",
-            headers=headers,
             json={
                 "extract_token": body["extract_token"],
                 "markers": [{"raw_name": "Serum Albumin", "value": 46.1, "unit": "g/L"}],
@@ -684,17 +680,14 @@ async def test_confirm_accepts_nine_canonical_phenoage_names() -> None:
     ]
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        token = (await accounts.create()).access_token
-        headers = {"Authorization": f"Bearer {token}"}
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
         extracted = await client.post(
             "/api/v1/uploads/extract",
-            headers=headers,
             files={"file": ("panel.jpg", jpeg, "image/jpeg")},
         )
         assert extracted.status_code == 200
         confirmed = await client.post(
             "/api/v1/uploads/confirm",
-            headers=headers,
             json={
                 "extract_token": extracted.json()["extract_token"],
                 "lab_name": "Quest Diagnostics",
@@ -717,16 +710,13 @@ async def test_confirm_keeps_values_when_labels_look_personal() -> None:
     jpeg = b"\xff\xd8\xff\xe0" + b"\x55" * 48
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        token = (await accounts.create()).access_token
-        headers = {"Authorization": f"Bearer {token}"}
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
         extracted = await client.post(
             "/api/v1/uploads/extract",
-            headers=headers,
             files={"file": ("panel.jpg", jpeg, "image/jpeg")},
         )
         confirmed = await client.post(
             "/api/v1/uploads/confirm",
-            headers=headers,
             json={
                 "extract_token": extracted.json()["extract_token"],
                 "lab_name": "Иван Петров",
@@ -739,7 +729,7 @@ async def test_confirm_keeps_values_when_labels_look_personal() -> None:
             },
         )
         assert confirmed.status_code == 200
-        owned = await client.get("/api/v1/uploads/results", headers=headers)
+        owned = await client.get("/api/v1/uploads/results")
     assert owned.status_code == 200
     body = owned.json()["results"]
     assert len(body) == 1
@@ -759,10 +749,9 @@ async def test_extract_rejects_unsupported_type() -> None:
     application = _app(accounts, _upload_bundle()[0])
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        token = (await accounts.create()).access_token
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
         response = await client.post(
             "/api/v1/uploads/extract",
-            headers={"Authorization": f"Bearer {token}"},
             files={"file": ("notes.txt", b"hello world this is not a pdf", "text/plain")},
         )
     assert response.status_code == 415
@@ -821,10 +810,9 @@ async def test_extract_http_budget_is_429_without_global_figures() -> None:
     application = _app(accounts, service)
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        token = (await accounts.create()).access_token
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
         response = await client.post(
             "/api/v1/uploads/extract",
-            headers={"Authorization": f"Bearer {token}"},
             files={"file": ("panel.jpg", b"\xff\xd8\xff\xe0" + b"\x22" * 16, "image/jpeg")},
         )
     assert response.status_code == 429
@@ -937,17 +925,14 @@ async def test_delete_results_removes_only_the_caller() -> None:
     jpeg = b"\xff\xd8\xff\xe0" + b"\x55" * 32
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        token = (await accounts.create()).access_token
-        headers = {"Authorization": f"Bearer {token}"}
+        client.cookies.set(SESSION_COOKIE_NAME, (await accounts.create()).session_token)
         extracted = await client.post(
             "/api/v1/uploads/extract",
-            headers=headers,
             files={"file": ("panel.jpg", jpeg, "image/jpeg")},
         )
         body = extracted.json()
         confirmed = await client.post(
             "/api/v1/uploads/confirm",
-            headers=headers,
             json={
                 "extract_token": body["extract_token"],
                 "lab_name": "Quest Diagnostics",
@@ -956,13 +941,13 @@ async def test_delete_results_removes_only_the_caller() -> None:
         )
         assert confirmed.status_code == 200
         assert len(labs.saved) == 1
-        deleted = await client.delete("/api/v1/uploads/results", headers=headers)
+        deleted = await client.delete("/api/v1/uploads/results")
         assert deleted.status_code == 204
-        listed = await client.get("/api/v1/uploads/results", headers=headers)
+        listed = await client.get("/api/v1/uploads/results")
         assert listed.status_code == 200
         assert listed.json()["results"] == []
         assert labs.saved == []
-        me = await client.get("/api/v1/accounts/me", headers=headers)
+        me = await client.get("/api/v1/accounts/me")
         assert me.status_code == 200
 
 
