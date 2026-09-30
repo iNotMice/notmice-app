@@ -4,7 +4,6 @@ export interface PhenoAgeScore {
   chronologicalAge: number;
   phenoAge: number;
   ageDelta: number;
-  mortalityScore10yr: number;
   disclaimer: string;
 }
 
@@ -12,7 +11,6 @@ interface PhenoAgePayload {
   chronological_age: number;
   pheno_age: number;
   age_delta: number;
-  mortality_score_10yr: number;
   disclaimer: string;
 }
 
@@ -53,7 +51,6 @@ export async function fetchPhenoAge(
     chronologicalAge: payload.chronological_age,
     phenoAge: payload.pheno_age,
     ageDelta: payload.age_delta,
-    mortalityScore10yr: payload.mortality_score_10yr,
     disclaimer: payload.disclaimer,
   };
 }

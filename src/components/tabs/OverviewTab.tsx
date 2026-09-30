@@ -20,7 +20,6 @@ import {
 import logo from '../../assets/images/logo.jpg';
 import { PHENOAGE_BIOMARKERS } from '../../data/phenoAgeData';
 import { isBiomarkerId } from '../../i18n/biomarkerIds';
-import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
 
 interface OverviewTabProps {
@@ -50,7 +49,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const copy = m.overview;
   const alb = biomarkers['albumin'] ?? 46.0;
   const crp = biomarkers['crp'] ?? 0.8;
-  const ageDelta = phenoAge === null ? null : phenoAge - chronologicalAge;
 
   const handleAlbuminChange = (val: number) => {
     onUpdateBiomarkers({ ...biomarkers, albumin: val });
@@ -126,7 +124,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
               <div className="bg-[#ffffff] p-3.5 rounded border border-[#e2e8f0] shadow-xs flex flex-col gap-0.5 col-span-2 sm:col-span-1">
                 <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] uppercase">
-                  {copy.mortalityValidation}
+                  {copy.indexLabel}
                 </span>
                 <span className="font-['JetBrains_Mono'] text-xs text-[#006194] font-semibold flex items-center gap-1.5">
                   <FlaskConical className="w-3.5 h-3.5" /> {copy.levineModel}
@@ -175,34 +173,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] uppercase font-medium">
                     {copy.biological}
                   </span>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span
-                      className="font-['Inter'] text-3xl sm:text-4xl font-bold text-[#006194]"
-                      id="bio-age-val"
-                    >
-                      {phenoAge === null ? '…' : phenoAge.toFixed(1)}
-                    </span>
-                    <span
-                      className={`font-['JetBrains_Mono'] text-xs font-bold px-1.5 py-0.5 rounded ${
-                        ageDelta !== null && ageDelta <= 0
-                          ? 'bg-[#4edea3]/25 text-[#006947]'
-                          : 'bg-[#ffdad6] text-[#ba1a1a]'
-                      }`}
-                    >
-                      {ageDelta === null
-                        ? '…'
-                        : fill(copy.yearsDelta, {
-                            sign: ageDelta > 0 ? '+' : '',
-                            value: ageDelta.toFixed(1),
-                          })}
-                    </span>
-                  </div>
-                  <span className="font-['Inter'] text-xs text-[#006947] font-semibold">
-                    {ageDelta === null
-                      ? copy.researchIndex
-                      : ageDelta <= 0
-                        ? copy.decelerated
-                        : copy.accelerated}
+                  <span
+                    className="font-['Inter'] text-3xl sm:text-4xl font-bold text-[#006194] mt-1"
+                    id="bio-age-val"
+                  >
+                    {phenoAge === null ? '…' : phenoAge.toFixed(1)}
+                  </span>
+                  <span className="font-['Inter'] text-xs text-[#565e74]">
+                    {copy.researchIndex}
                   </span>
                 </div>
               </div>
@@ -248,7 +226,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </div>
                   <div className="flex justify-between text-[#565e74] font-['JetBrains_Mono'] text-[10px]">
                     <span>{copy.albuminLow}</span>
-                    <span className="text-[#006947] font-semibold">{copy.albuminOptimum}</span>
+                    <span>{copy.albuminMid}</span>
                     <span>52.0</span>
                   </div>
                 </div>
@@ -279,11 +257,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     />
                   </div>
                   <div className="flex justify-between text-[#565e74] font-['JetBrains_Mono'] text-[10px]">
-                    <span className="text-[#006947] font-semibold">
-                      {copy.crpLow}
-                    </span>
+                    <span>{copy.crpLow}</span>
                     <span>{copy.crpMid}</span>
-                    <span className="text-[#ba1a1a] font-semibold">{copy.crpHigh}</span>
+                    <span>{copy.crpHigh}</span>
                   </div>
                 </div>
               </div>
@@ -572,35 +548,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <th className="py-2.5 px-3">{copy.colBiomarker}</th>
                   <th className="py-2.5 px-3">{copy.colLoinc}</th>
                   <th className="py-2.5 px-3">{copy.colDomain}</th>
-                  <th className="py-2.5 px-3">{copy.colOptimal}</th>
-                  <th className="py-2.5 px-3">{copy.colRisk}</th>
                 </tr>
               </thead>
               <tbody className="text-[#0b1c30] divide-y divide-[#f1f5f9]">
                 {PHENOAGE_BIOMARKERS.map((bio) => {
                   const label = isBiomarkerId(bio.id) ? m.biomarkers[bio.id] : null;
-                  const protective = bio.riskInfluence.startsWith('Negative');
-                  const heavy = bio.riskInfluence === 'Heavy Positive';
-                  const riskClass = protective
-                    ? 'text-[#006947]'
-                    : heavy
-                      ? 'text-[#ba1a1a]'
-                      : 'text-[#006194]';
-                  const optimalClass =
-                    protective || heavy ? 'font-semibold text-[#006947]' : 'font-semibold';
                   return (
                     <tr key={bio.id} className="hover:bg-[#f8f9ff] transition-colors">
                       <td className="py-3 px-3 font-semibold">{label?.name ?? bio.name}</td>
                       <td className="py-3 px-3 font-['JetBrains_Mono'] text-[#565e74]">{bio.loinc}</td>
                       <td className="py-3 px-3">{label?.domain ?? bio.domain}</td>
-                      <td className={`py-3 px-3 font-['JetBrains_Mono'] ${optimalClass}`}>
-                        {bio.id === 'crp'
-                          ? `< ${bio.optimalRange[1]} ${bio.unit}`
-                          : `${bio.optimalRange[0]} - ${bio.optimalRange[1]} ${bio.unit}`}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className={`${riskClass} font-semibold`}>{label?.risk ?? bio.riskInfluence}</span>
-                      </td>
                     </tr>
                   );
                 })}

@@ -10,15 +10,53 @@ import { useI18n } from '../../i18n/I18nProvider';
 import {
   CheckSquare,
   CheckCircle2,
-  AlertTriangle,
   FileSearch,
-  Sparkles,
   ArrowRight,
   ShieldCheck,
   RotateCcw,
-  Eye,
-  Sliders,
 } from 'lucide-react';
+
+function LabIntervalText({
+  interval,
+  unit,
+  flag,
+}: {
+  interval: string | null | undefined;
+  unit: string;
+  flag: string | null | undefined;
+}) {
+  const { m } = useI18n();
+  if (!interval) {
+    return <span>{m.review.intervalMissing}</span>;
+  }
+  return (
+    <span>
+      {fill(m.review.labInterval, { interval, unit })}
+      {flag ? ` · ${flag}` : ''}
+    </span>
+  );
+}
+
+function FocusedLabInterval({
+  panel,
+  markerId,
+  fallbackUnit,
+}: {
+  panel: LabPanelData;
+  markerId: string;
+  fallbackUnit: string;
+}) {
+  const extracted = panel.extractedMarkers?.find((marker) => marker.canonicalId === markerId);
+  return (
+    <div className="text-[11px] text-[#3f4850] pt-1">
+      <LabIntervalText
+        interval={extracted?.referenceText}
+        unit={extracted?.reportedUnit || fallbackUnit}
+        flag={extracted?.labFlag}
+      />
+    </div>
+  );
+}
 
 interface ReviewExtractionTabProps {
   currentPanel: LabPanelData;
@@ -245,16 +283,11 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
                   <span>{fill(copy.focused, { name: m.biomarkers[activeBio.id].name })}</span>
                   <span className="font-mono text-[#006194]">{fill(copy.loinc, { code: activeBio.loinc })}</span>
                 </div>
-                <p className="text-[#3f4850] text-[11px] leading-relaxed">
-                  {m.biomarkers[activeBio.id].weight}
-                </p>
-                <div className="text-[10px] text-[#006947] font-semibold pt-1">
-                  {fill(copy.optimalInterval, {
-                    min: activeBio.optimalRange[0],
-                    max: activeBio.optimalRange[1],
-                    unit: activeBio.unit,
-                  })}
-                </div>
+                <FocusedLabInterval
+                  panel={currentPanel}
+                  markerId={activeBio.id}
+                  fallbackUnit={activeBio.unit}
+                />
               </div>
             )}
           </div>
@@ -282,7 +315,7 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
                   <tr className="bg-[#f8f9ff] text-[#565e74] font-['JetBrains_Mono'] text-[11px] uppercase tracking-wider border-b border-[#e2e8f0]">
                     <th className="py-3 px-4">{copy.colMarker}</th>
                     <th className="py-3 px-3">{copy.colValue}</th>
-                    <th className="py-3 px-3">{copy.colTarget}</th>
+                    <th className="py-3 px-3">{copy.colInterval}</th>
                     <th className="py-3 px-3">{copy.colConfidence}</th>
                     <th className="py-3 px-3 text-right">{copy.colSignoff}</th>
                   </tr>
@@ -290,8 +323,6 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
                 <tbody className="divide-y divide-[#f1f5f9]">
                   {PHENOAGE_BIOMARKERS.map((bio) => {
                     const currentVal = localValues[bio.id] ?? bio.optimalRange[0];
-                    const isOptimal =
-                      currentVal >= bio.optimalRange[0] && currentVal <= bio.optimalRange[1];
                     const isVerified = verifiedMap[bio.id];
                     const extracted = currentPanel.extractedMarkers?.find(
                       (marker) => marker.canonicalId === bio.id,
@@ -316,15 +347,6 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
                               {fill(copy.loinc, { code: bio.loinc })} •{' '}
                               {isBiomarkerId(bio.id) ? m.biomarkers[bio.id].domain : bio.domain}
                             </span>
-                            {labInterval ? (
-                              <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74]">
-                                {fill(copy.labInterval, {
-                                  interval: labInterval,
-                                  unit: extracted?.reportedUnit || bio.unit,
-                                })}
-                                {extracted?.labFlag ? ` · ${extracted.labFlag}` : ''}
-                              </span>
-                            ) : null}
                           </div>
                         </td>
 
@@ -346,15 +368,12 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
                           </div>
                         </td>
 
-                        {/* Optimal Target */}
-                        <td className="py-3.5 px-3 font-['JetBrains_Mono'] text-[11px]">
-                          <span
-                            className={
-                              isOptimal ? 'text-[#006947] font-semibold' : 'text-[#3f4850]'
-                            }
-                          >
-                            {bio.optimalRange[0]} - {bio.optimalRange[1]} {bio.unit}
-                          </span>
+                        <td className="py-3.5 px-3 font-['JetBrains_Mono'] text-[11px] text-[#3f4850]">
+                          <LabIntervalText
+                            interval={labInterval}
+                            unit={extracted?.reportedUnit || bio.unit}
+                            flag={extracted?.labFlag}
+                          />
                         </td>
 
                         {/* Confidence Score */}

@@ -1,12 +1,6 @@
 import { PHENOAGE_BIOMARKERS } from '../data/phenoAgeData';
 import { PhenoAgeCalculation } from '../types';
 
-/** Display-only rank from the age gap. Not part of Levine 2018. */
-export function displayPercentile(ageDelta: number): number {
-  const zScore = ageDelta / 4.5;
-  return Math.round(Math.max(1, Math.min(99, 50 + 50 * Math.tanh(zScore * 0.79))));
-}
-
 /** Slider annotations for the scoreboard. The phenotypic age itself comes from the API. */
 export function displayBiomarkerScores(
   biomarkers: Record<string, number>,

@@ -17,7 +17,7 @@ export const review = {
   focused: 'Fokus: {name}',
   loinc: 'LOINC {code}',
   labInterval: 'Laborintervall: {interval} {unit}',
-  optimalInterval: 'Optimales Intervall: {min} - {max} {unit}',
+  intervalMissing: 'Dieser Befund enthält kein gedrucktes Intervall.',
   matrixTitle: 'Extrahierte Biomarker-Matrix',
   demoMatrix: 'Rechenbeispiel. Diese Werte wurden nicht aus einer Labordatei gelesen.',
   realMatrix: 'Prüfen Sie jeden Wert gegen Ihren Papier- oder Digitalbefund.',
@@ -25,9 +25,9 @@ export const review = {
   extractedBadge: '9/9 extrahiert',
   colMarker: 'Biomarker und LOINC',
   colValue: 'Extrahierter Wert',
-  colTarget: 'Optimales Ziel',
+  colInterval: 'Laborintervall',
   colConfidence: 'Konfidenz',
   colSignoff: 'Freigabe',
   readyBar:
-    'Alle 9 Werte wurden gegen NHANES-Referenzparameter geprüft. Bereit für die PhenoAge-Gompertz-Ausführung.',
+    'Die geprüften Werte sind bereit für den Forschungsindex nach Levine 2018.',
 };

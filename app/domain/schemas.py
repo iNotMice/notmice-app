@@ -322,9 +322,6 @@ class PhenoAgeResponse(BaseModel):
     chronological_age: float
     pheno_age: float
     age_delta: float
-    mortality_score_10yr: float = Field(
-        description="10-year mortality probability from the Gompertz CDF, in [0, 1].",
-    )
     disclaimer: str
 
 

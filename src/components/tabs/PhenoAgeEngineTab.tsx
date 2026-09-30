@@ -5,19 +5,7 @@ import { isBiomarkerId } from '../../i18n/biomarkerIds';
 import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
 import { LifestyleLongevityAdvisor } from '../LifestyleLongevityAdvisor';
-import {
-  Activity,
-  Calculator,
-  ShieldCheck,
-  TrendingDown,
-  TrendingUp,
-  Save,
-  CheckCircle,
-  HelpCircle,
-  FlaskConical,
-  RotateCcw,
-  Sparkles,
-} from 'lucide-react';
+import { ShieldCheck, Save, RotateCcw } from 'lucide-react';
 
 interface PhenoAgeEngineTabProps {
   calculation: PhenoAgeCalculation;
@@ -76,8 +64,6 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
     });
   };
 
-  const isDecelerated = calculation.isValid && calculation.ageDelta <= 0;
-
   return (
     <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
       {/* Header */}
@@ -134,8 +120,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
         </div>
       </div>
 
-      {/* Top Metric Cards: Chrono vs Bio vs Mortality */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Chronological Age Card */}
         <div className="bg-[#ffffff] p-5 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col justify-between">
           <div>
@@ -178,72 +163,8 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
               <span className="text-xs text-[#565e74]">{m.shell.years}</span>
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-[#f1f5f9] flex items-center justify-between">
-            <span className="text-xs text-[#565e74]">{copy.agingVariance}</span>
-            <span
-              className={`font-['JetBrains_Mono'] text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 ${
-                isDecelerated ? 'bg-[#4edea3]/25 text-[#006947]' : 'bg-[#ffdad6] text-[#ba1a1a]'
-              }`}
-            >
-              {isDecelerated ? (
-                <TrendingDown className="w-3.5 h-3.5" />
-              ) : (
-                <TrendingUp className="w-3.5 h-3.5" />
-              )}
-              {calculation.isValid
-                ? fill(copy.yearsDelta, {
-                    sign: calculation.ageDelta > 0 ? '+' : '',
-                    value: calculation.ageDelta.toFixed(1),
-                  })
-                : '…'}
-            </span>
-          </div>
-        </div>
-
-        {/* 10-Year Mortality Probability Card */}
-        <div className="bg-[#ffffff] p-5 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center text-[#565e74] text-xs mb-1 font-['JetBrains_Mono']">
-              <span>{copy.mortalityLabel}</span>
-              <span>{copy.gompertz}</span>
-            </div>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="font-['Inter'] text-3xl font-bold text-[#006947]">
-                {calculation.isValid ? `${calculation.mortalityScore10yr.toFixed(1)}%` : '…'}
-              </span>
-              <span className="text-xs text-[#565e74]">{copy.cumulative}</span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-[#f1f5f9] flex items-center justify-between text-xs text-[#565e74]">
-            <span>{copy.cohortAvg}</span>
-            <span className="font-['JetBrains_Mono'] font-bold text-[#0b1c30]">4.2%</span>
-          </div>
-        </div>
-
-        {/* Longevity Percentile Rank Card */}
-        <div className="bg-[#ffffff] p-5 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center text-[#565e74] text-xs mb-1 font-['JetBrains_Mono']">
-              <span>{copy.tierLabel}</span>
-              <span>{copy.percentile}</span>
-            </div>
-            <div className="flex items-baseline gap-2 mt-2">
-              <span className="font-['Inter'] text-3xl font-bold text-[#006194]">
-                {calculation.isValid
-                  ? fill(copy.topPercent, { value: Math.max(1, 100 - calculation.percentileRank) })
-                  : '…'}
-              </span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-[#f1f5f9] flex items-center justify-between text-xs text-[#565e74]">
-            <span>{copy.decelerationStatus}</span>
-            <span className="font-['Inter'] font-semibold text-[#006947]">
-              {!calculation.isValid
-                ? '…'
-                : isDecelerated
-                  ? copy.highProtection
-                  : copy.attentionNeeded}
-            </span>
+          <div className="mt-4 pt-3 border-t border-[#f1f5f9]">
+            <span className="text-xs text-[#565e74]">{copy.researchIndex}</span>
           </div>
         </div>
       </div>
@@ -271,7 +192,6 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
             <div className="flex flex-col gap-4">
               {PHENOAGE_BIOMARKERS.map((bio) => {
                 const val = biomarkers[bio.id] ?? bio.optimalRange[0];
-                const isOptimal = val >= bio.optimalRange[0] && val <= bio.optimalRange[1];
 
                 return (
                   <div
@@ -287,24 +207,9 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
                           ({bio.loinc})
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-['JetBrains_Mono'] text-xs font-bold ${
-                            isOptimal ? 'text-[#006947]' : 'text-[#006194]'
-                          }`}
-                        >
-                          {val.toFixed(bio.step < 0.1 ? 2 : 1)} {bio.unit}
-                        </span>
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                            isOptimal
-                              ? 'bg-[#4edea3]/20 text-[#006947]'
-                              : 'bg-[#e5eeff] text-[#3f4850]'
-                          }`}
-                        >
-                          {isOptimal ? copy.optimal : copy.normal}
-                        </span>
-                      </div>
+                      <span className="font-['JetBrains_Mono'] text-xs font-bold text-[#0b1c30]">
+                        {val.toFixed(bio.step < 0.1 ? 2 : 1)} {bio.unit}
+                      </span>
                     </div>
 
                     {/* Range Slider */}
@@ -320,13 +225,6 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
 
                     <div className="flex justify-between text-[#565e74] font-['JetBrains_Mono'] text-[10px]">
                       <span>{fill(copy.min, { value: bio.clinicalRange[0] })}</span>
-                      <span className="text-[#006947] font-semibold">
-                        {fill(copy.optimalRange, {
-                          min: bio.optimalRange[0],
-                          max: bio.optimalRange[1],
-                          unit: bio.unit,
-                        })}
-                      </span>
                       <span>{fill(copy.max, { value: bio.clinicalRange[1] })}</span>
                     </div>
                   </div>
@@ -355,61 +253,30 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
 
             <div className="space-y-3 pt-2">
               {calculation.biomarkerScores.map((score) => {
-                const isProtective = score.contribution <= 0;
                 return (
                   <div key={score.id} className="flex flex-col gap-1 text-xs">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-[#0b1c30]">
                         {isBiomarkerId(score.id) ? m.biomarkers[score.id].name : score.name}
                       </span>
-                      <span
-                        className={`font-['JetBrains_Mono'] font-bold ${
-                          isProtective ? 'text-[#006947]' : 'text-[#ba1a1a]'
-                        }`}
-                      >
+                      <span className="font-['JetBrains_Mono'] font-bold text-[#0b1c30]">
                         {fill(copy.yearsSigned, {
                           sign: score.contribution > 0 ? '+' : '',
                           value: score.contribution.toFixed(1),
                         })}
                       </span>
                     </div>
-                    {/* Visual Bar */}
-                    <div className="w-full bg-[#f1f5f9] h-1.5 rounded-full overflow-hidden flex">
-                      {isProtective ? (
-                        <div
-                          className="bg-[#00855b] h-full ml-auto rounded-l-full"
-                          style={{
-                            width: `${Math.min(100, Math.abs(score.contribution) * 25)}%`,
-                          }}
-                        ></div>
-                      ) : (
-                        <div
-                          className="bg-[#ba1a1a] h-full mr-auto rounded-r-full"
-                          style={{
-                            width: `${Math.min(100, Math.abs(score.contribution) * 25)}%`,
-                          }}
-                        ></div>
-                      )}
+                    <div className="w-full bg-[#f1f5f9] h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-[#006194] h-full rounded-full"
+                        style={{
+                          width: `${Math.min(100, Math.abs(score.contribution) * 25)}%`,
+                        }}
+                      ></div>
                     </div>
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Research Insight Card */}
-          <div className="bg-[#eff4ff] p-5 rounded-xl border border-[#dce9ff] flex flex-col gap-3">
-            <div className="flex items-center gap-2 font-bold text-xs text-[#0b1c30]">
-              <Sparkles className="w-4 h-4 text-[#006194]" />
-              <span>{copy.leversTitle}</span>
-            </div>
-            <div className="text-xs text-[#3f4850] space-y-2 leading-relaxed">
-              <p>
-                <strong>{copy.leversCrp}</strong>
-              </p>
-              <p>
-                <strong>{copy.leversAlbumin}</strong>
-              </p>
             </div>
           </div>
         </div>

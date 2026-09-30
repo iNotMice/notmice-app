@@ -4,7 +4,7 @@ import { INITIAL_BIOMARKERS } from './data/phenoAgeData';
 import { deleteOwnLabResult, deleteOwnLabResults, fetchOwnLabResults } from './api/uploads';
 import { isBiomarkerId } from './i18n/biomarkerIds';
 import { fetchPhenoAge, PhenoAgeScore } from './api/phenoage';
-import { displayBiomarkerScores, displayPercentile } from './utils/phenoAgeMath';
+import { displayBiomarkerScores } from './utils/phenoAgeMath';
 import {
   confirmEmail,
   confirmPasswordReset,
@@ -169,8 +169,6 @@ export default function App() {
         chronologicalAge,
         phenoAge: 0,
         ageDelta: 0,
-        mortalityScore10yr: 0,
-        percentileRank: 50,
         biomarkerScores,
         isValid: false,
         activeCount: Object.keys(biomarkers).length,
@@ -181,8 +179,6 @@ export default function App() {
       chronologicalAge: phenoAgeScore.chronologicalAge,
       phenoAge: phenoAgeScore.phenoAge,
       ageDelta: phenoAgeScore.ageDelta,
-      mortalityScore10yr: Math.round(phenoAgeScore.mortalityScore10yr * 1000) / 10,
-      percentileRank: displayPercentile(phenoAgeScore.ageDelta),
       biomarkerScores,
       isValid: true,
       activeCount: Object.keys(biomarkers).length,

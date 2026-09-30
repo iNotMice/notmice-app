@@ -163,6 +163,7 @@ async def test_phenoage_endpoint_returns_score_and_disclaimer() -> None:
     body = response.json()
     assert round(body["pheno_age"], 2) == 66.95
     assert body["disclaimer"] == RESEARCH_DISCLAIMER
+    assert "mortality_score_10yr" not in body
     assert "full_name" not in body
     assert "date_of_birth" not in body
 

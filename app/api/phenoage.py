@@ -42,6 +42,5 @@ def score_phenoage(body: PhenoAgeRequest) -> PhenoAgeResponse:
         chronological_age=result.chronological_age,
         pheno_age=result.pheno_age,
         age_delta=result.age_delta,
-        mortality_score_10yr=result.mortality_score_10yr,
         disclaimer=result.disclaimer,
     )

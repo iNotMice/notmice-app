@@ -72,8 +72,6 @@ export interface PhenoAgeCalculation {
   chronologicalAge: number;
   phenoAge: number;
   ageDelta: number; // phenoAge - chronologicalAge
-  mortalityScore10yr: number; // percentage
-  percentileRank: number; // against NHANES cohort
   biomarkerScores: {
     id: string;
     name: string;
