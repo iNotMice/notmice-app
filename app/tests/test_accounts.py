@@ -578,7 +578,10 @@ async def test_share_toggle_http() -> None:
 
 
 async def test_accounts_against_postgres() -> None:
-    """Register, confirm from the dev mail log, and sign in when Postgres is up."""
+    """Register with both consents, confirm, and read them back when Postgres is up.
+
+    Both grants share the flush that used to insert consents before users.
+    """
     from sqlalchemy import text
     from sqlalchemy.exc import OperationalError
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -599,7 +602,10 @@ async def test_accounts_against_postgres() -> None:
     payload = {
         "email": email,
         "password": "correct-horse-battery",
-        "consents": [{"type": "health_data", "version": "2026-09-28", "accepted": True}],
+        "consents": [
+            {"type": "health_data", "version": "2026-09-28", "accepted": True},
+            {"type": "research_reuse", "version": "2026-09-28", "accepted": True},
+        ],
     }
     application = create_app()
     transport = ASGITransport(app=application)
@@ -621,3 +627,9 @@ async def test_accounts_against_postgres() -> None:
         confirmed = await client.post("/api/v1/accounts/confirm", json={"token": token})
         assert confirmed.status_code == 200
         assert "mnemonic" not in confirmed.json()
+        stored = await client.get("/api/v1/accounts/me/consents")
+        assert stored.status_code == 200
+        assert {row["type"] for row in stored.json()["consents"]} == {
+            "health_data",
+            "research_reuse",
+        }

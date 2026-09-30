@@ -135,6 +135,11 @@ class UserRepository:
             granted_at: Timestamp stored on each new consent row.
         """
         user = User(id=uuid4(), public_id=public_id, seed_phrase_hash=None)
+        self._session.add(user)
+        # Consent and Credential reference users.id and have no relationship(),
+        # so a single flush can INSERT them before the participant. Postgres
+        # then rejects consents_user_id_fkey. The user row must exist first.
+        await self._session.flush()
         settings = ShareSettings(id=uuid4(), user_id=user.id, is_public=False)
         credential = Credential(
             id=uuid4(),
@@ -142,7 +147,6 @@ class UserRepository:
             email=email,
             password_hash=password_hash,
         )
-        self._session.add(user)
         self._session.add(settings)
         self._session.add(credential)
         for consent_type, text_version in consents:
