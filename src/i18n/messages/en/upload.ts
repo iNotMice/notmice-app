@@ -23,10 +23,10 @@ export const upload = {
   demoLead:
     'These buttons fill the review screen with sample numbers. They are not read from a PDF, and confirming them does not publish a lab document.',
   questTitle: 'Quest sample numbers',
-  questBadge: 'Optimal Profile (Age 42)',
+  questBadge: 'Worked example (age 42)',
   questMeta: 'Demo · hs-CRP 0.8 mg/L · Albumin 46.2 g/L',
   labcorpTitle: 'LabCorp sample numbers',
-  labcorpBadge: 'Mild Inflammation (Age 42)',
+  labcorpBadge: 'Second sample (age 42)',
   labcorpMeta: 'Demo · hs-CRP 1.15 mg/L · Albumin 44.8 g/L',
   nhsTitle: 'NHS sample numbers',
   nhsBadge: 'Baseline Entry (Age 41)',

@@ -23,10 +23,10 @@ export const upload = {
   demoLead:
     'Diese Schaltflächen füllen den Prüfbildschirm mit Beispielzahlen. Sie werden nicht aus einem PDF gelesen, und ihre Bestätigung veröffentlicht kein Labordokument.',
   questTitle: 'Quest-Beispielzahlen',
-  questBadge: 'Optimales Profil (Alter 42)',
+  questBadge: 'Beispiel (Alter 42)',
   questMeta: 'Demo · hs-CRP 0,8 mg/L · Albumin 46,2 g/L',
   labcorpTitle: 'LabCorp-Beispielzahlen',
-  labcorpBadge: 'Leichte Entzündung (Alter 42)',
+  labcorpBadge: 'Zweites Beispiel (Alter 42)',
   labcorpMeta: 'Demo · hs-CRP 1,15 mg/L · Albumin 44,8 g/L',
   nhsTitle: 'NHS-Beispielzahlen',
   nhsBadge: 'Basis-Eintrag (Alter 41)',

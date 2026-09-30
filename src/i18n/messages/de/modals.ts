@@ -71,7 +71,7 @@ export const modals = {
   markerCount: 'PhenoAge-Marker: 9',
   albuminLine: 'Albumin: {value} g/L',
   crpLine: 'hs-CRP: {value} mg/L',
-  computedHazard: 'Berechnetes Risiko',
+  computedHazard: 'Forschungsindex',
   biologicalLine: 'Biologisches PhenoAge: {value} J.',
   differenceLine: 'Altersdifferenz: {value} J.',
   whereLine: 'Ort: Server, Levine 2018',
