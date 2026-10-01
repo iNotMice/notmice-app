@@ -1,5 +1,7 @@
 # Техническая Архитектура и Инженерный Регламент
 
+> **Архив.** Рабочий документ — [TZ_v2.1_AGREED.md](TZ_v2.1_AGREED.md). Этот текст оставлен как история и не задаёт текущую работу.
+
 ## 1. Технологический стек (Tech Stack)
 - **Backend:** Python 3.12+, FastAPI (async)[cite: 1, 6].
 - **ORM & Database:** SQLAlchemy 2.0 (asyncio), PostgreSQL 16+, Alembic[cite: 1].

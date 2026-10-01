@@ -1,20 +1,24 @@
 # План по ТЗ фазы 3
 
+> **Архив.** Рабочий документ — [TZ_v2.1_AGREED.md](TZ_v2.1_AGREED.md). Этот текст оставлен как история и не задаёт текущую работу.
+
 **Статус:** утверждён 22.09.2026. 23.09.2026 сделан код приоритета 1 (basic auth на `/docs`, терминал только в dev, обязательное сохранение seed-фразы) и код приоритета 2 (два секрета, fail-fast, PII по содержимому, npm). В тот же день Бакыт закрыл запасной канал восстановления: в этот заход не делаем. 26.09.2026 Vercel закрыт: сайт, API и Postgres на одном VPS. Боевой Compose в репозитории. 30.09.2026 сервер не переезжает: остаётся Namecheap, публичный адрес https://notmice.com. Ключ Gemini задан в локальном `.env` и в git не входит. Набор 20–30 opt-in по-прежнему ждёт отдельного решения по SPRIND.
 
-**Источник:** [NotMice_TZ_Faza3.md](NotMice_TZ_Faza3.md). Календарь из [PLAN.md](PLAN.md) всё ещё актуален по датам: гейт 05.10.2026, код-фриз 10.10.2026, подача SPRIND 16.10.2026. Сегодня 22.09 — в коде успеваем приоритеты 1 (кроме набора пользователей) и точечный приоритет 2. Приоритет 3 до фриза не трогаем.
+**Источник:** [NotMice_TZ_Faza3.md](NotMice_TZ_Faza3.md). Календарь из [PLAN.md](PLAN.md) хранит прежние вехи: гейт 05.10.2026, код-фриз 10.10.2026, подача SPRIND 16.10.2026. Сам план писался 22.09. Статус кода на 30.09 — в чеклисте в конце файла. Приоритет 3 до фриза не трогаем.
 
 ТЗ фазы 3: сайт, API и Postgres на одном VPS, без Vercel. В репозитории есть dev Compose и боевой Compose. 30.09.2026 хост зафиксирован: текущий сервер Namecheap, https://notmice.com, без переезда. Ключ Gemini есть в локальном `.env`. До питча SPRIND не закрыт набор живых opt-in записей. План делит работу на код в репозитории, решения команды и то, что сознательно откладывается после гранта.
 
-## Что ТЗ описывает верно
+## Что исходное ТЗ описывало верно на 22.09
+
+Сверка 01.10.2026. Пункты про один `secret_key`, PII только по именам ключей, два lockfile, открытые `/docs` и фразу «разработка не начата» описывали код на 22.09. Чеклист внизу их закрыл. Как устроен репозиторий сейчас:
 
 - Backend — FastAPI, сессии извлечения и rate limit живут в памяти процесса ([app/core/rate_limit.py](../app/core/rate_limit.py), [app/core/deps.py](../app/core/deps.py)). Postgres поднимается в [docker-compose.yml](../docker-compose.yml) и в [docker-compose.prod.yml](../docker-compose.prod.yml). Боевой файл собирает фронт и отдаёт его тем же nginx, что проксирует API. `VITE_API_BASE_URL` пустой: сайт и API на одном origin ([src/api/accounts.ts](../src/api/accounts.ts) и соседние клиенты). Отдельного хоста под фронт нет.
-- `Argon2SeedHasher` и `JwtTokenIssuer` берут один `settings.secret_key` ([app/core/deps.py](../app/core/deps.py)). Дефолт `dev-insecure-change-me-not-for-prod` зашит и в [app/core/config.py](../app/core/config.py), и в compose.
-- `reject_pii` смотрит только на имена ключей ([app/domain/pii.py](../app/domain/pii.py)). Строка с email или телефоном внутри `raw_name` / `lab_name` проходит.
-- В корне лежат и [bun.lock](../bun.lock), и [package-lock.json](../package-lock.json). Поля `packageManager` нет.
+- Два секрета: `SEED_HASH_SECRET` и `JWT_SECRET` в [app/core/config.py](../app/core/config.py). Хеш фразы и подпись не делят один ключ. Новым аккаунтам выдаётся cookie `notmice_session`, не JWT. Это зафиксировано в [TZ_v2.1_AGREED.md](TZ_v2.1_AGREED.md).
+- `reject_pii` проверяет и содержимое строк, не только имена ключей ([app/domain/pii.py](../app/domain/pii.py), [app/tests/test_pii.py](../app/tests/test_pii.py)).
+- В корне один lockfile, [package-lock.json](../package-lock.json). В `package.json` указан `packageManager` для npm. `bun.lock` удалён.
 - Claude Vision — заглушка, которая кидает `VisionNotConfiguredError` ([app/services/vision.py](../app/services/vision.py)).
-- [PLAN.md](PLAN.md) до сих пор говорит «разработка не начата» (сверка 21.09.2026), хотя API и фронт уже работают.
-- Nginx проксирует `/docs` и `/openapi.json` без авторизации ([proxy/nginx.conf](../proxy/nginx.conf)). Порт API наружу не опубликован, снаружи виден только proxy `:8080`.
+- [PLAN.md](PLAN.md) с 23.09 больше не говорит «разработка не начата». С 01.10.2026 этот файл тоже архив.
+- `/docs` и `/openapi.json` закрыты basic auth. Порт API наружу не опубликован, снаружи виден только proxy `:8080`.
 
 ## Что в ТЗ устарело или уже частично сделано
 
