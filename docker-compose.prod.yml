@@ -1,8 +1,7 @@
 # Production: one VPS, site + API + Postgres. No Vercel.
-# Start: docker compose -f docker-compose.prod.yml up -d --build
+# Start: docker compose -f docker-compose.prod.yml -f docker-compose.tls.yml up -d --build
 # Secrets come from the host environment. This file has no dev defaults.
-# Health: http://localhost:8080/healthz
-# HTTPS waits for a domain in front of this nginx.
+# Host ports 80 and 443 come from docker-compose.tls.yml. Do not publish 8080.
 
 name: notmice
 
@@ -84,8 +83,6 @@ services:
     environment:
       DOCS_BASIC_AUTH_USER: "${DOCS_BASIC_AUTH_USER:?DOCS_BASIC_AUTH_USER is required}"
       DOCS_BASIC_AUTH_PASSWORD: "${DOCS_BASIC_AUTH_PASSWORD:?DOCS_BASIC_AUTH_PASSWORD is required}"
-    ports:
-      - "8080:80"
     depends_on:
       api:
         condition: service_healthy
