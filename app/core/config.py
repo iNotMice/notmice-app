@@ -15,6 +15,10 @@ class InsecureSecretError(RuntimeError):
     """Raised when seed-hash and JWT secrets are missing, shared, or unsafe to boot."""
 
 
+class MailNotConfiguredError(RuntimeError):
+    """Raised when production boots without usable outbound mail configuration."""
+
+
 class Settings(BaseSettings):
     """Process settings. Unknown env keys are ignored so frontend secrets do not break boot."""
 
@@ -120,6 +124,34 @@ def validate_runtime_secrets(settings: Settings) -> None:
             raise InsecureSecretError(
                 f"{name} must be at least 32 characters and must not use a dev-insecure default"
             )
+
+
+def validate_mail_config(settings: Settings) -> None:
+    """Refuse to boot in production unless confirmation mail can actually be sent.
+
+    A registration or password-reset request stores a one-time token and always
+    returns the same response. If outbound mail is not configured, the token is
+    created but no link ever reaches the user, so production must not start that
+    way. Non-production environments keep the development log sink untouched.
+
+    Args:
+        settings: Process settings already loaded from the environment.
+
+    Raises:
+        MailNotConfiguredError: Production is missing SMTP_HOST, or PUBLIC_APP_URL
+            is not a real https origin (links would point at localhost).
+    """
+    if settings.app_env.strip().casefold() != "production":
+        return
+    if not settings.smtp_host.strip():
+        raise MailNotConfiguredError(
+            "SMTP_HOST is required in production so confirmation mail is sent"
+        )
+    app_url = settings.public_app_url.strip()
+    if not app_url or "localhost" in app_url or app_url.startswith("http://"):
+        raise MailNotConfiguredError(
+            "PUBLIC_APP_URL must be the real https origin in production"
+        )
 
 
 @lru_cache(maxsize=1)
