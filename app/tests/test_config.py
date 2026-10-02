@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.config import InsecureSecretError, Settings, get_settings, validate_runtime_secrets
+from app.core.config import (
+    InsecureSecretError,
+    MailNotConfiguredError,
+    Settings,
+    get_settings,
+    validate_mail_config,
+    validate_runtime_secrets,
+)
 from app.main import create_app, lifespan
 
 _PROD_SEED = "prod-seed-hash-secret-32-characters-min"
@@ -76,6 +83,50 @@ def test_production_accepts_distinct_long_secrets() -> None:
     """Two different long secrets are enough for a production boot."""
     validate_runtime_secrets(
         Settings(app_env="production", seed_hash_secret=_PROD_SEED, jwt_secret=_PROD_JWT)
+    )
+
+
+def test_mail_config_allows_non_production_without_smtp() -> None:
+    """Development keeps the log sink and never requires SMTP."""
+    validate_mail_config(Settings(app_env="development"))
+
+
+def test_mail_config_requires_smtp_host_in_production() -> None:
+    """Production must not boot when outbound mail is unconfigured."""
+    settings = Settings(
+        app_env="production",
+        seed_hash_secret=_PROD_SEED,
+        jwt_secret=_PROD_JWT,
+        smtp_host="",
+        public_app_url="https://notmice.com",
+    )
+    with pytest.raises(MailNotConfiguredError, match="SMTP_HOST"):
+        validate_mail_config(settings)
+
+
+def test_mail_config_rejects_localhost_app_url_in_production() -> None:
+    """A confirmation link must not point at localhost in production."""
+    settings = Settings(
+        app_env="production",
+        seed_hash_secret=_PROD_SEED,
+        jwt_secret=_PROD_JWT,
+        smtp_host="smtp.example.com",
+        public_app_url="http://localhost:8080",
+    )
+    with pytest.raises(MailNotConfiguredError, match="PUBLIC_APP_URL"):
+        validate_mail_config(settings)
+
+
+def test_mail_config_accepts_configured_production() -> None:
+    """A real SMTP host and https origin satisfy the production check."""
+    validate_mail_config(
+        Settings(
+            app_env="production",
+            seed_hash_secret=_PROD_SEED,
+            jwt_secret=_PROD_JWT,
+            smtp_host="smtp.example.com",
+            public_app_url="https://notmice.com",
+        )
     )
 
 

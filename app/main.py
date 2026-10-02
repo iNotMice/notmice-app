@@ -16,7 +16,7 @@ from app.api.phenoage import router as phenoage_router
 from app.api.protocol import router as protocol_router
 from app.api.uploads import gemini_budget_exhausted_handler
 from app.api.uploads import router as uploads_router
-from app.core.config import get_settings, validate_runtime_secrets
+from app.core.config import get_settings, validate_mail_config, validate_runtime_secrets
 from app.core.deps import dispose_engine
 from app.core.logging import configure_logging
 from app.domain.uploads import GeminiBudgetExhaustedError
@@ -30,6 +30,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
     validate_runtime_secrets(settings)
+    validate_mail_config(settings)
     logger.info("api_start")
     yield
     await dispose_engine()
