@@ -7,8 +7,11 @@ from uuid import uuid4
 
 import jwt
 import pytest
+from argon2 import PasswordHasher
+from argon2.low_level import Type
 
 from app.core.security import (
+    Argon2PasswordHasher,
     Argon2SeedHasher,
     JwtTokenIssuer,
     TokenError,
@@ -58,6 +61,33 @@ def test_different_phrases_hash_differently() -> None:
     left = hasher.hash_phrase(generate_mnemonic())
     right = hasher.hash_phrase(generate_mnemonic())
     assert left != right
+
+
+def test_password_hasher_is_stronger_and_seed_lookup_cost_stays() -> None:
+    """New passwords use 46 MiB and t=3. Phrase lookup stays on m=19456, t=2."""
+    passwords = Argon2PasswordHasher()
+    encoded = passwords.hash_password("correct-horse-battery")
+    assert "m=47104,t=3,p=1" in encoded
+    assert passwords.verify(encoded, "correct-horse-battery") is True
+    seed = Argon2SeedHasher("test-pepper-secret-key-32-bytes!!")
+    assert "m=19456,t=2,p=1" in seed.hash_phrase(generate_mnemonic())
+
+
+def test_password_hasher_verifies_hashes_from_the_previous_cost() -> None:
+    """A PHC string records its own cost, so older password hashes still match."""
+    legacy = PasswordHasher(
+        time_cost=2,
+        memory_cost=19_456,
+        parallelism=1,
+        hash_len=32,
+        salt_len=16,
+        type=Type.ID,
+    )
+    encoded = legacy.hash("correct-horse-battery")
+    assert "m=19456,t=2,p=1" in encoded
+    passwords = Argon2PasswordHasher()
+    assert passwords.verify(encoded, "correct-horse-battery") is True
+    assert passwords.verify(encoded, "wrong-password-value") is False
 
 
 def test_jwt_roundtrip() -> None:

@@ -23,6 +23,11 @@ _ARGON2_TIME_COST = 2
 _ARGON2_MEMORY_COST = 19_456
 _ARGON2_PARALLELISM = 1
 _ARGON2_HASH_LEN = 32
+# Password hashes store these costs in the PHC string. The seed hasher must keep the
+# values above: its hash is a lookup key, so a new cost would lock out existing phrases.
+_PW_ARGON2_TIME_COST = 3
+_PW_ARGON2_MEMORY_COST = 47_104
+_PW_ARGON2_PARALLELISM = 1
 _SALT_LEN = 16
 _MNEMONIC_STRENGTH_BITS = 128
 _AUTH_TOKEN_BYTES = 32
@@ -90,13 +95,16 @@ class Argon2SeedHasher:
 
 
 class Argon2PasswordHasher:
-    """Random-salt argon2id for passwords. Same cost parameters as the seed hasher."""
+    """Random-salt argon2id for passwords. Stronger than the seed hasher.
+
+    Older password hashes still verify: argon2 stores the cost inside the PHC string.
+    """
 
     def __init__(self) -> None:
         self._hasher = PasswordHasher(
-            time_cost=_ARGON2_TIME_COST,
-            memory_cost=_ARGON2_MEMORY_COST,
-            parallelism=_ARGON2_PARALLELISM,
+            time_cost=_PW_ARGON2_TIME_COST,
+            memory_cost=_PW_ARGON2_MEMORY_COST,
+            parallelism=_PW_ARGON2_PARALLELISM,
             hash_len=_ARGON2_HASH_LEN,
             salt_len=_SALT_LEN,
             type=Type.ID,
