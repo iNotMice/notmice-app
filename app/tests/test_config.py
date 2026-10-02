@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.config import InsecureSecretError, Settings, get_settings, validate_runtime_secrets
+from app.core.config import (
+    InsecureSecretError,
+    MailNotConfiguredError,
+    Settings,
+    get_settings,
+    validate_mail_config,
+    validate_runtime_secrets,
+)
 from app.main import create_app, lifespan
 
 _PROD_SEED = "prod-seed-hash-secret-32-characters-min"
@@ -73,9 +80,68 @@ def test_session_cookie_is_secure_only_in_production() -> None:
 
 
 def test_production_accepts_distinct_long_secrets() -> None:
-    """Two different long secrets are enough for a production boot."""
+    """Two different long secrets are enough for the secret check."""
     validate_runtime_secrets(
         Settings(app_env="production", seed_hash_secret=_PROD_SEED, jwt_secret=_PROD_JWT)
+    )
+
+
+def test_development_allows_unconfigured_mail() -> None:
+    """Local and CI keep the log sink when SMTP_HOST is empty."""
+    validate_mail_config(
+        Settings(
+            app_env="development",
+            smtp_host="",
+            public_app_url="http://localhost:8080",
+        )
+    )
+
+
+def test_production_rejects_empty_smtp_host() -> None:
+    """Production must not boot into the silent development mailer."""
+    settings = Settings(
+        app_env="production",
+        seed_hash_secret=_PROD_SEED,
+        jwt_secret=_PROD_JWT,
+        smtp_host="  ",
+        public_app_url="https://notmice.com",
+    )
+    with pytest.raises(MailNotConfiguredError, match="SMTP_HOST"):
+        validate_mail_config(settings)
+
+
+def test_production_rejects_localhost_and_http_app_url() -> None:
+    """A confirmation link must be the real https origin, not localhost or plain http."""
+    localhost = Settings(
+        app_env="production",
+        seed_hash_secret=_PROD_SEED,
+        jwt_secret=_PROD_JWT,
+        smtp_host="smtp.example.com",
+        public_app_url="http://localhost:8080",
+    )
+    plain_http = Settings(
+        app_env="production",
+        seed_hash_secret=_PROD_SEED,
+        jwt_secret=_PROD_JWT,
+        smtp_host="smtp.example.com",
+        public_app_url="http://notmice.com",
+    )
+    with pytest.raises(MailNotConfiguredError, match="PUBLIC_APP_URL"):
+        validate_mail_config(localhost)
+    with pytest.raises(MailNotConfiguredError, match="PUBLIC_APP_URL"):
+        validate_mail_config(plain_http)
+
+
+def test_production_accepts_smtp_and_https_origin() -> None:
+    """A configured host and https origin pass the mail check."""
+    validate_mail_config(
+        Settings(
+            app_env="production",
+            seed_hash_secret=_PROD_SEED,
+            jwt_secret=_PROD_JWT,
+            smtp_host="smtp.example.com",
+            public_app_url="https://notmice.com",
+        )
     )
 
 
@@ -92,5 +158,40 @@ async def test_lifespan_refuses_insecure_production_secrets(
         with pytest.raises(InsecureSecretError):
             async with lifespan(application):
                 pass
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_lifespan_refuses_production_without_mail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Valid secrets are not enough: production still stops when mail cannot be sent."""
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SEED_HASH_SECRET", _PROD_SEED)
+    monkeypatch.setenv("JWT_SECRET", _PROD_JWT)
+    monkeypatch.setenv("SMTP_HOST", "")
+    monkeypatch.setenv("PUBLIC_APP_URL", "http://localhost:8080")
+    get_settings.cache_clear()
+    application = create_app()
+    try:
+        with pytest.raises(MailNotConfiguredError):
+            async with lifespan(application):
+                pass
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_lifespan_starts_development_without_smtp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Development boots with an empty SMTP host and a localhost app URL."""
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("SMTP_HOST", "")
+    monkeypatch.setenv("PUBLIC_APP_URL", "http://localhost:8080")
+    get_settings.cache_clear()
+    application = create_app()
+    try:
+        async with lifespan(application):
+            pass
     finally:
         get_settings.cache_clear()
