@@ -42,8 +42,14 @@ class User(Base):
         nullable=False,
     )
 
-    lab_results: Mapped[list[LabResult]] = relationship(back_populates="user")
-    share_settings: Mapped[ShareSettings | None] = relationship(back_populates="user")
+    lab_results: Mapped[list[LabResult]] = relationship(
+        back_populates="user",
+        passive_deletes=True,
+    )
+    share_settings: Mapped[ShareSettings | None] = relationship(
+        back_populates="user",
+        passive_deletes=True,
+    )
     protocol_entries: Mapped[list[ProtocolEntryRow]] = relationship(
         back_populates="user",
         passive_deletes=True,
@@ -140,7 +146,7 @@ class Provenance(Base):
     )
     entered_by_user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid,
-        ForeignKey("users.id", ondelete="RESTRICT"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
     document_sha256: Mapped[str] = mapped_column(String(64), index=True, nullable=False)

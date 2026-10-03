@@ -56,6 +56,13 @@ def test_participant_table_has_no_email_or_password() -> None:
     assert "password_hash" not in User.__table__.columns
 
 
+def test_account_delete_leaves_child_rows_to_the_database() -> None:
+    """ORM delete must not null lab or share foreign keys. Postgres cascades them."""
+    assert User.lab_results.property.passive_deletes is True
+    assert User.share_settings.property.passive_deletes is True
+    assert User.protocol_entries.property.passive_deletes is True
+
+
 async def test_register_stores_digest_not_the_raw_token() -> None:
     """The mail carries the token. The store keeps only its SHA-256."""
     service, users, mailer = _email_service()
