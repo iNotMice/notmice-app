@@ -12,6 +12,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     SmallInteger,
     String,
@@ -558,7 +559,7 @@ class LabQueryAudit(Base):
     )
     endpoint: Mapped[str] = mapped_column(String(64), nullable=False)
     query: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
-    result_cohort_size: Mapped[int | None] = mapped_column(SmallInteger)
+    result_cohort_size: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

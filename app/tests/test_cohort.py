@@ -1,16 +1,22 @@
-"""publish_count and the closed CohortQuery. No route serves either one."""
+"""Tests for cohort validation, privacy thresholds, and route protection."""
 
 from __future__ import annotations
 
 import re
+from decimal import Decimal
 from typing import cast
 
 import pytest
+from fastapi.routing import APIRoute
 from pydantic import ValidationError
 
+from app.api.lab_accounts import require_verified_lab
+from app.api.lab_cohorts import _marker_view
+from app.api.lab_cohorts import router as cohort_router
 from app.domain.cohort import CohortQuery, publish_count
 from app.domain.conditions import CONDITION_CODES
 from app.main import create_app
+from app.repositories.cohort import MarkerAggregate
 
 _CONDITION_TOKEN = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -62,6 +68,25 @@ def test_cohort_query_accepts_a_closed_filter() -> None:
     assert empty.age_bands == ()
     assert empty.countries == ()
     assert empty.conditions == ()
+    assert empty.collected_from is None
+    assert empty.collected_to is None
+
+
+def test_cohort_query_accepts_inclusive_collection_date_bounds() -> None:
+    query = CohortQuery.model_validate(
+        {"collected_from": "2026-01-01", "collected_to": "2026-06-30"}
+    )
+    assert query.collected_from is not None
+    assert query.collected_to is not None
+    assert query.collected_from.isoformat() == "2026-01-01"
+    assert query.collected_to.isoformat() == "2026-06-30"
+
+
+def test_cohort_query_rejects_a_reversed_collection_date_range() -> None:
+    with pytest.raises(ValidationError, match="on or before"):
+        CohortQuery.model_validate(
+            {"collected_from": "2026-06-30", "collected_to": "2026-01-01"}
+        )
 
 
 def test_cohort_query_rejects_a_sixth_marker() -> None:
@@ -106,6 +131,24 @@ def test_cohort_query_rejects_the_journal_and_any_extra_field() -> None:
         CohortQuery.model_validate({"markers": ["1751-7"], "email": "a@b.example"})
 
 
+def test_cohort_statistics_serialize_as_json_numbers() -> None:
+    marker = _marker_view(
+        MarkerAggregate(
+            loinc_code="1751-7",
+            canonical_name="Albumin",
+            n=10,
+            unit="g/L",
+            mean=Decimal("3.3"),
+            median=Decimal("3.3"),
+            p25=Decimal("3.1"),
+            p75=Decimal("3.5"),
+        )
+    )
+    payload = marker.model_dump(mode="json")
+    assert payload["mean"] == 3.3
+    assert isinstance(payload["mean"], float)
+
+
 def test_draft_condition_codes_are_tokens() -> None:
     """The draft dictionary is a set of tokens, so a label cannot sneak in."""
     assert len(CONDITION_CODES) >= 10
@@ -138,7 +181,21 @@ def test_cohort_query_rejects_a_bad_country_and_a_twenty_first() -> None:
             CohortQuery.model_validate({"countries": [country]})
 
 
-def test_app_has_no_cohort_route() -> None:
-    """The contract is not mounted. There is no lab-portal endpoint."""
-    paths = {getattr(route, "path", "") for route in create_app().routes}
-    assert not any("cohort" in path for path in paths)
+def test_cohort_routes_are_mounted_behind_verified_lab_access() -> None:
+    app = create_app()
+    assert "/api/v1/lab/cohorts/query" in app.openapi()["paths"]
+    assert "/api/v1/lab/cohorts/facets" in app.openapi()["paths"]
+    routes: dict[str, APIRoute] = {
+        route.path: route
+        for route in cohort_router.routes
+        if isinstance(route, APIRoute)
+    }
+    query_route = routes["/api/v1/lab/cohorts/query"]
+    facets_route = routes["/api/v1/lab/cohorts/facets"]
+    assert query_route.methods == {"POST"}
+    assert facets_route.methods == {"GET"}
+    for route in (query_route, facets_route):
+        assert any(
+            dependency.call is require_verified_lab
+            for dependency in route.dependant.dependencies
+        )

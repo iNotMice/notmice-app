@@ -234,6 +234,52 @@ class LabAccountView(BaseModel):
     organization: LabOrganizationView
 
 
+class CohortMarkerAggregate(BaseModel):
+    """Aggregate for a marker with enough participants to publish statistics."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    loinc_code: str
+    canonical_name: str | None
+    n: int | None
+    unit: str | None
+    mean: float | None
+    median: float | None
+    p25: float | None
+    p75: float | None
+
+
+class CohortQueryResponse(BaseModel):
+    """Suppressed aggregate-only cohort result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cohort_size: int | None
+    markers: list[CohortMarkerAggregate]
+    suppressed: bool
+
+
+class CohortFacet(BaseModel):
+    """One k-anonymous value in a filter facet."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    count: int
+
+
+class CohortFacetsResponse(BaseModel):
+    """Filter values whose participant counts meet the publication threshold."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sex_at_birth: list[CohortFacet]
+    age_bands: list[CohortFacet]
+    countries: list[CohortFacet]
+    conditions: list[CohortFacet]
+    markers: list[CohortFacet]
+
+
 def lab_account_view(
     email: str,
     role: str,

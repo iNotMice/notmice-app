@@ -1,17 +1,25 @@
-"""Cohort count suppression and the lab query contract.
+"""K-anonymous cohort publication and the closed lab query contract.
 
-Nothing in the API calls this module. The threshold 10 and the step 5 are the
-starting values of ``publish_count``. They are not a portal setting: a lab
-portal does not exist, and those numbers stay unapproved until the DPIA.
-
-``CohortQuery`` is only the filter shape. It checks closed vocabularies and
-rejects every field outside that shape, including the journal.
+The threshold 10 and rounding step 5 are provisional publication rules in
+``publish_count``. ``CohortQuery`` validates the API filter shape but performs
+no database access and rejects every field outside that shape, including the
+participant protocol journal.
 """
 
+from __future__ import annotations
+
+from datetime import date
 from functools import lru_cache
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from app.domain.conditions import CONDITION_CODES
 from app.services.loinc_dictionary import load_loinc_dictionary
@@ -55,6 +63,19 @@ class CohortQuery(BaseModel):
     age_bands: tuple[AgeBand, ...] = ()
     countries: tuple[_CountryCode, ...] = Field(default=(), max_length=_COUNTRY_LIMIT)
     conditions: tuple[str, ...] = Field(default=(), max_length=_CONDITION_LIMIT)
+    collected_from: date | None = None
+    collected_to: date | None = None
+
+    @model_validator(mode="after")
+    def collected_dates_are_ordered(self) -> CohortQuery:
+        """Reject a date range whose inclusive start follows its end."""
+        if (
+            self.collected_from is not None
+            and self.collected_to is not None
+            and self.collected_from > self.collected_to
+        ):
+            raise ValueError("collected_from must be on or before collected_to")
+        return self
 
     @field_validator("markers")
     @classmethod

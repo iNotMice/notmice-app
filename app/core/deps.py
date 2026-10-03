@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import get_settings
 from app.core.rate_limit import SlidingWindowRateLimiter
 from app.core.security import Argon2PasswordHasher, Argon2SeedHasher
+from app.repositories.cohort import CohortRepository
 from app.repositories.dataset import DatasetRepository
 from app.repositories.health import HealthRepository
 from app.repositories.lab_accounts import LabAccountRepository
@@ -126,6 +127,13 @@ async def get_lab_account_service(
         token_ttl=timedelta(seconds=settings.auth_token_ttl_seconds),
         session_ttl=timedelta(seconds=settings.access_token_ttl_seconds),
     )
+
+
+async def get_cohort_repository(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> CohortRepository:
+    """Build the consent-gated aggregate cohort repository."""
+    return CohortRepository(session)
 
 
 def get_extract_sessions() -> InMemoryExtractSessionStore:
