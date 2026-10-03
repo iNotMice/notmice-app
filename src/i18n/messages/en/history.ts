@@ -42,6 +42,13 @@ export const history = {
   outsideInterval:
     'Value is outside the interval printed on the laboratory report. Show the result to a physician.',
   markerNotOnReports: 'None of the saved reports include this marker.',
+  filterFrom: 'From date',
+  filterTo: 'To date',
+  filterLab: 'Laboratory',
+  allLabs: 'All laboratories',
+  clearFilters: 'Clear filters',
+  noFilteredPanels: 'No panels match these filters.',
+  openPoint: '{date} · {lab} · {value}. Open this result in the research index.',
   registry: 'Confirmed panels ({count})',
   printable: 'Printable PDF Report',
   loadEngine: 'Load Engine',

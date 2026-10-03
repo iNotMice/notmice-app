@@ -42,6 +42,13 @@ export const history = {
   outsideInterval:
     'Der Wert liegt außerhalb des Intervalls, das auf dem Laborbericht angegeben ist. Zeigen Sie das Ergebnis einem Arzt.',
   markerNotOnReports: 'Keiner der gespeicherten Berichte enthält diesen Marker.',
+  filterFrom: 'Von',
+  filterTo: 'Bis',
+  filterLab: 'Labor',
+  allLabs: 'Alle Labore',
+  clearFilters: 'Filter zurücksetzen',
+  noFilteredPanels: 'Keine Panels entsprechen diesen Filtern.',
+  openPoint: '{date} · {lab} · {value}. Dieses Ergebnis im Forschungsindex öffnen.',
   registry: 'Bestätigte Panels ({count})',
   printable: 'Druckbarer PDF-Bericht',
   loadEngine: 'Engine laden',

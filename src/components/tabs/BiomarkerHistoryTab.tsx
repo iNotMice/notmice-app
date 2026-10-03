@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TabType, HistoricalTestRecord, PrintedLabInterval } from '../../types';
 import { PHENOAGE_BIOMARKERS } from '../../data/phenoAgeData';
 import { Calendar, Trash2, LineChart as LineChartIcon, FileDown } from 'lucide-react';
@@ -68,6 +68,9 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   const { m } = useI18n();
   const copy = m.history;
   const [selectedBiomarker, setSelectedBiomarker] = useState<string>('crp');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [selectedLab, setSelectedLab] = useState('');
   const [showReportModal, setShowReportModal] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [journalEntries, setJournalEntries] = useState<ProtocolEntry[]>([]);
@@ -101,10 +104,30 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
     });
   };
 
+  const laboratoryOptions = useMemo(
+    () => Array.from(new Set(history.map((record) => record.labSource))).sort((a, b) => a.localeCompare(b)),
+    [history],
+  );
+  const filteredHistory = useMemo(
+    () =>
+      history
+        .filter((record) => {
+          const date = (record.collectedAt ?? record.date).slice(0, 10);
+          return (
+            (!dateFrom || date >= dateFrom) &&
+            (!dateTo || date <= dateTo) &&
+            (!selectedLab || record.labSource === selectedLab)
+          );
+        })
+        .sort((left, right) =>
+          (left.collectedAt ?? left.date).localeCompare(right.collectedAt ?? right.date),
+        ),
+    [dateFrom, dateTo, history, selectedLab],
+  );
   const activeBioDef = PHENOAGE_BIOMARKERS.find((b) => b.id === selectedBiomarker);
-  const scored = scoredRecords(history);
+  const scored = scoredRecords(filteredHistory);
   const latestScored = scored.length > 0 ? scored[scored.length - 1] : null;
-  const unscored = history.filter((record) => record.phenoAge === null);
+  const unscored = filteredHistory.filter((record) => record.phenoAge === null);
   const trendRows = scored.map((record) => {
     const parts = record.date.split('-');
     const year = parts[0];
@@ -126,7 +149,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   const chartWidth = 720;
   const padding = { top: 20, right: 30, bottom: 40, left: 45 };
 
-  const markerPoints = history.flatMap((record) => {
+  const markerPoints = filteredHistory.flatMap((record) => {
     const measuredIds =
       record.sessionOnly && record.markerIds.length === 0
         ? Object.keys(record.biomarkers)
@@ -230,12 +253,18 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
     return { x, y, width, height: Math.max(getBioY(bounds.low ?? minBio) - y, 1) };
   };
 
-  const hasSessionSnapshot = history.some((row) => row.sessionOnly);
-  const hasConfirmed = history.some((row) => !row.sessionOnly);
-  const hasHistory = history.length > 0;
+  const hasSessionSnapshot = filteredHistory.some((row) => row.sessionOnly);
+  const hasConfirmed = filteredHistory.some((row) => !row.sessionOnly);
+  const hasHistory = filteredHistory.length > 0;
+  const hasActiveFilters = Boolean(dateFrom || dateTo || selectedLab);
 
   const panelWhen = (record: HistoricalTestRecord): string =>
     record.sessionOnly ? record.date : (record.collectedAt ?? copy.dateMissing);
+
+  const openRecord = (record: HistoricalTestRecord) => {
+    onSelectRecord(record);
+    setActiveTab('phenoage-engine');
+  };
 
   const panelNote = (record: HistoricalTestRecord): string => {
     const date = panelWhen(record);
@@ -288,6 +317,59 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
             <span>{copy.export}</span>
           </button>
         </div>
+      </div>
+
+      <div className="bg-[#ffffff] p-4 lg:p-5 rounded-xl border border-[#cbd5e1] shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <label className="flex flex-col gap-1 font-['Inter'] text-xs font-semibold text-[#3f4850]">
+            {copy.filterFrom}
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="min-h-10 rounded-lg border border-[#cbd5e1] px-3 font-normal text-[#0b1c30] focus:outline-none focus:ring-2 focus:ring-[#006194]/30"
+            />
+          </label>
+          <label className="flex flex-col gap-1 font-['Inter'] text-xs font-semibold text-[#3f4850]">
+            {copy.filterTo}
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="min-h-10 rounded-lg border border-[#cbd5e1] px-3 font-normal text-[#0b1c30] focus:outline-none focus:ring-2 focus:ring-[#006194]/30"
+            />
+          </label>
+          <label className="flex flex-col gap-1 font-['Inter'] text-xs font-semibold text-[#3f4850]">
+            {copy.filterLab}
+            <select
+              value={selectedLab}
+              onChange={(event) => setSelectedLab(event.target.value)}
+              className="min-h-10 rounded-lg border border-[#cbd5e1] px-3 font-normal text-[#0b1c30] focus:outline-none focus:ring-2 focus:ring-[#006194]/30"
+            >
+              <option value="">{copy.allLabs}</option>
+              {laboratoryOptions.map((lab) => (
+                <option key={lab} value={lab}>
+                  {lab}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={() => {
+              setDateFrom('');
+              setDateTo('');
+              setSelectedLab('');
+            }}
+            className="mt-3 text-xs font-semibold text-[#006194] hover:underline cursor-pointer"
+          >
+            {copy.clearFilters}
+          </button>
+        )}
       </div>
 
       <div className="bg-[#ffffff] p-6 lg:p-7 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-6">
@@ -469,7 +551,9 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
 
         <div className="w-full">
           {!hasHistory ? (
-            <p className="font-['Inter'] text-sm text-[#565e74] py-8">{copy.noPanels}</p>
+            <p className="font-['Inter'] text-sm text-[#565e74] py-8">
+              {history.length > 0 ? copy.noFilteredPanels : copy.noPanels}
+            </p>
           ) : markerPoints.length === 0 ? (
             <p className="font-['Inter'] text-sm text-[#565e74] py-8">{copy.markerNotOnReports}</p>
           ) : (
@@ -523,6 +607,21 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                         fill={flagged ? '#f8f9ff' : '#006194'}
                         stroke={flagged ? '#3f4850' : '#ffffff'}
                         strokeWidth="2"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={fill(copy.openPoint, {
+                          date: panelWhen(point.record),
+                          lab: point.record.labSource,
+                          value: `${formatBound(point.value)} ${activeBioDef?.unit ?? ''}`,
+                        })}
+                        className="cursor-pointer outline-none focus-visible:stroke-[#0b1c30] focus-visible:stroke-[3px]"
+                        onClick={() => openRecord(point.record)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openRecord(point.record);
+                          }
+                        }}
                       >
                         {flagged && <title>{copy.outsideInterval}</title>}
                       </circle>
@@ -643,7 +742,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
         <div className="px-5 py-4 bg-[#eff4ff] border-b border-[#dce9ff] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-['Inter'] text-sm font-bold text-[#0b1c30]">
-              {fill(copy.registry, { count: history.length })}
+              {fill(copy.registry, { count: filteredHistory.length })}
             </span>
             {hasConfirmed && (
               <span className="font-['JetBrains_Mono'] text-xs text-[#3f4850] font-semibold bg-[#f8f9ff] px-2 py-0.5 rounded border border-[#cbd5e1]">
@@ -686,7 +785,13 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f1f5f9]">
-              {history.map((record) => (
+              {filteredHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-[#565e74]">
+                    {history.length > 0 ? copy.noFilteredPanels : copy.noPanels}
+                  </td>
+                </tr>
+              ) : [...filteredHistory].reverse().map((record) => (
                 <tr key={record.id} className="hover:bg-[#f8f9ff] transition-colors">
                   <td className="py-3.5 px-4 font-bold text-[#0b1c30]">
                     <span className="inline-flex items-center gap-2">
@@ -722,8 +827,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => {
-                          onSelectRecord(record);
-                          setActiveTab('phenoage-engine');
+                          openRecord(record);
                         }}
                         className="px-2.5 py-1 rounded bg-[#eff4ff] hover:bg-[#e5eeff] text-[#006194] font-semibold text-[11px] transition-colors cursor-pointer"
                       >
