@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.domain.lab_accounts import LabOrganizationRecord
 from app.domain.protocol import ProtocolKindName
 from app.domain.survey import Activity, Alcohol, SexAtBirth, Smoking
 
@@ -165,6 +166,97 @@ class SurveyCatalogView(BaseModel):
     activity: list[Activity]
     conditions: list[str]
     goals: list[str]
+
+
+class LabRegisterRequest(BaseModel):
+    """Register a pending laboratory organization and its first owner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    organization_name: str = Field(min_length=1, max_length=200)
+    organization_type: Literal[
+        "laboratory", "university", "research_institute", "company", "other"
+    ]
+    country: str = Field(pattern=r"^[A-Z]{2}$")
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=12, max_length=128)
+
+
+class LabLoginRequest(BaseModel):
+    """Laboratory email and password."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class LabConfirmRequest(BaseModel):
+    """One-time laboratory email confirmation token."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=20, max_length=128)
+
+
+class LabDuaAcceptRequest(BaseModel):
+    """Explicit acceptance of the current organization DUA."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    accepted: Literal[True]
+
+
+class LabOrganizationView(BaseModel):
+    """Organization state visible only to its authenticated users."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    name: str
+    organization_type: str
+    country: str
+    verification_status: Literal["pending", "verified", "rejected"]
+    dua_version: str | None
+    dua_accepted_at: datetime | None
+    verified_at: datetime | None
+    verification_reviewed_at: datetime | None
+
+
+class LabAccountView(BaseModel):
+    """Authenticated laboratory account and access status."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str
+    role: str
+    email_confirmed_at: datetime
+    organization: LabOrganizationView
+
+
+def lab_account_view(
+    email: str,
+    role: str,
+    email_confirmed_at: datetime,
+    organization: LabOrganizationRecord,
+) -> LabAccountView:
+    """Map internal laboratory account state to its owner-only response."""
+    return LabAccountView(
+        email=email,
+        role=role,
+        email_confirmed_at=email_confirmed_at,
+        organization=LabOrganizationView(
+            id=organization.id,
+            name=organization.name,
+            organization_type=organization.org_type,
+            country=organization.country,
+            verification_status=organization.verification_status,
+            dua_version=organization.dua_version,
+            dua_accepted_at=organization.dua_accepted_at,
+            verified_at=organization.verified_at,
+            verification_reviewed_at=organization.verification_reviewed_at,
+        ),
+    )
 
 
 class ExtractedMarkerView(BaseModel):

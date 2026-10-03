@@ -17,6 +17,7 @@ from app.core.rate_limit import SlidingWindowRateLimiter
 from app.core.security import Argon2PasswordHasher, Argon2SeedHasher
 from app.repositories.dataset import DatasetRepository
 from app.repositories.health import HealthRepository
+from app.repositories.lab_accounts import LabAccountRepository
 from app.repositories.lab_results import LabResultRepository
 from app.repositories.protocol import ProtocolRepository
 from app.repositories.survey import SurveyRepository
@@ -28,6 +29,7 @@ from app.services.extract_sessions import InMemoryExtractSessionStore
 from app.services.gemini_budget import GeminiTokenBudget
 from app.services.health import HealthService
 from app.services.image_redact import TesseractImageRedactor
+from app.services.lab_accounts import LabAccountService
 from app.services.mailer import DevLoggingMailer, Mailer, SmtpMailer
 from app.services.news import HttpxTextFetcher, NewsMemoryCache, NewsService
 from app.services.protocol import ProtocolService
@@ -105,6 +107,21 @@ async def get_account_service(
         passwords=get_password_hasher(),
         mailer=get_mailer(),
         auth_seed_enabled=settings.auth_seed_enabled,
+        app_url=settings.public_app_url,
+        token_ttl=timedelta(seconds=settings.auth_token_ttl_seconds),
+        session_ttl=timedelta(seconds=settings.access_token_ttl_seconds),
+    )
+
+
+async def get_lab_account_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> LabAccountService:
+    """Build the separate laboratory authentication service."""
+    settings = get_settings()
+    return LabAccountService(
+        store=LabAccountRepository(session),
+        passwords=get_password_hasher(),
+        mailer=get_mailer(),
         app_url=settings.public_app_url,
         token_ttl=timedelta(seconds=settings.auth_token_ttl_seconds),
         session_ttl=timedelta(seconds=settings.access_token_ttl_seconds),

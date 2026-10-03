@@ -11,6 +11,7 @@ from app.api.accounts import router as accounts_router
 from app.api.dataset import router as dataset_router
 from app.api.exports import router as exports_router
 from app.api.health import router as health_router
+from app.api.lab_accounts import router as lab_accounts_router
 from app.api.news import router as news_router
 from app.api.phenoage import router as phenoage_router
 from app.api.protocol import router as protocol_router
@@ -73,6 +74,7 @@ def create_app() -> FastAPI:
     application.include_router(health_router)
     application.include_router(news_router)
     application.include_router(accounts_router)
+    application.include_router(lab_accounts_router)
     application.include_router(uploads_router)
     application.include_router(protocol_router)
     application.include_router(survey_router)

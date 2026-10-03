@@ -448,6 +448,10 @@ class Organization(Base):
     )
     dua_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     dua_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_by: Mapped[str | None] = mapped_column(String(120))
+    verification_evidence: Mapped[str | None] = mapped_column(String(1000))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
