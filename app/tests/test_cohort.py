@@ -1,14 +1,18 @@
-"""publish_count and CohortQuery. No route serves either one."""
+"""publish_count and the closed CohortQuery. No route serves either one."""
 
 from __future__ import annotations
 
+import re
 from typing import cast
 
 import pytest
 from pydantic import ValidationError
 
 from app.domain.cohort import CohortQuery, publish_count
+from app.domain.conditions import CONDITION_CODES
 from app.main import create_app
+
+_CONDITION_TOKEN = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def test_publish_count_suppresses_values_below_10() -> None:
@@ -34,33 +38,104 @@ def test_publish_count_rejects_a_negative_or_a_bool() -> None:
         publish_count(cast(int, True))
 
 
-def test_cohort_query_accepts_five_markers_and_five_interventions() -> None:
-    """The closed contract keeps both lists when each has five labels."""
+def test_cohort_query_accepts_a_closed_filter() -> None:
+    """Five dictionary codes, sexes, bands from 18, countries, and draft conditions."""
+    conditions = tuple(sorted(CONDITION_CODES)[:10])
     query = CohortQuery.model_validate(
         {
             "markers": ["1751-7", "2160-0", "2345-7", "30522-7", "6690-2"],
-            "interventions": ["Walk", "Magnesium", "Sleep", "Creatine", "Zone 2"],
+            "sex_at_birth": ["female", "male", "intersex", "undisclosed"],
+            "age_bands": ["18-29", "30-39", "40-49", "50-59", "60-69", "70-plus"],
+            "countries": ["KG", "DE"],
+            "conditions": list(conditions),
         }
     )
-    assert len(query.markers) == 5
-    assert query.interventions[1] == "Magnesium"
+    assert query.markers == ("1751-7", "2160-0", "2345-7", "30522-7", "6690-2")
+    assert query.sex_at_birth == ("female", "male", "intersex", "undisclosed")
+    assert query.age_bands[0] == "18-29"
+    assert query.age_bands[-1] == "70-plus"
+    assert query.countries == ("KG", "DE")
+    assert query.conditions == conditions
+    empty = CohortQuery()
+    assert empty.markers == ()
+    assert empty.sex_at_birth == ()
+    assert empty.age_bands == ()
+    assert empty.countries == ()
+    assert empty.conditions == ()
 
 
-def test_cohort_query_rejects_extra_fields() -> None:
-    """A field outside markers and interventions is not part of the contract."""
-    with pytest.raises(ValidationError, match="Extra inputs"):
-        CohortQuery.model_validate({"markers": ["1751-7"], "email": "a@b.example"})
-    with pytest.raises(ValidationError, match="Extra inputs"):
-        CohortQuery.model_validate({"age": 40})
-
-
-def test_cohort_query_rejects_more_than_five_markers_or_interventions() -> None:
-    """A sixth marker or a sixth intervention is rejected."""
-    six = ["a", "b", "c", "d", "e", "f"]
+def test_cohort_query_rejects_a_sixth_marker() -> None:
+    """A sixth marker is over the limit, even when every code is in the dictionary."""
+    six = ["1751-7", "2160-0", "2345-7", "30522-7", "6690-2", "787-2"]
     with pytest.raises(ValidationError, match="at most 5"):
         CohortQuery.model_validate({"markers": six})
-    with pytest.raises(ValidationError, match="at most 5"):
-        CohortQuery.model_validate({"interventions": six})
+
+
+def test_cohort_query_rejects_an_unknown_loinc_and_free_text() -> None:
+    """A code outside dictionary.v1.json and a plain label are both rejected."""
+    for marker in ("99999-9", "albumin", "Walk"):
+        with pytest.raises(ValidationError, match="unknown LOINC code"):
+            CohortQuery.model_validate({"markers": [marker]})
+
+
+def test_cohort_query_cannot_express_an_age_under_18() -> None:
+    """The youngest band is 18-29. A younger age has no field and no band."""
+    for payload in (
+        {"age": 17},
+        {"age_min": 0},
+        {"age_max": 17},
+        {"year_of_birth": 2010},
+    ):
+        with pytest.raises(ValidationError, match="Extra inputs"):
+            CohortQuery.model_validate(payload)
+    for band in ("0-17", "17", "under-18"):
+        with pytest.raises(ValidationError, match="Input should be"):
+            CohortQuery.model_validate({"age_bands": [band]})
+    with pytest.raises(ValidationError, match="Input should be"):
+        CohortQuery.model_validate({"age_bands": ["18-29", "0-17"]})
+    with pytest.raises(ValidationError, match="Input should be"):
+        CohortQuery.model_validate({"sex_at_birth": ["other"]})
+
+
+def test_cohort_query_rejects_the_journal_and_any_extra_field() -> None:
+    """A journal list and an email field are outside the contract."""
+    assert "interventions" not in CohortQuery.model_fields
+    with pytest.raises(ValidationError, match="Extra inputs"):
+        CohortQuery.model_validate({"interventions": ["Walk", "Magnesium"]})
+    with pytest.raises(ValidationError, match="Extra inputs"):
+        CohortQuery.model_validate({"markers": ["1751-7"], "email": "a@b.example"})
+
+
+def test_draft_condition_codes_are_tokens() -> None:
+    """The draft dictionary is a set of tokens, so a label cannot sneak in."""
+    assert len(CONDITION_CODES) >= 10
+    for code in CONDITION_CODES:
+        assert _CONDITION_TOKEN.fullmatch(code), code
+
+
+def test_cohort_query_rejects_an_unknown_condition_and_an_eleventh() -> None:
+    """Ten draft codes fit. An eleventh code, or one outside the list, does not."""
+    codes = sorted(CONDITION_CODES)
+    assert len(codes) >= 11
+    accepted = CohortQuery.model_validate({"conditions": codes[:10]})
+    assert accepted.conditions == tuple(codes[:10])
+    with pytest.raises(ValidationError, match="at most 10"):
+        CohortQuery.model_validate({"conditions": codes[:11]})
+    for code in ("not_a_condition", "Type 2 diabetes", "Walk"):
+        with pytest.raises(ValidationError, match="unknown condition code"):
+            CohortQuery.model_validate({"conditions": [code]})
+
+
+def test_cohort_query_rejects_a_bad_country_and_a_twenty_first() -> None:
+    """A country is two uppercase letters, and the list stops at twenty."""
+    twenty = [f"A{chr(ord('A') + index)}" for index in range(20)]
+    accepted = CohortQuery.model_validate({"countries": twenty})
+    assert accepted.countries == tuple(twenty)
+    with pytest.raises(ValidationError, match="at most 20"):
+        CohortQuery.model_validate({"countries": [*twenty, "AU"]})
+    for country in ("kg", "Kyrgyzstan", "K", "K1", "KG "):
+        with pytest.raises(ValidationError):
+            CohortQuery.model_validate({"countries": [country]})
 
 
 def test_app_has_no_cohort_route() -> None:
