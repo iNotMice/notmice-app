@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TabType, LabPanelData, HistoricalTestRecord, AccountState, PhenoAgeCalculation } from './types';
-import { INITIAL_BIOMARKERS } from './data/phenoAgeData';
+import { INITIAL_BIOMARKERS, PHENOAGE_BIOMARKERS } from './data/phenoAgeData';
 import { deleteOwnLabResult, deleteOwnLabResults, fetchOwnLabResults } from './api/uploads';
 import { isBiomarkerId } from './i18n/biomarkerIds';
 import { fetchPhenoAge, PhenoAgeScore } from './api/phenoage';
@@ -201,11 +201,13 @@ export default function App() {
       const records: HistoricalTestRecord[] = [];
       for (const panel of panels) {
         const saved: Record<string, number> = {};
+        const biomarkerUnits: Record<string, string> = {};
         const markerIds: string[] = [];
         const printedIntervals: HistoricalTestRecord['printedIntervals'] = {};
         for (const marker of panel.markers) {
           if (marker.canonicalId && isBiomarkerId(marker.canonicalId)) {
             saved[marker.canonicalId] = marker.value;
+            biomarkerUnits[marker.canonicalId] = marker.unit;
             markerIds.push(marker.canonicalId);
             printedIntervals[marker.canonicalId] = {
               referenceLow: marker.referenceLow,
@@ -225,6 +227,7 @@ export default function App() {
           delta: panel.ageDelta,
           labSource: panel.labName ?? getActiveI18n().messages.shell.unknownLaboratory,
           biomarkers: saved,
+          biomarkerUnits,
           hash: panel.documentSha256,
           markerIds,
           printedIntervals,
@@ -257,6 +260,11 @@ export default function App() {
       labSource:
         currentPanel.sourceType === 'demo' ? messages.history.sessionSnapshot : currentPanel.labName,
       biomarkers: { ...biomarkers },
+      biomarkerUnits: Object.fromEntries(
+        currentPanel.focusMarkerIds
+          .filter(isBiomarkerId)
+          .map((id) => [id, PHENOAGE_BIOMARKERS.find((marker) => marker.id === id)?.standardUnit ?? '']),
+      ),
       hash: currentPanel.hash.length === 64 ? currentPanel.hash : '',
       markerIds: [...currentPanel.focusMarkerIds],
       printedIntervals: {},

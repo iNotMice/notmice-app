@@ -7,6 +7,7 @@ import { listProtocolEntries, type ProtocolEntry } from '../../api/protocol';
 import { isBiomarkerId } from '../../i18n/biomarkerIds';
 import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
+import { summarizeLatestChange } from '../../utils/biomarkerChange';
 import {
   dayMs,
   fractionOnAxis,
@@ -169,6 +170,16 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
       },
     ];
   });
+  const markerChange = summarizeLatestChange(
+    markerPoints
+      .filter((point) => !point.record.sessionOnly)
+      .map((point) => ({
+        date: point.record.collectedAt ?? point.record.date,
+        lab: point.record.labSource,
+        value: point.value,
+        unit: point.record.biomarkerUnits[selectedBiomarker] ?? '',
+      })),
+  );
   const scaleNumbers = markerPoints.flatMap((point) => {
     const span = printedSpan(point.interval);
     const nums = [point.value];
@@ -234,6 +245,8 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
     }
     return null;
   };
+  const formattedValue = (value: number, unit: string): string =>
+    `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 }).format(value)} ${unit}`;
   const bandRect = (interval: PrintedLabInterval | null, cx: number) => {
     const bounds = printedSpan(interval);
     if (bounds.low == null && bounds.high == null) {
@@ -546,6 +559,51 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
                 </span>
               )}
             </span>
+          </div>
+        )}
+
+        {activeBioDef && (
+          <div className="rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-3.5 py-3">
+            <p className="font-['Inter'] text-xs font-semibold text-[#0b1c30]">
+              {copy.changeTitle}
+            </p>
+            {markerChange.kind === 'insufficient' ? (
+              <p className="mt-1 font-['Inter'] text-xs text-[#565e74]">
+                {markerChange.latest
+                  ? fill(copy.changeInsufficient, {
+                      date: markerChange.latest.date,
+                      value: formattedValue(markerChange.latest.value, markerChange.latest.unit),
+                    })
+                  : copy.changeNoMeasurements}
+              </p>
+            ) : markerChange.kind === 'unit-mismatch' ? (
+              <p className="mt-1 font-['Inter'] text-xs text-[#565e74]">
+                {fill(copy.changeUnitMismatch, {
+                  previous: formattedValue(markerChange.previous.value, markerChange.previous.unit),
+                  previousDate: markerChange.previous.date,
+                  latest: formattedValue(markerChange.latest.value, markerChange.latest.unit),
+                  latestDate: markerChange.latest.date,
+                })}
+              </p>
+            ) : (
+              <p className="mt-1 font-['Inter'] text-xs text-[#565e74]">
+                {fill(copy.changeCompared, {
+                  previous: formattedValue(markerChange.previous.value, markerChange.previous.unit),
+                  previousDate: markerChange.previous.date,
+                  previousLab: markerChange.previous.lab,
+                  latest: formattedValue(markerChange.latest.value, markerChange.latest.unit),
+                  latestDate: markerChange.latest.date,
+                  latestLab: markerChange.latest.lab,
+                  difference: formattedValue(
+                    markerChange.difference,
+                    markerChange.latest.unit,
+                  ),
+                })}
+              </p>
+            )}
+            <p className="mt-1 font-['Inter'] text-[11px] text-[#565e74]">
+              {copy.changeDisclaimer}
+            </p>
           </div>
         )}
 

@@ -108,6 +108,8 @@ export interface HistoricalTestRecord {
   delta: number | null;
   labSource: string;
   biomarkers: Record<string, number>;
+  /** Unit returned for each canonical marker; comparable values must have identical units. */
+  biomarkerUnits: Record<string, string>;
   /** SHA-256 of a confirmed laboratory file. Empty for a session-only engine snapshot. */
   hash: string;
   /** Canonical marker ids from the panel. Not the full default biomarker map. */

@@ -49,6 +49,16 @@ export const history = {
   clearFilters: 'Filter zurücksetzen',
   noFilteredPanels: 'Keine Panels entsprechen diesen Filtern.',
   openPoint: '{date} · {lab} · {value}. Dieses Ergebnis im Forschungsindex öffnen.',
+  changeTitle: 'Die zwei neuesten bestätigten Messungen',
+  changeNoMeasurements: 'Für diesen Marker gibt es in dieser Ansicht keine bestätigten Messungen.',
+  changeInsufficient:
+    'Die neueste bestätigte Messung ist {value} vom {date}. Für einen Vergleich ist eine weitere Messung erforderlich.',
+  changeUnitMismatch:
+    'Die zwei neuesten Werte verwenden unterschiedliche Einheiten ({previous} am {previousDate}; {latest} am {latestDate}) und werden deshalb nicht verglichen.',
+  changeCompared:
+    '{previous} am {previousDate} ({previousLab}) → {latest} am {latestDate} ({latestLab}); beobachtete Differenz: {difference}.',
+  changeDisclaimer:
+    'Dies ist ein beschreibender Vergleich gespeicherter Werte, keine medizinische Interpretation oder Aussage über Ursachen.',
   registry: 'Bestätigte Panels ({count})',
   printable: 'Druckbarer PDF-Bericht',
   loadEngine: 'Engine laden',
