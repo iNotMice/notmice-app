@@ -27,6 +27,14 @@ export const sovereignty = {
     'Neue Konten melden sich mit E-Mail und einem Passwort von mindestens 12 Zeichen an. Adresse und Passwort-Hash liegen getrennt von den Laborzeilen. Bestehende Phrasen-Konten können die 12 Wörter weiter nutzen.',
   ownTitle: 'Ihre Kopie',
   ownLead: 'Laden Sie das Konto herunter, mit dem Sie angemeldet sind, oder löschen Sie es zusammen mit den bestätigten Werten.',
+  profileSurveyTitle: 'Optionales Teilnehmerprofil',
+  profileSurveyLoading: 'Status der Profilerfassung wird geprüft…',
+  profileSurveyDisabled:
+    'Die Profilerfassung ist derzeit deaktiviert. Es werden keine Umfrageantworten gesammelt. Sie bleibt gesperrt, bis Zweck und Einwilligungstext genehmigt sind.',
+  profileSurveyConfigured:
+    'Die Profilerfassung ist aktiviert, aber der Fragebogen ist in diesem Build nicht verfügbar.',
+  profileSurveyFailed: 'Der Status der Profilerfassung konnte nicht geprüft werden ({status}).',
+  profileSurveySilent: 'Die API für den Status der Profilerfassung ist nicht erreichbar.',
   ownJson: 'JSON herunterladen',
   ownCsv: 'CSV herunterladen',
   deleteAccount: 'Konto löschen',

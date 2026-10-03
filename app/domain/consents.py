@@ -10,9 +10,15 @@ HEALTH_DATA = "health_data"
 HEALTH_DATA_VERSION = "2026-09-28"
 RESEARCH_REUSE = "research_reuse"
 RESEARCH_REUSE_VERSION = "2026-09-28"
+PARTICIPANT_PROFILE = "participant_profile"
+# Legal approval is pending. Keep this unset so the profile-specific consent
+# cannot be granted until its purpose and wording have been approved.
+PARTICIPANT_PROFILE_VERSION: str | None = None
 
 REQUIRED_CONSENTS: dict[str, str] = {HEALTH_DATA: HEALTH_DATA_VERSION}
 OPTIONAL_CONSENTS: dict[str, str] = {RESEARCH_REUSE: RESEARCH_REUSE_VERSION}
+if PARTICIPANT_PROFILE_VERSION is not None:
+    OPTIONAL_CONSENTS[PARTICIPANT_PROFILE] = PARTICIPANT_PROFILE_VERSION
 
 
 @dataclass(frozen=True, slots=True)

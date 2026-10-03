@@ -23,6 +23,7 @@ dependencies = [
     "pyarrow>=17",
     "pydantic-settings>=2.6",
     "pydantic>=2.10",
+    "pycountry>=24.6",
     "PyJWT>=2.9",
     "python-multipart>=0.0.12",
     "sqlalchemy[asyncio]>=2.0.36",
@@ -69,6 +70,7 @@ exclude = "^app/migrations/"
 [[tool.mypy.overrides]]
 module = [
     "mnemonic",
+    "pycountry",
     "pdfplumber",
     "pypdfium2",
     "pytesseract",

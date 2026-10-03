@@ -8,6 +8,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from app.domain.survey import ParticipantProfile
+
 _EMAIL_RE = re.compile(r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
 _EMAIL_MAX_LENGTH = 254
 
@@ -140,3 +142,4 @@ class AccountExport:
     consents: tuple[ConsentRecord, ...]
     markers: tuple[ExportedMarker, ...]
     protocol: tuple[ExportedProtocolEntry, ...] = ()
+    profile: ParticipantProfile | None = None

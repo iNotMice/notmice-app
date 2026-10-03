@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 15_728_640
     extract_session_ttl_seconds: int = 1_800
     auth_seed_enabled: bool = True
+    survey_enabled: bool = False
     auth_token_ttl_seconds: int = 88_200
     public_app_url: str = "http://localhost:8080"
     smtp_host: str = ""
@@ -148,6 +149,25 @@ def validate_mail_config(settings: Settings) -> None:
     app_url = settings.public_app_url.strip()
     if not app_url or "localhost" in app_url or app_url.startswith("http://"):
         raise MailNotConfiguredError("PUBLIC_APP_URL must be the real https origin in production")
+
+
+def validate_survey_config(settings: Settings) -> None:
+    """Keep participant survey collection disabled until its consent is approved.
+
+    Args:
+        settings: Process settings already loaded from the environment.
+
+    Raises:
+        RuntimeError: Survey collection is enabled before a current consent version exists.
+    """
+    if not settings.survey_enabled:
+        return
+    from app.domain.consents import PARTICIPANT_PROFILE_VERSION
+
+    if PARTICIPANT_PROFILE_VERSION is None:
+        raise RuntimeError(
+            "SURVEY_ENABLED requires an approved PARTICIPANT_PROFILE_VERSION"
+        )
 
 
 @lru_cache(maxsize=1)

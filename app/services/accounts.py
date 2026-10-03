@@ -456,6 +456,28 @@ class AccountService:
             ],
             "markers": [_marker_dict(row) for row in bundle.markers],
             "protocol": [_protocol_dict(row) for row in bundle.protocol],
+            "profile": None
+            if bundle.profile is None
+            else {
+                "sex_at_birth": bundle.profile.sex_at_birth,
+                "year_of_birth": bundle.profile.year_of_birth,
+                "country": bundle.profile.country,
+                "height_cm": bundle.profile.height_cm,
+                "weight_kg": (
+                    None
+                    if bundle.profile.weight_kg is None
+                    else str(bundle.profile.weight_kg)
+                ),
+                "smoking": bundle.profile.smoking,
+                "alcohol": bundle.profile.alcohol,
+                "activity": bundle.profile.activity,
+                "conditions": list(bundle.profile.conditions),
+                "updated_at": (
+                    None
+                    if bundle.profile.updated_at is None
+                    else bundle.profile.updated_at.isoformat()
+                ),
+            },
         }
         return json.dumps(payload, ensure_ascii=False)
 
@@ -490,6 +512,16 @@ class AccountService:
                 "entry_started_on",
                 "entry_ended_on",
                 "entry_note",
+                "record_type",
+                "profile_sex_at_birth",
+                "profile_year_of_birth",
+                "profile_country",
+                "profile_height_cm",
+                "profile_weight_kg",
+                "profile_smoking",
+                "profile_alcohol",
+                "profile_activity",
+                "profile_conditions",
             ),
         )
         writer.writeheader()
@@ -515,6 +547,16 @@ class AccountService:
                     "entry_started_on": "",
                     "entry_ended_on": "",
                     "entry_note": "",
+                    "record_type": "marker",
+                    "profile_sex_at_birth": "",
+                    "profile_year_of_birth": "",
+                    "profile_country": "",
+                    "profile_height_cm": "",
+                    "profile_weight_kg": "",
+                    "profile_smoking": "",
+                    "profile_alcohol": "",
+                    "profile_activity": "",
+                    "profile_conditions": "",
                 }
             )
         for entry in bundle.protocol:
@@ -537,6 +579,60 @@ class AccountService:
                     "entry_started_on": entry.started_on.isoformat(),
                     "entry_ended_on": "" if entry.ended_on is None else entry.ended_on.isoformat(),
                     "entry_note": entry.note or "",
+                    "record_type": "protocol",
+                    "profile_sex_at_birth": "",
+                    "profile_year_of_birth": "",
+                    "profile_country": "",
+                    "profile_height_cm": "",
+                    "profile_weight_kg": "",
+                    "profile_smoking": "",
+                    "profile_alcohol": "",
+                    "profile_activity": "",
+                    "profile_conditions": "",
+                }
+            )
+        if bundle.profile is not None:
+            writer.writerow(
+                {
+                    "public_id": bundle.public_id,
+                    "email": bundle.email or "",
+                    "collected_at": "",
+                    "lab_name": "",
+                    "raw_name": "",
+                    "loinc_code": "",
+                    "value": "",
+                    "unit": "",
+                    "ref_low": "",
+                    "ref_high": "",
+                    "lab_flag": "",
+                    "entry_kind": "",
+                    "entry_title": "",
+                    "entry_dose": "",
+                    "entry_started_on": "",
+                    "entry_ended_on": "",
+                    "entry_note": "",
+                    "record_type": "profile",
+                    "profile_sex_at_birth": bundle.profile.sex_at_birth or "",
+                    "profile_year_of_birth": (
+                        ""
+                        if bundle.profile.year_of_birth is None
+                        else str(bundle.profile.year_of_birth)
+                    ),
+                    "profile_country": bundle.profile.country or "",
+                    "profile_height_cm": (
+                        ""
+                        if bundle.profile.height_cm is None
+                        else str(bundle.profile.height_cm)
+                    ),
+                    "profile_weight_kg": (
+                        ""
+                        if bundle.profile.weight_kg is None
+                        else _decimal_text(bundle.profile.weight_kg)
+                    ),
+                    "profile_smoking": bundle.profile.smoking or "",
+                    "profile_alcohol": bundle.profile.alcohol or "",
+                    "profile_activity": bundle.profile.activity or "",
+                    "profile_conditions": "|".join(bundle.profile.conditions),
                 }
             )
         return buffer.getvalue()

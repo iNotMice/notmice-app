@@ -14,9 +14,15 @@ from app.api.health import router as health_router
 from app.api.news import router as news_router
 from app.api.phenoage import router as phenoage_router
 from app.api.protocol import router as protocol_router
+from app.api.survey import router as survey_router
 from app.api.uploads import gemini_budget_exhausted_handler
 from app.api.uploads import router as uploads_router
-from app.core.config import get_settings, validate_mail_config, validate_runtime_secrets
+from app.core.config import (
+    get_settings,
+    validate_mail_config,
+    validate_runtime_secrets,
+    validate_survey_config,
+)
 from app.core.deps import dispose_engine
 from app.core.logging import configure_logging
 from app.domain.uploads import GeminiBudgetExhaustedError
@@ -31,6 +37,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings.log_level)
     validate_runtime_secrets(settings)
     validate_mail_config(settings)
+    validate_survey_config(settings)
     logger.info("api_start")
     yield
     await dispose_engine()
@@ -68,6 +75,7 @@ def create_app() -> FastAPI:
     application.include_router(accounts_router)
     application.include_router(uploads_router)
     application.include_router(protocol_router)
+    application.include_router(survey_router)
     application.include_router(phenoage_router)
     application.include_router(dataset_router)
     application.include_router(exports_router)

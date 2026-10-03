@@ -1,12 +1,14 @@
 """Pydantic schemas shared across API and services."""
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.protocol import ProtocolKindName
+from app.domain.survey import Activity, Alcohol, SexAtBirth, Smoking
 
 
 class HealthStatus(BaseModel):
@@ -23,7 +25,7 @@ class ConsentInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["health_data", "research_reuse"]
+    type: Literal["health_data", "research_reuse", "participant_profile"]
     version: str = Field(min_length=1, max_length=64)
     accepted: bool
 
@@ -127,6 +129,42 @@ class ConsentListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     consents: list[ConsentView]
+
+
+class ParticipantProfileView(BaseModel):
+    """Owner's profile survey answers; never part of the public profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sex_at_birth: SexAtBirth | None
+    year_of_birth: int | None
+    country: str | None
+    height_cm: int | None
+    weight_kg: Decimal | None
+    smoking: Smoking | None
+    alcohol: Alcohol | None
+    activity: Activity | None
+    conditions: list[str]
+    updated_at: datetime | None
+
+
+class SurveyCatalogView(BaseModel):
+    """Survey vocabulary plus its explicit rollout state."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+    health_data_consent_version: str
+    research_reuse_consent_version: str
+    profile_consent_version: str | None
+    country_code_pattern: str
+    countries: list[str]
+    sex_at_birth: list[SexAtBirth]
+    smoking: list[Smoking]
+    alcohol: list[Alcohol]
+    activity: list[Activity]
+    conditions: list[str]
+    goals: list[str]
 
 
 class ExtractedMarkerView(BaseModel):

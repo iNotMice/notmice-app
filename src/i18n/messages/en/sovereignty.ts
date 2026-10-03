@@ -27,6 +27,14 @@ export const sovereignty = {
     'New accounts sign in with email and a password of at least 12 characters. The address and password hash are stored apart from lab rows. Existing phrase accounts can still use the 12 words.',
   ownTitle: 'Your copy',
   ownLead: 'Download the account you are signed into, or delete it together with the confirmed values.',
+  profileSurveyTitle: 'Optional participant profile',
+  profileSurveyLoading: 'Checking whether profile collection is enabled…',
+  profileSurveyDisabled:
+    'Profile collection is currently disabled. No survey answers are being collected. It will remain unavailable until its purpose and consent text are approved.',
+  profileSurveyConfigured:
+    'Profile collection is configured as enabled, but the questionnaire is not available in this build.',
+  profileSurveyFailed: 'Could not check profile collection status ({status}).',
+  profileSurveySilent: 'Could not reach the profile collection status API.',
   ownJson: 'Download JSON',
   ownCsv: 'Download CSV',
   deleteAccount: 'Delete account',

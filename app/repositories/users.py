@@ -6,6 +6,7 @@ Email and analyses are joined only in this module.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import delete, select, update
@@ -19,6 +20,13 @@ from app.domain.accounts import (
     ExportedMarker,
     ExportedProtocolEntry,
     UserRecord,
+)
+from app.domain.survey import (
+    Activity,
+    Alcohol,
+    ParticipantProfile,
+    SexAtBirth,
+    Smoking,
 )
 from app.repositories.models import (
     AuthToken,
@@ -101,7 +109,13 @@ class UserRepository:
     async def set_is_public(self, user_id: UUID, is_public: bool) -> UserRecord | None:
         """Upsert share_settings.is_public for the user. Returns None if missing."""
         result = await self._session.execute(
-            select(User).options(selectinload(User.share_settings)).where(User.id == user_id)
+            select(User)
+            .options(
+                selectinload(User.share_settings),
+                selectinload(User.participant_profile),
+                selectinload(User.profile_conditions),
+            )
+            .where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
         if user is None:
@@ -422,7 +436,13 @@ class UserRepository:
             user_id: Authenticated participant.
         """
         result = await self._session.execute(
-            select(User).options(selectinload(User.share_settings)).where(User.id == user_id)
+            select(User)
+            .options(
+                selectinload(User.share_settings),
+                selectinload(User.participant_profile),
+                selectinload(User.profile_conditions),
+            )
+            .where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
         if user is None:
@@ -469,6 +489,25 @@ class UserRepository:
             for row in protocol_rows.scalars().all()
         )
         is_public = user.share_settings.is_public if user.share_settings is not None else False
+        profile_row = user.participant_profile
+        profile = (
+            None
+            if profile_row is None
+            else ParticipantProfile(
+                sex_at_birth=cast(SexAtBirth | None, profile_row.sex_at_birth),
+                year_of_birth=profile_row.year_of_birth,
+                country=profile_row.country,
+                height_cm=profile_row.height_cm,
+                weight_kg=profile_row.weight_kg,
+                smoking=cast(Smoking | None, profile_row.smoking),
+                alcohol=cast(Alcohol | None, profile_row.alcohol),
+                activity=cast(Activity | None, profile_row.activity),
+                conditions=tuple(
+                    sorted(condition.code for condition in user.profile_conditions)
+                ),
+                updated_at=profile_row.updated_at,
+            )
+        )
         return AccountExport(
             public_id=user.public_id,
             email=None if email_row is None else email_row.email,
@@ -477,6 +516,7 @@ class UserRepository:
             consents=consents,
             markers=markers,
             protocol=protocol,
+            profile=profile,
         )
 
 

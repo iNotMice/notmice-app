@@ -10,6 +10,7 @@ import {
   PublicExportKind,
   PublicTimeseries,
 } from '../../api/dataset';
+import { fetchSurveyCatalog, SurveyCatalogRequestError } from '../../api/survey';
 import {
   Download,
   Share2,
@@ -59,6 +60,23 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   const [purgeError, setPurgeError] = useState<string | null>(null);
   const [ownBusy, setOwnBusy] = useState(false);
   const [ownError, setOwnError] = useState<string | null>(null);
+  const [surveyEnabled, setSurveyEnabled] = useState<boolean | null>(null);
+  const [surveyError, setSurveyError] = useState<number | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setSurveyError(null);
+    void fetchSurveyCatalog(controller.signal)
+      .then((catalog) => setSurveyEnabled(catalog.enabled))
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        setSurveyEnabled(null);
+        setSurveyError(err instanceof SurveyCatalogRequestError ? err.status : 0);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -215,6 +233,35 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
           )}
         </div>
       </div>
+
+      <section
+        className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-2"
+        aria-live="polite"
+      >
+        <h2 className="font-['Inter'] text-base font-bold text-[#0b1c30]">
+          {copy.profileSurveyTitle}
+        </h2>
+        {surveyEnabled === null && surveyError === null && (
+          <p className="font-['Inter'] text-sm text-[#3f4850]">{copy.profileSurveyLoading}</p>
+        )}
+        {surveyError !== null && (
+          <p className="font-['Inter'] text-sm text-[#ba1a1a]" role="alert">
+            {surveyError === 0
+              ? copy.profileSurveySilent
+              : fill(copy.profileSurveyFailed, { status: surveyError })}
+          </p>
+        )}
+        {surveyEnabled === false && (
+          <p className="font-['Inter'] text-sm text-[#3f4850]">
+            {copy.profileSurveyDisabled}
+          </p>
+        )}
+        {surveyEnabled === true && (
+          <p className="font-['Inter'] text-sm text-[#3f4850]">
+            {copy.profileSurveyConfigured}
+          </p>
+        )}
+      </section>
 
       {isAuthenticated && (
         <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">

@@ -19,6 +19,7 @@ from app.repositories.dataset import DatasetRepository
 from app.repositories.health import HealthRepository
 from app.repositories.lab_results import LabResultRepository
 from app.repositories.protocol import ProtocolRepository
+from app.repositories.survey import SurveyRepository
 from app.repositories.users import UserRepository
 from app.services.accounts import AccountService
 from app.services.dataset import DatasetService
@@ -31,6 +32,7 @@ from app.services.mailer import DevLoggingMailer, Mailer, SmtpMailer
 from app.services.news import HttpxTextFetcher, NewsMemoryCache, NewsService
 from app.services.protocol import ProtocolService
 from app.services.redaction_holds import RedactionHoldStore
+from app.services.survey import SurveyService
 from app.services.uploads import UploadService
 from app.services.vision import ExtractionProvider, build_extraction_provider
 
@@ -278,6 +280,16 @@ async def get_protocol_service(
 ) -> ProtocolService:
     """Build the protocol journal service for a request."""
     return ProtocolService(ProtocolRepository(session))
+
+
+async def get_survey_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> SurveyService:
+    """Build the participant survey service with collection disabled by default."""
+    return SurveyService(
+        SurveyRepository(session),
+        enabled=get_settings().survey_enabled,
+    )
 
 
 async def get_upload_service(

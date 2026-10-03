@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -51,6 +52,14 @@ class User(Base):
         passive_deletes=True,
     )
     protocol_entries: Mapped[list[ProtocolEntryRow]] = relationship(
+        back_populates="user",
+        passive_deletes=True,
+    )
+    participant_profile: Mapped[ParticipantProfileRow | None] = relationship(
+        back_populates="user",
+        passive_deletes=True,
+    )
+    profile_conditions: Mapped[list[ProfileCondition]] = relationship(
         back_populates="user",
         passive_deletes=True,
     )
@@ -282,6 +291,95 @@ class Consent(Base):
     text_version: Mapped[str] = mapped_column(String(64), nullable=False)
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ParticipantProfileRow(Base):
+    """Controlled, optional survey answers belonging to one participant."""
+
+    __tablename__ = "participant_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "year_of_birth IS NULL OR year_of_birth BETWEEN 1900 AND 2015",
+            name="ck_profiles_year_of_birth",
+        ),
+        CheckConstraint(
+            "country IS NULL OR (length(country) = 2 AND country = upper(country))",
+            name="ck_profiles_country_code",
+        ),
+        CheckConstraint(
+            "sex_at_birth IS NULL OR sex_at_birth IN "
+            "('female', 'male', 'intersex', 'undisclosed')",
+            name="ck_profiles_sex_at_birth",
+        ),
+        CheckConstraint(
+            "smoking IS NULL OR smoking IN ('never', 'former', 'current')",
+            name="ck_profiles_smoking",
+        ),
+        CheckConstraint(
+            "alcohol IS NULL OR alcohol IN ('none', 'light', 'moderate', 'heavy')",
+            name="ck_profiles_alcohol",
+        ),
+        CheckConstraint(
+            "activity IS NULL OR activity IN ('sedentary', 'light', 'moderate', 'high')",
+            name="ck_profiles_activity",
+        ),
+        CheckConstraint(
+            "height_cm IS NULL OR height_cm BETWEEN 100 AND 250",
+            name="ck_profiles_height_cm",
+        ),
+        CheckConstraint(
+            "weight_kg IS NULL OR weight_kg BETWEEN 30 AND 400",
+            name="ck_profiles_weight_kg",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    sex_at_birth: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    year_of_birth: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    height_cm: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    smoking: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    alcohol: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    activity: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped[User] = relationship(back_populates="participant_profile")
+
+
+class ProfileCondition(Base):
+    """One code from the survey's controlled conditions vocabulary."""
+
+    __tablename__ = "profile_conditions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "code", name="uq_profile_conditions_user_code"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    code: Mapped[str] = mapped_column(String(48), nullable=False)
+    user: Mapped[User] = relationship(back_populates="profile_conditions")
 
 
 class ProtocolEntryRow(Base):
