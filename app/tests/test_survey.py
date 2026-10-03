@@ -123,6 +123,8 @@ def test_profile_input_rejects_unknown_values_and_free_text() -> None:
     with pytest.raises(ValidationError):
         ParticipantProfileInput.model_validate({"conditions": ["unknown_condition"]})
     with pytest.raises(ValidationError):
+        ParticipantProfileInput.model_validate({"conditions": ["anemia"]})
+    with pytest.raises(ValidationError):
         ParticipantProfileInput.model_validate({"country": "ZZ"})
 
 

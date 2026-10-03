@@ -20,6 +20,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.domain.enums import MappingStatus
@@ -421,3 +422,141 @@ class ProtocolEntryRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     user: Mapped[User] = relationship(back_populates="protocol_entries")
+
+
+class Organization(Base):
+    """A data consumer that remains blocked until manual verification and DUA."""
+
+    __tablename__ = "organizations"
+    __table_args__ = (
+        CheckConstraint(
+            "length(country) = 2 AND country = upper(country)",
+            name="ck_organizations_country_code",
+        ),
+        CheckConstraint(
+            "verification_status IN ('pending', 'verified', 'rejected')",
+            name="ck_organizations_verification_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    org_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    country: Mapped[str] = mapped_column(String(2), nullable=False)
+    verification_status: Mapped[str] = mapped_column(
+        String(16), default="pending", nullable=False
+    )
+    dua_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    dua_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class LabUser(Base):
+    """Credentials for a laboratory user, isolated from participant identities."""
+
+    __tablename__ = "lab_users"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('owner', 'admin', 'member')",
+            name="ck_lab_users_role",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(String(16), default="member", nullable=False)
+    email_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class LabSession(Base):
+    """A laboratory session stores only the digest of its cookie token."""
+
+    __tablename__ = "lab_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lab_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("lab_users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class LabAuthToken(Base):
+    """A single-use laboratory email-confirmation or password-reset token digest."""
+
+    __tablename__ = "lab_auth_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            "purpose IN ('confirm_email', 'reset_password')",
+            name="ck_lab_auth_tokens_purpose",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lab_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("lab_users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False)
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
+class LabQueryAudit(Base):
+    """Audit metadata for future aggregate-only lab requests."""
+
+    __tablename__ = "lab_query_audit"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lab_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("lab_users.id"),
+        index=True,
+        nullable=False,
+    )
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id"),
+        index=True,
+        nullable=False,
+    )
+    endpoint: Mapped[str] = mapped_column(String(64), nullable=False)
+    query: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    result_cohort_size: Mapped[int | None] = mapped_column(SmallInteger)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
