@@ -32,7 +32,7 @@ from app.domain.schemas import (
     LabRegisterRequest,
     lab_account_view,
 )
-from app.services.lab_accounts import LabAccountService
+from app.services.lab_accounts import CURRENT_DUA_VERSION, LabAccountService
 
 router = APIRouter(prefix="/api/v1/lab", tags=["laboratory accounts"])
 LAB_SESSION_COOKIE_NAME = "notmice_lab_session"
@@ -76,6 +76,7 @@ def _lab_view(user: LabUserRecord) -> LabAccountView:
         role=user.role,
         email_confirmed_at=user.email_confirmed_at,
         organization=user.organization,
+        current_dua_version=CURRENT_DUA_VERSION,
     )
 
 
@@ -103,9 +104,12 @@ button.addEventListener("click", async () => {{
       headers: {{ "Content-Type": "application/json" }},
       body: JSON.stringify({{ token: button.dataset.token }})
     }});
-    document.getElementById("message").textContent = response.ok
-      ? "Email confirmed. Manual verification and an approved DUA are still required."
-      : "This confirmation link is invalid, expired, or already used.";
+    if (response.ok) {{
+      location.assign("/lab?confirmed=1");
+      return;
+    }}
+    document.getElementById("message").textContent =
+      "This confirmation link is invalid, expired, or already used.";
     button.remove();
   }} catch {{
     button.disabled = false;

@@ -28,6 +28,7 @@ import { ProtocolJournalTab } from './components/tabs/ProtocolJournalTab';
 import { DataSovereigntyTab } from './components/tabs/DataSovereigntyTab';
 import { ResearchNewsTab } from './components/tabs/ResearchNewsTab';
 import { UserInstructionsTab } from './components/tabs/UserInstructionsTab';
+import { LabPortalPage } from './components/LabPortalPage';
 import { ProofModal } from './components/ProofModal';
 import { SeedPhraseModal } from './components/SeedPhraseModal';
 import { TerminalModal } from './components/TerminalModal';
@@ -89,7 +90,7 @@ function tutorialPanel(): LabPanelData {
   };
 }
 
-export default function App() {
+function MainApp() {
   const { m } = useI18n();
   const [activeTab, setActiveTab] = useState<TabType>('overview-landing');
   const [chronologicalAge, setChronologicalAge] = useState<number>(42.0);
@@ -124,6 +125,7 @@ export default function App() {
           setAccount(current);
           await restoreSavedPanels();
         }
+
       } catch {
         // A failed restore leaves the visitor signed out.
       }
@@ -657,4 +659,20 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  const [isLabPortal, setIsLabPortal] = useState(
+    () => window.location.pathname.replace(/\/+$/, '') === '/lab',
+  );
+
+  useEffect(() => {
+    const updateRoute = () => {
+      setIsLabPortal(window.location.pathname.replace(/\/+$/, '') === '/lab');
+    };
+    window.addEventListener('popstate', updateRoute);
+    return () => window.removeEventListener('popstate', updateRoute);
+  }, []);
+
+  return isLabPortal ? <LabPortalPage /> : <MainApp />;
 }

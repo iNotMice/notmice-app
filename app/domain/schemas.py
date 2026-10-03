@@ -218,6 +218,7 @@ class LabOrganizationView(BaseModel):
     country: str
     verification_status: Literal["pending", "verified", "rejected"]
     dua_version: str | None
+    current_dua_version: str | None
     dua_accepted_at: datetime | None
     verified_at: datetime | None
     verification_reviewed_at: datetime | None
@@ -285,6 +286,7 @@ def lab_account_view(
     role: str,
     email_confirmed_at: datetime,
     organization: LabOrganizationRecord,
+    current_dua_version: str | None = None,
 ) -> LabAccountView:
     """Map internal laboratory account state to its owner-only response."""
     return LabAccountView(
@@ -298,6 +300,7 @@ def lab_account_view(
             country=organization.country,
             verification_status=organization.verification_status,
             dua_version=organization.dua_version,
+            current_dua_version=current_dua_version,
             dua_accepted_at=organization.dua_accepted_at,
             verified_at=organization.verified_at,
             verification_reviewed_at=organization.verification_reviewed_at,

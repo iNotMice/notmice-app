@@ -201,6 +201,13 @@ export const Header: React.FC<HeaderProps> = ({
               {m.nav.news}
             </button>
 
+            <a
+              href="/lab"
+              className={linkClass(false)}
+            >
+              {m.nav.laboratoryPortal}
+            </a>
+
             <div className="relative">
               <button
                 type="button"
@@ -319,6 +326,13 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               );
             })}
+            <a
+              href="/lab"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-left px-3 py-2 rounded text-[14px] font-medium text-[#3f4850] hover:bg-[#eff4ff]"
+            >
+              {m.nav.laboratoryPortal}
+            </a>
             <button
               type="button"
               onClick={() => {

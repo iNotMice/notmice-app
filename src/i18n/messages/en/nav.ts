@@ -23,4 +23,5 @@ export const nav = {
   sessionLog: 'Session log',
   toggleNav: 'Toggle navigation menu',
   languageMenu: 'Language',
+  laboratoryPortal: 'For laboratories',
 };

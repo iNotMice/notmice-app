@@ -1,0 +1,60 @@
+export const laboratory = {
+  navLink: 'For laboratories',
+  backToPlatform: 'Back to NotMice',
+  eyebrow: 'NotMice research portal',
+  title: 'Laboratory access',
+  intro:
+    'Create a laboratory account to request access to privacy-protected research cohorts. Each organization is reviewed before any research data can be accessed.',
+  stepEmail: 'Register your organization and confirm the owner email address.',
+  stepReview: 'Our team manually reviews and verifies the organization.',
+  stepAccess: 'Accept the approved data-use agreement when it becomes available.',
+  privacyNote:
+    'Laboratory accounts are separate from participant accounts. The portal provides aggregate cohort statistics only; it does not expose participant-level records.',
+  registerTab: 'Register organization',
+  loginTab: 'Sign in',
+  formMode: 'Laboratory account',
+  organizationName: 'Organization name',
+  organizationType: 'Organization type',
+  countryCode: 'Country code (ISO 3166-1 alpha-2)',
+  email: 'Work email',
+  password: 'Password',
+  passwordHint: 'Use 12-128 characters.',
+  createAccount: 'Create laboratory account',
+  signIn: 'Sign in',
+  loading: 'Checking laboratory session...',
+  dashboardTitle: 'Laboratory account',
+  organization: 'Organization',
+  accessTitle: 'Research data access',
+  signOut: 'Sign out',
+  statuses: {
+    pending: 'Review pending',
+    verified: 'Organization verified',
+    rejected: 'Verification not approved',
+  },
+  organizationTypes: {
+    laboratory: 'Laboratory',
+    university: 'University',
+    research_institute: 'Research institute',
+    company: 'Company',
+    other: 'Other',
+  },
+  pendingHelp:
+    'Your email is confirmed. The organization is waiting for manual review. Research data remains unavailable until verification and the legal agreement are complete.',
+  rejectedHelp:
+    'The organization could not be verified. Contact the NotMice team if you believe this decision needs review.',
+  duaUnavailable:
+    'Organization verification is complete, but the data-use agreement has not yet been legally approved. Research data access remains closed.',
+  duaNeedsAcceptance: 'Review and accept the current data-use agreement ({version}) to request research access.',
+  accessGranted: 'The current data-use agreement is accepted. Cohort endpoints are available for this organization.',
+  acceptedDua: 'Accepted agreement',
+  acceptDua: 'Accept data-use agreement',
+  cabinetNote:
+    'Participant-level records are not available in this portal. Access to research endpoints is gated by organization verification, email confirmation, and the current agreement.',
+  registrationSent:
+    'If the address can be registered, a confirmation link has been sent by email. Check your inbox and spam folder.',
+  emailConfirmed: 'Email confirmed. Sign in with your laboratory account to view organization status.',
+  signedOut: 'You have signed out of the laboratory portal.',
+  duaAccepted: 'The data-use agreement has been accepted for this organization.',
+  loadFailed: 'Could not check the laboratory session.',
+  requestFailed: 'The request could not be completed.',
+};

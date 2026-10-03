@@ -334,6 +334,7 @@ async def test_lab_me_route_uses_only_lab_session_cookie() -> None:
     assert blocked_dua.status_code == 403
     assert confirmed.json()["email"] == "owner@example.com"
     assert confirmed.json()["organization"]["dua_version"] is None
+    assert confirmed.json()["organization"]["current_dua_version"] is None
 
     async with AsyncClient(
         transport=transport,

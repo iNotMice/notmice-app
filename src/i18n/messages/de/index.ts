@@ -4,6 +4,7 @@ import { history } from './history';
 import { instructions } from './instructions';
 import { journal } from './journal';
 import { lifestyleUi } from './lifestyleUi';
+import { laboratory } from './laboratory';
 import { modals } from './modals';
 import { nav } from './nav';
 import { news } from './news';
@@ -31,4 +32,5 @@ export const deMessages = {
   report,
   biomarkers,
   lifestyleUi,
+  laboratory,
 } satisfies AppMessages;

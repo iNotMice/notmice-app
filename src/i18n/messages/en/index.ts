@@ -3,6 +3,7 @@ import { history } from './history';
 import { instructions } from './instructions';
 import { journal } from './journal';
 import { lifestyleUi } from './lifestyleUi';
+import { laboratory } from './laboratory';
 import { modals } from './modals';
 import { nav } from './nav';
 import { news } from './news';
@@ -30,6 +31,7 @@ export const enMessages = {
   report,
   biomarkers,
   lifestyleUi,
+  laboratory,
 };
 
 export type Messages = typeof enMessages;

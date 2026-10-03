@@ -23,4 +23,5 @@ export const nav = {
   sessionLog: 'Sitzungsprotokoll',
   toggleNav: 'Navigationsmenü umschalten',
   languageMenu: 'Sprache',
+  laboratoryPortal: 'Für Labore',
 };
