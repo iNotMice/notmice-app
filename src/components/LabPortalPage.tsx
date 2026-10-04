@@ -9,6 +9,7 @@ import {
   type LabAccount,
   type LabOrganizationType,
 } from '../api/labAccounts';
+import { CohortExplorer } from './CohortExplorer';
 import { useI18n } from '../i18n/I18nProvider';
 import type { AppMessages } from '../i18n/messages/en';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -143,7 +144,7 @@ export function LabPortalPage() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-10 px-5 py-10 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)] md:py-16">
+      <main className={`mx-auto grid max-w-6xl gap-10 px-5 py-10 ${account ? 'md:grid-cols-1' : 'md:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]'} md:py-16`}>
         <section className="pt-2">
           <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5f2fb] text-[#006194]">
             <FlaskConical className="h-6 w-6" />
@@ -391,6 +392,11 @@ function LabDashboard({
       </div>
 
       <p className="mt-5 text-xs leading-5 text-[#7b8b9c]">{copy.cabinetNote}</p>
+      {org.verification_status === 'verified' &&
+        org.current_dua_version !== null &&
+        org.dua_version === org.current_dua_version && (
+          <CohortExplorer copy={copy.explorer} />
+        )}
     </div>
   );
 }
