@@ -31,6 +31,38 @@ export const Header: React.FC<HeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const desktopNavRef = useRef<HTMLElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelMenuClose = () => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const openMenuNow = (id: string) => {
+    cancelMenuClose();
+    setOpenMenu(id);
+  };
+
+  // Keep the menu open briefly after the pointer leaves, so moving across the
+  // small gap between the trigger and the panel does not dismiss it before a click.
+  const scheduleMenuClose = (id: string) => {
+    cancelMenuClose();
+    closeTimer.current = setTimeout(() => {
+      setOpenMenu((current) => (current === id ? null : current));
+      closeTimer.current = null;
+    }, 180);
+  };
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) {
+        clearTimeout(closeTimer.current);
+      }
+    },
+    [],
+  );
 
   const navItems: { id: TabType; label: string }[] = [
     { id: 'overview-landing', label: m.nav.overviewLanding },
@@ -86,6 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
     }`;
 
   const selectTab = (tab: TabType) => {
+    cancelMenuClose();
     setActiveTab(tab);
     setOpenMenu(null);
   };
@@ -142,10 +175,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <div
                   key={group.id}
                   className="relative"
-                  onMouseEnter={() => setOpenMenu(group.id)}
-                  onMouseLeave={() =>
-                    setOpenMenu((current) => (current === group.id ? null : current))
-                  }
+                  onMouseEnter={() => openMenuNow(group.id)}
+                  onMouseLeave={() => scheduleMenuClose(group.id)}
                 >
                   <button
                     type="button"
@@ -230,10 +261,8 @@ export const Header: React.FC<HeaderProps> = ({
 
             <div
               className="relative"
-              onMouseEnter={() => setOpenMenu('documents')}
-              onMouseLeave={() =>
-                setOpenMenu((current) => (current === 'documents' ? null : current))
-              }
+              onMouseEnter={() => openMenuNow('documents')}
+              onMouseLeave={() => scheduleMenuClose('documents')}
             >
               <button
                 type="button"
@@ -275,15 +304,13 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Ephemeral in-memory key */}
           <div
             className="relative hidden md:block"
-            onMouseEnter={() => setOpenMenu('account-id')}
-            onMouseLeave={() =>
-              setOpenMenu((current) => (current === 'account-id' ? null : current))
-            }
+            onMouseEnter={() => openMenuNow('account-id')}
+            onMouseLeave={() => scheduleMenuClose('account-id')}
           >
             <button
               type="button"
               onClick={onOpenSeedPhrase}
-              onFocus={() => setOpenMenu('account-id')}
+              onFocus={() => openMenuNow('account-id')}
               onBlur={(event) => {
                 const nextTarget = event.relatedTarget;
                 if (
