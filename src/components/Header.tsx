@@ -14,6 +14,11 @@ interface HeaderProps {
   isAuthenticated: boolean;
 }
 
+type DesktopGroupItem = { label: string } & (
+  | { id: TabType; href?: never }
+  | { href: string; id?: never }
+);
+
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
@@ -38,12 +43,15 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'research-news', label: m.nav.news },
   ];
 
-  const labItems = navItems.filter((item) => item.id === 'upload-lab' || item.id === 'review-extraction');
+  const labItems: DesktopGroupItem[] = [
+    ...navItems.filter((item) => item.id === 'upload-lab' || item.id === 'review-extraction'),
+    { href: '/lab', label: m.nav.laboratoryPortal },
+  ];
   const phenoAgeItems = navItems.filter(
     (item) => item.id === 'phenoage-engine' || item.id === 'biomarker-history',
   );
 
-  const desktopGroups: { id: string; label: string; items: { id: TabType; label: string }[] }[] = [
+  const desktopGroups: { id: string; label: string; items: DesktopGroupItem[] }[] = [
     { id: 'lab', label: m.nav.lab, items: labItems },
     { id: 'phenoage', label: m.nav.phenoAge, items: phenoAgeItems },
   ];
@@ -150,6 +158,18 @@ export const Header: React.FC<HeaderProps> = ({
                       className="absolute left-0 top-full mt-1 min-w-[220px] rounded-lg border border-[#e2e8f0] bg-[#ffffff] py-1 shadow-lg"
                     >
                       {group.items.map((item) => {
+                        if ('href' in item) {
+                          return (
+                            <a
+                              key={item.href}
+                              href={item.href}
+                              role="menuitem"
+                              className="block w-full text-left px-3 py-2 text-[13px] font-medium text-[#3f4850] hover:bg-[#eff4ff] hover:text-[#0b1c30]"
+                            >
+                              {item.label}
+                            </a>
+                          );
+                        }
                         const itemActive = activeTab === item.id;
                         return (
                           <button
@@ -200,13 +220,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               {m.nav.news}
             </button>
-
-            <a
-              href="/lab"
-              className={linkClass(false)}
-            >
-              {m.nav.laboratoryPortal}
-            </a>
 
             <div className="relative">
               <button
