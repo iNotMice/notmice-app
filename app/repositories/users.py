@@ -514,9 +514,7 @@ class UserRepository:
                 smoking=cast(Smoking | None, profile_row.smoking),
                 alcohol=cast(Alcohol | None, profile_row.alcohol),
                 activity=cast(Activity | None, profile_row.activity),
-                conditions=tuple(
-                    sorted(condition.code for condition in user.profile_conditions)
-                ),
+                conditions=tuple(sorted(condition.code for condition in user.profile_conditions)),
                 updated_at=profile_row.updated_at,
             )
         )

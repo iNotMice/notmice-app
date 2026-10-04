@@ -165,9 +165,7 @@ def validate_survey_config(settings: Settings) -> None:
     from app.domain.consents import PARTICIPANT_PROFILE_VERSION
 
     if PARTICIPANT_PROFILE_VERSION is None:
-        raise RuntimeError(
-            "SURVEY_ENABLED requires an approved PARTICIPANT_PROFILE_VERSION"
-        )
+        raise RuntimeError("SURVEY_ENABLED requires an approved PARTICIPANT_PROFILE_VERSION")
 
 
 @lru_cache(maxsize=1)

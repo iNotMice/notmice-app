@@ -308,8 +308,7 @@ class ParticipantProfileRow(Base):
             name="ck_profiles_country_code",
         ),
         CheckConstraint(
-            "sex_at_birth IS NULL OR sex_at_birth IN "
-            "('female', 'male', 'intersex', 'undisclosed')",
+            "sex_at_birth IS NULL OR sex_at_birth IN ('female', 'male', 'intersex', 'undisclosed')",
             name="ck_profiles_sex_at_birth",
         ),
         CheckConstraint(
@@ -368,9 +367,7 @@ class ProfileCondition(Base):
     """One code from the survey's controlled conditions vocabulary."""
 
     __tablename__ = "profile_conditions"
-    __table_args__ = (
-        UniqueConstraint("user_id", "code", name="uq_profile_conditions_user_code"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "code", name="uq_profile_conditions_user_code"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -443,9 +440,7 @@ class Organization(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     org_type: Mapped[str] = mapped_column(String(32), nullable=False)
     country: Mapped[str] = mapped_column(String(2), nullable=False)
-    verification_status: Mapped[str] = mapped_column(
-        String(16), default="pending", nullable=False
-    )
+    verification_status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
     dua_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     dua_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

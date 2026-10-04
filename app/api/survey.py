@@ -90,9 +90,7 @@ async def read_profile(
     """Return the authenticated participant's own profile only."""
     consents = _granted_consents(await accounts.list_consents(current.id))
     try:
-        return _profile_view(
-            await survey.get_profile(current.id, granted_consents=consents)
-        )
+        return _profile_view(await survey.get_profile(current.id, granted_consents=consents))
     except SurveyUnavailableError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

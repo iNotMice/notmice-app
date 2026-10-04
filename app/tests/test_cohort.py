@@ -84,9 +84,7 @@ def test_cohort_query_accepts_inclusive_collection_date_bounds() -> None:
 
 def test_cohort_query_rejects_a_reversed_collection_date_range() -> None:
     with pytest.raises(ValidationError, match="on or before"):
-        CohortQuery.model_validate(
-            {"collected_from": "2026-06-30", "collected_to": "2026-01-01"}
-        )
+        CohortQuery.model_validate({"collected_from": "2026-06-30", "collected_to": "2026-01-01"})
 
 
 def test_cohort_query_rejects_a_sixth_marker() -> None:
@@ -186,9 +184,7 @@ def test_cohort_routes_are_mounted_behind_verified_lab_access() -> None:
     assert "/api/v1/lab/cohorts/query" in app.openapi()["paths"]
     assert "/api/v1/lab/cohorts/facets" in app.openapi()["paths"]
     routes: dict[str, APIRoute] = {
-        route.path: route
-        for route in cohort_router.routes
-        if isinstance(route, APIRoute)
+        route.path: route for route in cohort_router.routes if isinstance(route, APIRoute)
     }
     query_route = routes["/api/v1/lab/cohorts/query"]
     facets_route = routes["/api/v1/lab/cohorts/facets"]
@@ -196,6 +192,5 @@ def test_cohort_routes_are_mounted_behind_verified_lab_access() -> None:
     assert facets_route.methods == {"GET"}
     for route in (query_route, facets_route):
         assert any(
-            dependency.call is require_verified_lab
-            for dependency in route.dependant.dependencies
+            dependency.call is require_verified_lab for dependency in route.dependant.dependencies
         )

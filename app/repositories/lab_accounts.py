@@ -86,9 +86,7 @@ class LabAccountRepository:
 
     async def login_material(self, email: str) -> LabLoginMaterial | None:
         """Load password material by normalized email."""
-        result = await self._session.execute(
-            select(LabUser).where(LabUser.email == email)
-        )
+        result = await self._session.execute(select(LabUser).where(LabUser.email == email))
         row = result.scalar_one_or_none()
         if row is None:
             return None
@@ -162,9 +160,7 @@ class LabAccountRepository:
     async def mark_email_confirmed(self, user_id: UUID, confirmed_at: datetime) -> None:
         """Mark a laboratory email address as confirmed."""
         await self._session.execute(
-            update(LabUser)
-            .where(LabUser.id == user_id)
-            .values(email_confirmed_at=confirmed_at)
+            update(LabUser).where(LabUser.id == user_id).values(email_confirmed_at=confirmed_at)
         )
 
     async def open_session(
@@ -205,9 +201,7 @@ class LabAccountRepository:
 
     async def revoke_sessions(self, user_id: UUID) -> None:
         """Expire all lab sessions for one user."""
-        await self._session.execute(
-            delete(LabSession).where(LabSession.lab_user_id == user_id)
-        )
+        await self._session.execute(delete(LabSession).where(LabSession.lab_user_id == user_id))
 
     async def accept_dua(
         self,

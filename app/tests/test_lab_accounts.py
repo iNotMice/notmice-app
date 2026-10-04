@@ -295,6 +295,7 @@ async def test_lab_me_route_uses_only_lab_session_cookie() -> None:
     service, _store, mailer = _service()
 
     app: FastAPI = create_app()
+
     async def override_service() -> LabAccountService:
         return service
 
