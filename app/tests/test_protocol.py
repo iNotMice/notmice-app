@@ -128,9 +128,7 @@ def _application(store: InMemoryProtocolStore, user: UserRecord) -> FastAPI:
 
     application.dependency_overrides[get_protocol_service] = override_service
     application.dependency_overrides[get_current_user] = override_user
-    application.dependency_overrides[get_current_user_with_current_health_consent] = (
-        override_user
-    )
+    application.dependency_overrides[get_current_user_with_current_health_consent] = override_user
     return application
 
 
@@ -336,7 +334,10 @@ async def test_journal_text_stays_out_of_postgres_research_packages() -> None:
             },
         )
         assert saved.status_code == 201
-        shared = await client.patch("/api/v1/accounts/me/share", json={"is_public": True})
+        shared = await client.patch(
+            "/api/v1/accounts/me/share",
+            json={"is_public": True, "consent_version": "2026-10-03"},
+        )
         assert shared.status_code == 200
         personal = await client.get("/api/v1/accounts/me/export.json")
         assert personal.status_code == 200

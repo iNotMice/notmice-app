@@ -176,9 +176,7 @@ class LabRegisterRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     organization_name: str = Field(min_length=1, max_length=200)
-    organization_type: Literal[
-        "laboratory", "university", "research_institute", "company", "other"
-    ]
+    organization_type: Literal["laboratory", "university", "research_institute", "company", "other"]
     country: str = Field(pattern=r"^[A-Z]{2}$")
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=12, max_length=128)

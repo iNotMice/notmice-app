@@ -65,9 +65,7 @@ class InMemoryAccountService:
         del user_id
         return self.consents
 
-    async def set_consent(
-        self, user_id: UUID, choice: ConsentChoice
-    ) -> ConsentRecord | None:
+    async def set_consent(self, user_id: UUID, choice: ConsentChoice) -> ConsentRecord | None:
         del user_id
         consent_type = choice.consent_type
         text_version = choice.text_version
@@ -247,9 +245,7 @@ async def test_catalog_and_profile_collection_are_closed_by_default() -> None:
         InMemoryAccountService(),
         enabled=False,
     )
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         catalog = await client.get("/api/v1/survey/catalog")
         response = await client.put(
             "/api/v1/accounts/me/profile",
@@ -280,9 +276,7 @@ async def test_profile_requires_both_active_consents(monkeypatch: pytest.MonkeyP
         InMemoryAccountService((_consent(HEALTH_DATA, HEALTH_DATA_VERSION),)),
         enabled=True,
     )
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.put(
             "/api/v1/accounts/me/profile",
             json={"country": "DE"},
@@ -303,9 +297,7 @@ async def test_consented_profile_is_owner_scoped_and_deletable(
     repository = InMemorySurveyRepository()
     foreign_profile = profile_from_input(ParticipantProfileInput(country="FR"))
     repository.profiles[other_user_id] = foreign_profile
-    repository.profiles[user.id] = profile_from_input(
-        ParticipantProfileInput(country="DE")
-    )
+    repository.profiles[user.id] = profile_from_input(ParticipantProfileInput(country="DE"))
     accounts = InMemoryAccountService(
         (
             _consent(HEALTH_DATA, HEALTH_DATA_VERSION),
@@ -313,9 +305,7 @@ async def test_consented_profile_is_owner_scoped_and_deletable(
         )
     )
     app = _application(user, repository, accounts, enabled=True)
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         read_response = await client.get("/api/v1/accounts/me/profile")
         write_response = await client.put(
             "/api/v1/accounts/me/profile",
@@ -335,9 +325,7 @@ async def test_consented_profile_is_owner_scoped_and_deletable(
 async def test_withdrawing_profile_consent_deletes_saved_profile() -> None:
     user = _user()
     repository = InMemorySurveyRepository()
-    repository.profiles[user.id] = profile_from_input(
-        ParticipantProfileInput(country="DE")
-    )
+    repository.profiles[user.id] = profile_from_input(ParticipantProfileInput(country="DE"))
     accounts = InMemoryAccountService(
         (
             _consent(HEALTH_DATA, HEALTH_DATA_VERSION),
@@ -359,6 +347,5 @@ async def test_withdrawing_profile_consent_deletes_saved_profile() -> None:
     assert response.status_code == 200
     assert user.id not in repository.profiles
     assert any(
-        row.consent_type == HEALTH_DATA and row.withdrawn_at is None
-        for row in accounts.consents
+        row.consent_type == HEALTH_DATA and row.withdrawn_at is None for row in accounts.consents
     )

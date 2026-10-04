@@ -78,8 +78,7 @@ class SurveyRepository:
             delete(ProfileCondition).where(ProfileCondition.user_id == user_id)
         )
         self._session.add_all(
-            ProfileCondition(id=uuid4(), user_id=user_id, code=code)
-            for code in profile.conditions
+            ProfileCondition(id=uuid4(), user_id=user_id, code=code) for code in profile.conditions
         )
         await self._session.flush()
         return ParticipantProfile(

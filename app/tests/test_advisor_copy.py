@@ -68,7 +68,7 @@ _FORBIDDEN = (
     r"эффект препарата",
     r"high[\s-]?risk",
     r"optim(?:al\w*|um)\b",
-    r"\bnormal(?:e|en|er|es)?\b",
+    r"(?<!-)\bnormal(?:e|en|er|es)?\b",
     r"\belevated\b",
     r"\berhöht\w*\b",
     r"\bimpaired\b",
