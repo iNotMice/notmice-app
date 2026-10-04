@@ -24,4 +24,5 @@ export const nav = {
   toggleNav: 'Navigationsmenü umschalten',
   languageMenu: 'Sprache',
   laboratoryPortal: 'Für Labore',
+  publicId: 'Öffentliche ID',
 };

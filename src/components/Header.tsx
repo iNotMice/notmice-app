@@ -139,7 +139,14 @@ export const Header: React.FC<HeaderProps> = ({
               const isOpen = openMenu === group.id;
               const isActive = group.items.some((item) => item.id === activeTab);
               return (
-                <div key={group.id} className="relative">
+                <div
+                  key={group.id}
+                  className="relative"
+                  onMouseEnter={() => setOpenMenu(group.id)}
+                  onMouseLeave={() =>
+                    setOpenMenu((current) => (current === group.id ? null : current))
+                  }
+                >
                   <button
                     type="button"
                     aria-expanded={isOpen}
@@ -221,7 +228,13 @@ export const Header: React.FC<HeaderProps> = ({
               {m.nav.news}
             </button>
 
-            <div className="relative">
+            <div
+              className="relative"
+              onMouseEnter={() => setOpenMenu('documents')}
+              onMouseLeave={() =>
+                setOpenMenu((current) => (current === 'documents' ? null : current))
+              }
+            >
               <button
                 type="button"
                 aria-expanded={openMenu === 'documents'}
@@ -260,19 +273,49 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right Status Controls */}
         <div className="flex items-center gap-2.5 shrink-0">
           {/* Ephemeral in-memory key */}
-          <button
-            onClick={onOpenSeedPhrase}
-            title={isAuthenticated ? m.nav.accountRecovery : m.nav.signInOrCreate}
-            className="hidden md:flex items-center gap-2 bg-[#eff4ff] hover:bg-[#e5eeff] px-2.5 py-1.5 rounded border border-[#dce9ff] transition-colors cursor-pointer"
+          <div
+            className="relative hidden md:block"
+            onMouseEnter={() => setOpenMenu('account-id')}
+            onMouseLeave={() =>
+              setOpenMenu((current) => (current === 'account-id' ? null : current))
+            }
           >
-            <span className="w-2 h-2 rounded-full bg-[#00855b] animate-pulse"></span>
-            <span className="font-['JetBrains_Mono'] text-[11px] text-[#0b1c30] font-medium">
-              {accountAddress}
-            </span>
-            <span className="font-['JetBrains_Mono'] text-[11px] text-[#006947] font-semibold hidden lg:inline bg-[#4edea3]/20 px-1.5 py-0.5 rounded">
-              {isAuthenticated ? m.nav.signedIn : m.nav.guest}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={onOpenSeedPhrase}
+              onFocus={() => setOpenMenu('account-id')}
+              onBlur={(event) => {
+                const nextTarget = event.relatedTarget;
+                if (
+                  !(nextTarget instanceof Node) ||
+                  !event.currentTarget.parentElement?.contains(nextTarget)
+                ) {
+                  setOpenMenu((current) => (current === 'account-id' ? null : current));
+                }
+              }}
+              aria-expanded={openMenu === 'account-id'}
+              aria-describedby={openMenu === 'account-id' ? 'account-public-id' : undefined}
+              title={isAuthenticated ? m.nav.accountRecovery : m.nav.signInOrCreate}
+              className="flex items-center gap-2 bg-[#eff4ff] hover:bg-[#e5eeff] px-2.5 py-1.5 rounded border border-[#dce9ff] transition-colors cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#00855b] animate-pulse"></span>
+              <span className="font-['JetBrains_Mono'] text-[11px] text-[#006947] font-semibold bg-[#4edea3]/20 px-1.5 py-0.5 rounded">
+                {isAuthenticated ? m.nav.signedIn : m.nav.guest}
+              </span>
+            </button>
+            {openMenu === 'account-id' && (
+              <div
+                id="account-public-id"
+                role="tooltip"
+                className="absolute right-0 top-full mt-2 min-w-max rounded-lg border border-[#e2e8f0] bg-[#ffffff] px-3 py-2 shadow-lg"
+              >
+                <span className="block text-[11px] font-medium text-[#565e74]">{m.nav.publicId}</span>
+                <span className="font-['JetBrains_Mono'] text-[12px] text-[#0b1c30]">
+                  {accountAddress}
+                </span>
+              </div>
+            )}
+          </div>
 
           <div className="hidden sm:flex items-center gap-1.5 bg-[#eff4ff] text-[#3f4850] px-2.5 py-1.5 rounded font-['JetBrains_Mono'] text-[11px] border border-[#dce9ff]">
             <Shield className="w-3.5 h-3.5 text-[#006947]" />
@@ -373,8 +416,11 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="w-2 h-2 rounded-full bg-[#00855b]"></span>
                 {isAuthenticated ? m.nav.signedIn : m.nav.guest}
               </span>
-              <span className="font-mono">{accountAddress}</span>
             </button>
+            <details className="px-3 py-2 text-xs text-[#565e74]">
+              <summary className="cursor-pointer font-medium">{m.nav.publicId}</summary>
+              <span className="mt-1 block break-all font-mono text-[#0b1c30]">{accountAddress}</span>
+            </details>
           </div>
         </div>
       )}
