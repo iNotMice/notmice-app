@@ -444,7 +444,7 @@ function MainApp() {
     }
   };
 
-  const handleTogglePublic = async (isPublic: boolean) => {
+  const handleTogglePublic = async (isPublic: boolean, consentVersion: string) => {
     if (!account) {
       setIsSeedPhraseModalOpen(true);
       return;
@@ -452,10 +452,11 @@ function MainApp() {
     const previous = account.isPublic;
     setAccount({ ...account, isPublic });
     try {
-      const updated = await updateShareSettings(isPublic);
+      const updated = await updateShareSettings(isPublic, consentVersion);
       setAccount({ ...account, isPublic: updated.isPublic });
     } catch {
       setAccount({ ...account, isPublic: previous });
+      throw new Error('Public sharing settings could not be updated');
     }
   };
 

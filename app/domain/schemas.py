@@ -26,7 +26,7 @@ class ConsentInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["health_data", "research_reuse", "participant_profile"]
+    type: Literal["health_data", "research_reuse", "participant_profile", "public_sharing"]
     version: str = Field(min_length=1, max_length=64)
     accepted: bool
 
@@ -96,11 +96,12 @@ class AccountLoginRequest(BaseModel):
 
 
 class ShareSettingsUpdate(BaseModel):
-    """Opt-in public sharing flag."""
+    """Opt-in public sharing flag, version-bound to its separate consent."""
 
     model_config = ConfigDict(extra="forbid")
 
     is_public: bool = Field(description="True when the profile may appear in the public dataset.")
+    consent_version: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class AccountView(BaseModel):
@@ -158,6 +159,7 @@ class SurveyCatalogView(BaseModel):
     health_data_consent_version: str
     research_reuse_consent_version: str
     profile_consent_version: str | None
+    public_sharing_consent_version: str
     country_code_pattern: str
     countries: list[str]
     sex_at_birth: list[SexAtBirth]

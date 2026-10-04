@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 
-from app.api.accounts import get_current_user
+from app.api.accounts import get_current_user, get_current_user_with_current_health_consent
 from app.core.config import get_settings
 from app.core.deps import get_upload_service
 from app.core.rate_limit import resolve_client_key
@@ -170,7 +170,7 @@ def _extract_response(completed: CompletedExtract) -> ExtractResponse:
 )
 async def extract_upload(
     request: Request,
-    current: Annotated[UserRecord, Depends(get_current_user)],
+    current: Annotated[UserRecord, Depends(get_current_user_with_current_health_consent)],
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
     file: Annotated[UploadFile, File()],
 ) -> ExtractResponse | JSONResponse:
@@ -220,7 +220,7 @@ def _client_key(request: Request) -> str:
 async def confirm_redaction(
     request: Request,
     payload: RedactionConfirmRequest,
-    current: Annotated[UserRecord, Depends(get_current_user)],
+    current: Annotated[UserRecord, Depends(get_current_user_with_current_health_consent)],
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
 ) -> ExtractResponse:
     """Extract markers from a painted frame the caller already accepted."""
@@ -254,7 +254,7 @@ async def discard_redaction(
 @router.post("/confirm", response_model=ConfirmResponse)
 async def confirm_upload(
     payload: ConfirmRequest,
-    current: Annotated[UserRecord, Depends(get_current_user)],
+    current: Annotated[UserRecord, Depends(get_current_user_with_current_health_consent)],
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
 ) -> ConfirmResponse:
     """Persist reviewed values. SHA-256 comes from the extract session.

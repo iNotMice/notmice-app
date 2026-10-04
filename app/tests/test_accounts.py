@@ -6,10 +6,13 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 
-from app.api.accounts import SESSION_COOKIE_NAME
+from app.api.accounts import (
+    SESSION_COOKIE_NAME,
+    get_current_user_with_current_health_consent,
+)
 from app.core.config import get_settings
 from app.core.deps import (
     get_account_identity_rate_limiter,
@@ -33,6 +36,7 @@ from app.domain.accounts import (
     UnauthenticatedError,
     UserRecord,
 )
+from app.domain.consents import HEALTH_DATA, HEALTH_DATA_VERSION, ConsentChoice
 from app.main import create_app
 from app.services.accounts import AccountService
 
@@ -207,27 +211,31 @@ class InMemoryUserStore:
         now: datetime,
     ) -> ConsentRecord | None:
         rows = self._consents.setdefault(user_id, [])
-        for index, row in enumerate(rows):
-            if row.consent_type != consent_type:
-                continue
-            if not accepted:
-                updated = ConsentRecord(
+        active_rows = [
+            (index, row)
+            for index, row in enumerate(rows)
+            if row.consent_type == consent_type and row.withdrawn_at is None
+        ]
+        if not accepted:
+            if not active_rows:
+                return None
+            for index, row in active_rows:
+                rows[index] = ConsentRecord(
                     consent_type=row.consent_type,
                     text_version=row.text_version,
                     granted_at=row.granted_at,
                     withdrawn_at=now,
                 )
-            else:
-                updated = ConsentRecord(
-                    consent_type=consent_type,
-                    text_version=text_version,
-                    granted_at=now,
-                    withdrawn_at=None,
-                )
-            rows[index] = updated
-            return updated
-        if not accepted:
-            return None
+            return rows[active_rows[-1][0]]
+        for index, row in active_rows:
+            if row.text_version == text_version:
+                return row
+            rows[index] = ConsentRecord(
+                consent_type=row.consent_type,
+                text_version=row.text_version,
+                granted_at=row.granted_at,
+                withdrawn_at=now,
+            )
         created = ConsentRecord(
             consent_type=consent_type,
             text_version=text_version,
@@ -305,6 +313,33 @@ def _service(store: InMemoryUserStore | None = None) -> tuple[AccountService, In
         hasher=Argon2SeedHasher("test-pepper-secret-key-32-bytes!!"),
     )
     return service, users
+
+
+@pytest.mark.asyncio
+async def test_health_data_dependency_requires_the_current_explicit_consent() -> None:
+    service, _users = _service()
+    created = await service.create()
+
+    with pytest.raises(HTTPException) as missing:
+        await get_current_user_with_current_health_consent(created.user, service)
+    assert missing.value.status_code == 403
+
+    await service.set_consent(
+        created.user.id,
+        ConsentChoice(HEALTH_DATA, HEALTH_DATA_VERSION, accepted=True),
+    )
+    assert (
+        await get_current_user_with_current_health_consent(created.user, service)
+        == created.user
+    )
+
+    await service.set_consent(
+        created.user.id,
+        ConsentChoice(HEALTH_DATA, HEALTH_DATA_VERSION, accepted=False),
+    )
+    with pytest.raises(HTTPException) as withdrawn:
+        await get_current_user_with_current_health_consent(created.user, service)
+    assert withdrawn.value.status_code == 403
 
 
 def test_in_memory_store_keeps_hash_not_phrase() -> None:
@@ -538,7 +573,7 @@ async def test_account_create_is_rate_limited() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         body = {
             "password": "correct-horse-battery",
-            "consents": [{"type": "health_data", "version": "2026-09-28", "accepted": True}],
+            "consents": [{"type": "health_data", "version": "2026-10-03", "accepted": True}],
         }
         first = await client.post("/api/v1/accounts", json={"email": "one@example.com", **body})
         second = await client.post("/api/v1/accounts", json={"email": "two@example.com", **body})
@@ -560,21 +595,44 @@ async def test_me_without_token_is_401() -> None:
 
 
 async def test_share_toggle_http() -> None:
-    """PATCH /me/share persists is_public on the account."""
+    """Public sharing requires and records a separate current-version consent."""
     service, _users = _service()
     application = _override_app(service)
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         created = await service.create()
         client.cookies.set(SESSION_COOKIE_NAME, created.session_token)
-        public = await client.patch(
+        rejected = await client.patch(
             "/api/v1/accounts/me/share",
             json={"is_public": True},
         )
+        assert rejected.status_code == 400
+        public = await client.patch(
+            "/api/v1/accounts/me/share",
+            json={"is_public": True, "consent_version": "2026-10-03"},
+        )
         assert public.status_code == 200
         assert public.json()["is_public"] is True
+        consents = await client.get("/api/v1/accounts/me/consents")
+        public_consent = next(
+            consent for consent in consents.json()["consents"]
+            if consent["type"] == "public_sharing"
+        )
+        assert public_consent["version"] == "2026-10-03"
+        assert public_consent["withdrawn_at"] is None
+        private = await client.patch(
+            "/api/v1/accounts/me/share",
+            json={"is_public": False},
+        )
+        assert private.status_code == 200
+        consents = await client.get("/api/v1/accounts/me/consents")
+        public_consent = next(
+            consent for consent in consents.json()["consents"]
+            if consent["type"] == "public_sharing"
+        )
+        assert public_consent["withdrawn_at"] is not None
         me = await client.get("/api/v1/accounts/me")
-        assert me.json()["is_public"] is True
+        assert me.json()["is_public"] is False
 
 
 async def test_accounts_against_postgres() -> None:
@@ -603,8 +661,8 @@ async def test_accounts_against_postgres() -> None:
         "email": email,
         "password": "correct-horse-battery",
         "consents": [
-            {"type": "health_data", "version": "2026-09-28", "accepted": True},
-            {"type": "research_reuse", "version": "2026-09-28", "accepted": True},
+            {"type": "health_data", "version": "2026-10-03", "accepted": True},
+            {"type": "research_reuse", "version": "2026-10-03", "accepted": True},
         ],
     }
     application = create_app()

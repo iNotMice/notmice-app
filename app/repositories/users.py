@@ -325,28 +325,40 @@ class UserRepository:
             now: Clock value for grant and withdrawal timestamps.
         """
         result = await self._session.execute(
-            select(Consent).where(Consent.user_id == user_id, Consent.consent_type == consent_type)
+            select(Consent)
+            .where(Consent.user_id == user_id, Consent.consent_type == consent_type)
+            .order_by(Consent.granted_at)
         )
-        row = result.scalar_one_or_none()
+        rows = list(result.scalars().all())
         if not accepted:
-            if row is None:
+            active_rows = [row for row in rows if row.withdrawn_at is None]
+            if not active_rows:
                 return None
-            row.withdrawn_at = now
+            for row in active_rows:
+                row.withdrawn_at = now
             await self._session.flush()
-            return _consent_record(row)
-        if row is None:
-            row = Consent(
-                id=uuid4(),
-                user_id=user_id,
-                consent_type=consent_type,
-                text_version=text_version,
-                granted_at=now,
-            )
-            self._session.add(row)
-        else:
-            row.text_version = text_version
-            row.granted_at = now
-            row.withdrawn_at = None
+            return _consent_record(active_rows[-1])
+        active_current = next(
+            (
+                row
+                for row in reversed(rows)
+                if row.withdrawn_at is None and row.text_version == text_version
+            ),
+            None,
+        )
+        if active_current is not None:
+            return _consent_record(active_current)
+        for row in rows:
+            if row.withdrawn_at is None:
+                row.withdrawn_at = now
+        row = Consent(
+            id=uuid4(),
+            user_id=user_id,
+            consent_type=consent_type,
+            text_version=text_version,
+            granted_at=now,
+        )
+        self._session.add(row)
         await self._session.flush()
         return _consent_record(row)
 

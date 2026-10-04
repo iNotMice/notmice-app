@@ -12,6 +12,7 @@ from app.core.deps import (
     get_account_identity_rate_limiter,
     get_account_rate_limiter,
     get_account_service,
+    get_survey_service,
 )
 from app.core.rate_limit import SlidingWindowRateLimiter, resolve_client_key
 from app.core.security import normalize_mnemonic
@@ -28,7 +29,13 @@ from app.domain.accounts import (
     UserRecord,
     normalize_email,
 )
-from app.domain.consents import ConsentChoice
+from app.domain.consents import (
+    HEALTH_DATA,
+    HEALTH_DATA_VERSION,
+    PUBLIC_SHARING,
+    ConsentChoice,
+    current_version,
+)
 from app.domain.pii import PIIValidationError, reject_pii
 from app.domain.schemas import (
     AccountLoginRequest,
@@ -45,6 +52,7 @@ from app.domain.schemas import (
     ShareSettingsUpdate,
 )
 from app.services.accounts import AccountService
+from app.services.survey import SurveyService
 
 router = APIRouter(prefix="/api/v1/accounts", tags=["accounts"])
 SESSION_COOKIE_NAME = "notmice_session"
@@ -212,6 +220,25 @@ async def get_current_user(
         return await account_service.authenticate(request.cookies.get(SESSION_COOKIE_NAME))
     except AccountError as exc:
         raise _http_for(exc) from exc
+
+
+async def get_current_user_with_current_health_consent(
+    current: Annotated[UserRecord, Depends(get_current_user)],
+    account_service: Annotated[AccountService, Depends(get_account_service)],
+) -> UserRecord:
+    """Require a fresh explicit health-data grant before processing health data."""
+    active = await account_service.list_consents(current.id)
+    if not any(
+        row.consent_type == HEALTH_DATA
+        and row.text_version == HEALTH_DATA_VERSION
+        and row.withdrawn_at is None
+        for row in active
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Current health-data consent is required",
+        )
+    return current
 
 
 @router.post(
@@ -389,6 +416,7 @@ async def update_consent(
     payload: ConsentInput,
     current: Annotated[UserRecord, Depends(get_current_user)],
     account_service: Annotated[AccountService, Depends(get_account_service)],
+    survey_service: Annotated[SurveyService, Depends(get_survey_service)],
 ) -> ConsentView:
     """Grant or withdraw one consent at the current text version."""
     try:
@@ -399,6 +427,8 @@ async def update_consent(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Consent is not granted"
         )
+    if payload.type == "participant_profile" and not payload.accepted:
+        await survey_service.delete_profile(current.id)
     return ConsentView(
         type=row.consent_type,
         version=row.text_version,
@@ -462,9 +492,36 @@ async def update_share(
     current: Annotated[UserRecord, Depends(get_current_user)],
     account_service: Annotated[AccountService, Depends(get_account_service)],
 ) -> AccountView:
-    """Set the opt-in public sharing flag in ``share_settings``."""
+    """Set public sharing only alongside its explicit versioned consent."""
     try:
         reject_pii(payload.model_dump())
+        share_consent_version = current_version(PUBLIC_SHARING)
+        if payload.is_public:
+            if (
+                share_consent_version is None
+                or payload.consent_version != share_consent_version
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Current public-sharing consent is required",
+                )
+            await account_service.set_consent(
+                current.id,
+                ConsentChoice(
+                    consent_type=PUBLIC_SHARING,
+                    text_version=payload.consent_version,
+                    accepted=True,
+                ),
+            )
+        else:
+            await account_service.set_consent(
+                current.id,
+                ConsentChoice(
+                    consent_type=PUBLIC_SHARING,
+                    text_version=share_consent_version or "",
+                    accepted=False,
+                ),
+            )
         updated = await account_service.set_public(current.id, payload.is_public)
     except PIIValidationError as exc:
         raise HTTPException(

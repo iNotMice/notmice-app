@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.api.accounts import get_current_user
+from app.api.accounts import get_current_user, get_current_user_with_current_health_consent
 from app.core.deps import get_protocol_service
 from app.domain.accounts import UserRecord
 from app.domain.protocol import ProtocolEntry, ProtocolEntryNotFoundError, ProtocolValidationError
@@ -50,7 +50,7 @@ async def list_entries(
 @router.post("", response_model=ProtocolEntryView, status_code=status.HTTP_201_CREATED)
 async def create_entry(
     payload: ProtocolEntryInput,
-    current: Annotated[UserRecord, Depends(get_current_user)],
+    current: Annotated[UserRecord, Depends(get_current_user_with_current_health_consent)],
     protocol_service: Annotated[ProtocolService, Depends(get_protocol_service)],
 ) -> ProtocolEntryView:
     """Store one journal row on this account."""
@@ -73,7 +73,7 @@ async def create_entry(
 async def replace_entry(
     entry_id: UUID,
     payload: ProtocolEntryInput,
-    current: Annotated[UserRecord, Depends(get_current_user)],
+    current: Annotated[UserRecord, Depends(get_current_user_with_current_health_consent)],
     protocol_service: Annotated[ProtocolService, Depends(get_protocol_service)],
 ) -> ProtocolEntryView:
     """Replace one journal row. Another account's id answers as not found."""

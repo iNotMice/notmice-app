@@ -82,6 +82,14 @@ export function ParticipantProfilePreview({
       <p className="mt-4 rounded-md bg-[#f1f5f8] p-3 text-xs leading-5 text-[#718398]">
         {copy.noFreeText}
       </p>
+      <a
+        href="/legal/consent-personal-research-2026-10-03.html"
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-block text-xs font-semibold text-[#006194] underline"
+      >
+        {copy.legalDocumentLink}
+      </a>
     </div>
   );
 }

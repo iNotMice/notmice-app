@@ -32,7 +32,7 @@ export const sovereignty = {
   profileSurveyDisabled:
     'Die Profilerfassung ist derzeit deaktiviert. Es werden keine Umfrageantworten gesammelt. Sie bleibt gesperrt, bis Zweck und Einwilligungstext genehmigt sind.',
   profileSurveyConfigured:
-    'Der Umfragedienst meldet, dass die Erfassung aktiviert ist. Ihre Antworten benötigen weiterhin die aktuelle Profileinwilligung; diese Vorschau lädt oder speichert keine Profildaten.',
+    'Der Umfragedienst ist aktiviert. Akzeptieren Sie die aktuelle Profileinwilligung, bevor Sie Antworten senden; diese Vorschau lädt oder speichert noch keine Profildaten.',
   profileSurvey: {
     previewIntro:
       'Nur eine Vorschau des Fragebogens. Alle Felder sind deaktiviert; es werden keine Kontodaten geladen oder an den Server gesendet.',
@@ -48,6 +48,7 @@ export const sovereignty = {
     activity: 'Körperliche Aktivität',
     noFreeText:
       'Dieser Entwurf verwendet ausschließlich vorgegebene Auswahlwerte. Erkrankungen und Ziele bleiben bis zur wissenschaftlichen Freigabe des Wörterbuchs ausgeblendet.',
+    legalDocumentLink: 'Genehmigten Einwilligungstext lesen (Russisch, Version 2026-10-03).',
     options: {
       female: 'Weiblich',
       male: 'Männlich',
@@ -66,6 +67,12 @@ export const sovereignty = {
   },
   profileSurveyFailed: 'Der Status der Profilerfassung konnte nicht geprüft werden ({status}).',
   profileSurveySilent: 'Die API für den Status der Profilerfassung ist nicht erreichbar.',
+  healthConsentTitle: 'Erforderliche Einwilligung zu Gesundheitsdaten',
+  healthConsentBody:
+    'Diese Einwilligung erlaubt NotMice, die von Ihnen übermittelten Gesundheits- und Labordaten für die persönlichen Funktionen Ihres Kontos zu verarbeiten. Die aktuelle Version ist unten angegeben; für neue Versionen ist eine erneute Entscheidung erforderlich.',
+  healthConsentLegalLink: 'Genehmigten Einwilligungstext lesen (Russisch, Version 2026-10-03).',
+  healthConsentActive: 'Die aktuelle Einwilligung ist aktiv. Deaktivieren Sie das Kästchen, um sie zu widerrufen; danach werden neue Übermittlungen von Gesundheitsdaten blockiert.',
+  healthConsentRequired: 'Die aktuelle Einwilligung ist nicht aktiv. Aktivieren Sie das Kästchen, um sie zu erteilen und Übermittlungen von Gesundheitsdaten zu ermöglichen.',
   ownJson: 'JSON herunterladen',
   ownCsv: 'CSV herunterladen',
   deleteAccount: 'Konto löschen',
@@ -75,17 +82,28 @@ export const sovereignty = {
   activeId: 'Aktive Kennung: {id}',
   authenticated: 'Authentifiziert',
   guest: 'Gast',
-  optInTitle: 'Optionales anonymisiertes Kohorten-Teilen',
+  optInTitle: 'Optionaler öffentlicher pseudonymer Datensatz',
   openAccess: 'Offener Zugang',
   optInBody:
-    'Pharmazeutische Anti-Aging-Studien testen überwiegend an Inzucht-Nagetierstämmen und scheitern zu 92 %, wenn sie auf die menschliche Biologie übertragen werden. Wenn Sie anonymisierte longitudinale Blutvektoren freiwillig einbringen, helfen Sie, einen offen zugänglichen menschlichen Langlebigkeitsmaßstab aufzubauen.',
-  redaction: 'Pipeline zur Entfernung personenbezogener Daten (100 % entfernt)',
-  strippedName: 'Vollständiger Name (entfernt)',
-  keptAge: 'Chronologisches Alter (erhalten)',
-  strippedDob: 'Geburtsdatum (entfernt)',
-  keptMarkers: '9 LOINC-Marker (erhalten)',
-  strippedAccount: 'Laborkontonummer (entfernt)',
-  keptDelta: 'PhenoAge-Delta (erhalten)',
+    'Die öffentliche Freigabe ist eine separate, optionale Entscheidung. Sie ist standardmäßig deaktiviert und wird nur nach ausdrücklicher Aktivierung eingeschaltet. Sie ist unabhängig von der Forschungsweiternutzung für aggregierte Laborkohorten.',
+  publicSharingDisclosure:
+    'Bei Aktivierung werden bestätigte Biomarkerzeilen mit Ihrer pseudonymen öffentlichen Kennung, Entnahmedatum, Alter bei Entnahme (falls vorhanden), Markernamen/-codes, Werten, Einheiten und Zuordnungsstatus veröffentlicht. E-Mail, interne Konto-IDs, Wiederherstellungs-Hashes, Dokument-Hashes und Notizen aus dem Protokolljournal werden nicht aufgenommen.',
+  researchReuseTitle: 'Forschungsweiternutzung (optional)',
+  researchReuseBody:
+    'Erlauben Sie die Nutzung aktueller, einwilligungsberechtigter Profil- und bestätigter Labordaten für Forschung und aggregierte Kohortenstatistiken. Die Labor-Forschungs-API gibt keine Journaleinträge aus. Dadurch werden Ihre Zeilen nicht öffentlich. Sie können diese Einwilligung hier widerrufen.',
+  consentsFailed: 'Ihre Einwilligungen konnten nicht geladen werden.',
+  consentUpdateFailed: 'Die Forschungseinwilligung konnte nicht geändert werden.',
+  publicShareUpdateFailed: 'Die öffentliche Freigabe konnte nicht geändert werden.',
+  publicShareNeedsConsent:
+    'Für dieses Konto gibt es eine ältere öffentliche Freigabe ohne aktuelle versionsgebundene Einwilligung. Die Zeilen bleiben aus dem öffentlichen Datensatz ausgeschlossen, bis Sie erneut ausdrücklich zustimmen.',
+  turnPublicOff: 'Öffentliche Freigabe ausschalten',
+  redaction: 'Im öffentlichen Datensatz angezeigte Felder',
+  strippedName: 'E-Mail (nicht sichtbar)',
+  keptAge: 'Alter bei Entnahme (sichtbar)',
+  strippedDob: 'Vollständiges Geburtsdatum (nicht sichtbar)',
+  keptMarkers: 'Marker-Code und Wert (sichtbar)',
+  strippedAccount: 'Interne Konto-ID (nicht sichtbar)',
+  keptDelta: 'Pseudonyme öffentliche Kennung (sichtbar)',
   contribute: 'Vektor zum offenen Register beitragen',
   contributeOn: 'Bestätigte Biomarkerzeilen bei Opt-in in den öffentlichen Datensatz schreiben',
   contributeOff: 'Melden Sie sich zuerst an und stimmen Sie dann dem öffentlichen Datensatz zu',

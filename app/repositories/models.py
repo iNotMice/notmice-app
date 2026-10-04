@@ -280,7 +280,6 @@ class Consent(Base):
     """A grant of a named text version, and the moment it was withdrawn."""
 
     __tablename__ = "consents"
-    __table_args__ = (UniqueConstraint("user_id", "consent_type", name="uq_consents_user_type"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(

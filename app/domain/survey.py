@@ -86,6 +86,7 @@ class SurveyCatalog:
     health_data_consent_version: str
     research_reuse_consent_version: str
     profile_consent_version: str | None
+    public_sharing_consent_version: str
     countries: tuple[str, ...]
     sex_at_birth: tuple[SexAtBirth, ...]
     smoking: tuple[Smoking, ...]

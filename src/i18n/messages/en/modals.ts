@@ -25,8 +25,10 @@ export const modals = {
   passwordLabel: 'Password',
   passwordHint: 'At least 12 characters.',
   healthConsent:
-    'I agree that confirmed lab values are stored for this research self-observation tool. This is not a medical diagnosis.',
-  researchConsent: 'Include my confirmed rows in research reuse. Off unless I check this.',
+    'I agree to the processing needed to provide the NotMice service under the current personal and research data consent.',
+  researchConsent:
+    'Optional: allow research reuse of eligible pseudonymous data. This does not enable public sharing.',
+  consentDocumentLink: 'Read the approved Russian consent text, version 2026-10-03.',
   registerAction: 'Create account',
   haveAccount: 'I already have an account',
   needAccount: 'Create an account',

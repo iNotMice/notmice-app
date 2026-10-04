@@ -3,6 +3,7 @@ export interface SurveyCatalog {
   health_data_consent_version: string;
   research_reuse_consent_version: string;
   profile_consent_version: string | null;
+  public_sharing_consent_version: string;
   country_code_pattern: string;
   countries: string[];
   sex_at_birth: string[];

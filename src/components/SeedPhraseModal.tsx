@@ -379,6 +379,14 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                         />
                         <span>{copy.researchConsent}</span>
                       </label>
+                      <a
+                        href="/legal/consent-personal-research-2026-10-03.html"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block text-xs font-semibold text-[#006194] underline"
+                      >
+                        {copy.consentDocumentLink}
+                      </a>
                     </>
                   )}
                   <button

@@ -66,8 +66,47 @@ export function forgetLegacyToken(): void {
   }
 }
 
-export const HEALTH_CONSENT_VERSION = '2026-09-28';
-export const RESEARCH_CONSENT_VERSION = '2026-09-28';
+export const HEALTH_CONSENT_VERSION = '2026-10-03';
+export const RESEARCH_CONSENT_VERSION = '2026-10-03';
+
+export type ConsentType =
+  | 'health_data'
+  | 'research_reuse'
+  | 'participant_profile'
+  | 'public_sharing';
+
+export interface ConsentRecord {
+  type: ConsentType;
+  version: string;
+  granted_at: string;
+  withdrawn_at: string | null;
+}
+
+export async function fetchOwnConsents(): Promise<ConsentRecord[]> {
+  const payload = await requestJson<{ consents: ConsentRecord[] }>('/api/v1/accounts/me/consents', {
+    method: 'GET',
+  });
+  return payload.consents;
+}
+
+export async function updateOwnConsent(
+  type: ConsentType,
+  version: string,
+  accepted: boolean,
+): Promise<ConsentRecord | null> {
+  try {
+    return await requestJson<ConsentRecord>('/api/v1/accounts/me/consents', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ type, version, accepted }),
+    });
+  } catch (error) {
+    if (!accepted && error instanceof Error && error.message === 'Consent is not granted') {
+      return null;
+    }
+    throw error;
+  }
+}
 
 export interface RegisterInput {
   email: string;
@@ -185,11 +224,14 @@ export async function fetchCurrentAccount(): Promise<Account | null> {
   return mapAccount((await response.json()) as AccountViewPayload);
 }
 
-export async function updateShareSettings(isPublic: boolean): Promise<Account> {
+export async function updateShareSettings(
+  isPublic: boolean,
+  consentVersion: string,
+): Promise<Account> {
   const payload = await requestJson<AccountViewPayload>('/api/v1/accounts/me/share', {
     method: 'PATCH',
     headers: jsonHeaders(),
-    body: JSON.stringify({ is_public: isPublic }),
+    body: JSON.stringify({ is_public: isPublic, consent_version: consentVersion }),
   });
   return mapAccount(payload);
 }

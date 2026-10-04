@@ -167,8 +167,13 @@ def test_public_select_omits_internal_identifiers() -> None:
         "unit",
         "mapping_status",
     }
-    compiled = str(public_biomarker_select().compile()).lower()
+    compiled = str(
+        public_biomarker_select().compile(compile_kwargs={"literal_binds": True})
+    ).lower()
     assert "is_public" in compiled
+    assert "public_sharing" in compiled
+    assert "consents.text_version" in compiled
+    assert "consents.withdrawn_at is null" in compiled
     assert "confirmed_at" in compiled
     assert "seed_phrase_hash" not in compiled
     assert "document_sha256" not in compiled

@@ -9,6 +9,7 @@ from app.domain.consents import (
     HEALTH_DATA_VERSION,
     PARTICIPANT_PROFILE,
     PARTICIPANT_PROFILE_VERSION,
+    PUBLIC_SHARING_VERSION,
     RESEARCH_REUSE_VERSION,
 )
 from app.domain.survey import (
@@ -49,6 +50,7 @@ class SurveyService:
             health_data_consent_version=HEALTH_DATA_VERSION,
             research_reuse_consent_version=RESEARCH_REUSE_VERSION,
             profile_consent_version=version,
+            public_sharing_consent_version=PUBLIC_SHARING_VERSION,
             countries=COUNTRY_CODES,
             sex_at_birth=SEX_AT_BIRTH,
             smoking=SMOKING,

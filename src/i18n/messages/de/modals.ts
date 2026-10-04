@@ -26,9 +26,10 @@ export const modals = {
   passwordLabel: 'Passwort',
   passwordHint: 'Mindestens 12 Zeichen.',
   healthConsent:
-    'Ich willige ein, dass bestätigte Laborwerte für dieses Werkzeug zur Selbstbeobachtung in der Forschung gespeichert werden. Das ist keine medizinische Diagnose.',
+    'Ich willige in die für den NotMice-Dienst erforderliche Verarbeitung gemäß der aktuellen Einwilligung zu personenbezogenen und Forschungsdaten ein.',
   researchConsent:
-    'Meine bestätigten Zeilen dürfen für die Forschungsweiternutzung verwendet werden. Ohne Häkchen bleibt das aus.',
+    'Optional: pseudonyme, geeignete Daten dürfen für Forschungszwecke weiterverwendet werden. Dies aktiviert keine öffentliche Freigabe.',
+  consentDocumentLink: 'Genehmigten russischen Einwilligungstext lesen, Version 2026-10-03.',
   registerAction: 'Konto anlegen',
   haveAccount: 'Ich habe bereits ein Konto',
   needAccount: 'Konto anlegen',

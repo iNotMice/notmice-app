@@ -32,7 +32,7 @@ export const sovereignty = {
   profileSurveyDisabled:
     'Profile collection is currently disabled. No survey answers are being collected. It will remain unavailable until its purpose and consent text are approved.',
   profileSurveyConfigured:
-    'The survey service reports that collection is enabled. Your answers still require the current profile consent; this preview does not load or save profile data.',
+    'The survey service is enabled. Accept the current profile consent before submitting answers; this preview does not load or save profile data yet.',
   profileSurvey: {
     previewIntro:
       'Questionnaire preview only. Every control is disabled; nothing is loaded from your account or sent to the server.',
@@ -48,6 +48,7 @@ export const sovereignty = {
     activity: 'Physical activity',
     noFreeText:
       'This draft uses controlled choices only. Conditions and goals are omitted until their vocabulary is scientifically approved.',
+    legalDocumentLink: 'Read approved consent text (Russian, version 2026-10-03).',
     options: {
       female: 'Female',
       male: 'Male',
@@ -66,6 +67,12 @@ export const sovereignty = {
   },
   profileSurveyFailed: 'Could not check profile collection status ({status}).',
   profileSurveySilent: 'Could not reach the profile collection status API.',
+  healthConsentTitle: 'Required health-data consent',
+  healthConsentBody:
+    'This consent allows NotMice to process the health and laboratory data you submit for your personal account features. The current version is shown below; new versions require a fresh choice.',
+  healthConsentLegalLink: 'Read the approved consent text (Russian, version 2026-10-03).',
+  healthConsentActive: 'Current consent is active. Uncheck to withdraw it; health-data submissions will then be blocked.',
+  healthConsentRequired: 'Current consent is not active. Check to accept it and enable health-data submissions.',
   ownJson: 'Download JSON',
   ownCsv: 'Download CSV',
   deleteAccount: 'Delete account',
@@ -75,17 +82,28 @@ export const sovereignty = {
   activeId: 'Active ID: {id}',
   authenticated: 'Authenticated',
   guest: 'Guest',
-  optInTitle: 'Opt-in Anonymized Cohort Sharing',
+  optInTitle: 'Optional public pseudonymous dataset',
   openAccess: 'Open Access',
   optInBody:
-    'Pharmaceutical anti-aging trials overwhelmingly test on inbred rodent strains, resulting in a 92% failure rate when transitioning to human biology. By voluntarily submitting anonymized longitudinal blood vectors, you help establish an open-access human longevity benchmark.',
-  redaction: 'PII Redaction Pipeline (100% Stripped)',
-  strippedName: 'Full Name (Stripped)',
-  keptAge: 'Chrono Age (Preserved)',
-  strippedDob: 'Date of Birth (Stripped)',
-  keptMarkers: '9 LOINC Markers (Preserved)',
-  strippedAccount: 'Lab Account Number (Stripped)',
-  keptDelta: 'PhenoAge Delta (Preserved)',
+    'Public sharing is a separate, optional choice. It is off unless you explicitly enable it. This setting is independent from research reuse for aggregate laboratory cohorts.',
+  publicSharingDisclosure:
+    'When enabled, confirmed biomarker rows are published with your pseudonymous public ID, collection date, age at collection (when available), marker names/codes, values, units, and mapping status. Email, internal account IDs, recovery hashes, document hashes, and protocol-journal notes are not included.',
+  researchReuseTitle: 'Research reuse (optional)',
+  researchReuseBody:
+    'Allow current, consent-eligible profile and confirmed laboratory data to be used for research and aggregate cohort statistics. The laboratory research API does not expose journal entries. This does not make your rows public. You can withdraw this permission here.',
+  consentsFailed: 'Could not load your consent choices.',
+  consentUpdateFailed: 'The research consent could not be updated.',
+  publicShareUpdateFailed: 'The public-sharing choice could not be updated.',
+  publicShareNeedsConsent:
+    'This account has an older public-sharing setting without the current versioned consent. Its rows stay out of the public dataset until you explicitly opt in again.',
+  turnPublicOff: 'Turn public sharing off',
+  redaction: 'Fields shown in the public dataset',
+  strippedName: 'Email (not shown)',
+  keptAge: 'Age at collection (shown)',
+  strippedDob: 'Full date of birth (not shown)',
+  keptMarkers: 'Marker code and value (shown)',
+  strippedAccount: 'Internal account ID (not shown)',
+  keptDelta: 'Pseudonymous public ID (shown)',
   contribute: 'Contribute Vector to Open Registry',
   contributeOn: 'Write confirmed biomarker rows to the public dataset when you opt in',
   contributeOff: 'Sign in first, then opt in to the public dataset',

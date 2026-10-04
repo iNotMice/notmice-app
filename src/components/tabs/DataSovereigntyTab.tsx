@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { TabType } from '../../types';
-import { deleteOwnAccount, downloadOwnExport } from '../../api/accounts';
+import {
+  deleteOwnAccount,
+  downloadOwnExport,
+  fetchOwnConsents,
+  updateOwnConsent,
+  type ConsentRecord,
+} from '../../api/accounts';
 import {
   DatasetRequestError,
   downloadPublicDatasetExport,
@@ -29,7 +35,7 @@ interface DataSovereigntyTabProps {
   accountAddress: string;
   isAuthenticated: boolean;
   isPublic: boolean;
-  onTogglePublic: (isPublic: boolean) => void;
+  onTogglePublic: (isPublic: boolean, consentVersion: string) => Promise<void>;
   onAccountDeleted: () => void;
   onPurgeMemory: () => void | Promise<void>;
   onOpenSeedPhrase: () => void;
@@ -63,6 +69,33 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   const [ownError, setOwnError] = useState<string | null>(null);
   const [surveyCatalog, setSurveyCatalog] = useState<SurveyCatalog | null>(null);
   const [surveyError, setSurveyError] = useState<number | null>(null);
+  const [consents, setConsents] = useState<ConsentRecord[]>([]);
+  const [consentError, setConsentError] = useState<string | null>(null);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  const isConsentActive = (type: ConsentRecord['type'], version: string | null | undefined) =>
+    version !== null &&
+    version !== undefined &&
+    consents.some(
+      (consent) =>
+        consent.type === type && consent.version === version && consent.withdrawn_at === null,
+    );
+
+  const researchReuseActive = isConsentActive(
+    'research_reuse',
+    surveyCatalog?.research_reuse_consent_version,
+  );
+  const healthDataActive = isConsentActive(
+    'health_data',
+    surveyCatalog?.health_data_consent_version,
+  );
+  const publicSharingConsentActive = isConsentActive(
+    'public_sharing',
+    surveyCatalog?.public_sharing_consent_version,
+  );
+  const publicSharingEnabled = isPublic && publicSharingConsentActive;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,6 +111,29 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setConsents([]);
+      return;
+    }
+    let cancelled = false;
+    setConsentError(null);
+    void fetchOwnConsents()
+      .then((current) => {
+        if (!cancelled) {
+          setConsents(current);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setConsentError(copy.consentsFailed);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, copy.consentsFailed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -105,7 +161,7 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   }, [datasetReload, isPublic]);
 
   useEffect(() => {
-    if (!isPublic || !isAuthenticated) {
+    if (!publicSharingEnabled || !isAuthenticated) {
       setSeries(null);
       setSeriesNote(null);
       return;
@@ -134,7 +190,7 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
         );
       });
     return () => controller.abort();
-  }, [accountAddress, isAuthenticated, isPublic, datasetReload]);
+  }, [accountAddress, isAuthenticated, publicSharingEnabled, datasetReload]);
 
   const downloadExport = (kind: PublicExportKind) => {
     setExportError(null);
@@ -195,6 +251,66 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
       .then(() => onAccountDeleted())
       .catch(() => setOwnError(copy.deleteFailed))
       .finally(() => setOwnBusy(false));
+  };
+
+  const toggleHealthData = async (accepted: boolean) => {
+    if (!surveyCatalog || !isAuthenticated) {
+      return;
+    }
+    setConsentBusy(true);
+    setConsentError(null);
+    try {
+      await updateOwnConsent(
+        'health_data',
+        surveyCatalog.health_data_consent_version,
+        accepted,
+      );
+      setConsents(await fetchOwnConsents());
+    } catch {
+      setConsentError(copy.consentUpdateFailed);
+    } finally {
+      setConsentBusy(false);
+    }
+  };
+
+  const toggleResearchReuse = async (accepted: boolean) => {
+    if (!surveyCatalog || !isAuthenticated) {
+      return;
+    }
+    setConsentBusy(true);
+    setConsentError(null);
+    try {
+      await updateOwnConsent(
+        'research_reuse',
+        surveyCatalog.research_reuse_consent_version,
+        accepted,
+      );
+      setConsents(await fetchOwnConsents());
+    } catch {
+      setConsentError(copy.consentUpdateFailed);
+    } finally {
+      setConsentBusy(false);
+    }
+  };
+
+  const togglePublicSharing = async (accepted: boolean) => {
+    if (!surveyCatalog || !isAuthenticated) {
+      if (!isAuthenticated) {
+        onOpenSeedPhrase();
+      }
+      return;
+    }
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      await onTogglePublic(accepted, surveyCatalog.public_sharing_consent_version);
+      setConsents(await fetchOwnConsents());
+      setDatasetReload((value) => value + 1);
+    } catch {
+      setShareError(copy.publicShareUpdateFailed);
+    } finally {
+      setShareBusy(false);
+    }
   };
 
   return (
@@ -308,6 +424,41 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
             </p>
           )}
         </div>
+      )}
+
+      {isAuthenticated && surveyCatalog && (
+        <section className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
+          <h2 className="font-['Inter'] text-base font-bold text-[#0b1c30]">
+            {copy.healthConsentTitle}
+          </h2>
+          <p className="font-['Inter'] text-sm text-[#3f4850]">
+            {copy.healthConsentBody}
+          </p>
+          <a
+            href="/legal/consent-personal-research-2026-10-03.html"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-semibold text-[#006194] underline"
+          >
+            {copy.healthConsentLegalLink}
+          </a>
+          <label className="flex items-start gap-3 rounded-lg border border-[#e1e8ef] p-3 text-sm">
+            <input
+              aria-label={copy.healthConsentTitle}
+              type="checkbox"
+              checked={healthDataActive}
+              disabled={consentBusy}
+              onChange={(event) => void toggleHealthData(event.target.checked)}
+              className="mt-1 h-4 w-4 shrink-0 accent-[#006194] disabled:opacity-50"
+            />
+            <span>{healthDataActive ? copy.healthConsentActive : copy.healthConsentRequired}</span>
+          </label>
+          {consentError && (
+            <p className="text-xs text-[#ba1a1a]" role="alert">
+              {consentError}
+            </p>
+          )}
+        </section>
       )}
 
       {/* Main Grid: Export Modules vs Decentralized Cohort Sharing */}
@@ -442,7 +593,27 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
               {copy.optInBody}
             </p>
 
-            {/* Privacy Redaction Preview */}
+            <div className="rounded-lg border border-[#d6e5ef] bg-[#f8fbfd] p-3 text-xs leading-5 text-[#526579]">
+              {copy.publicSharingDisclosure}
+            </div>
+
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-[#e1e8ef] p-3">
+              <div>
+                <p className="text-sm font-semibold text-[#18334b]">{copy.researchReuseTitle}</p>
+                <p className="mt-1 text-xs leading-5 text-[#607286]">{copy.researchReuseBody}</p>
+              </div>
+              <input
+                aria-label={copy.researchReuseTitle}
+                type="checkbox"
+                checked={researchReuseActive}
+                disabled={!isAuthenticated || !surveyCatalog || consentBusy}
+                onChange={(event) => void toggleResearchReuse(event.target.checked)}
+                className="mt-1 h-4 w-4 shrink-0 accent-[#006194] disabled:opacity-50"
+              />
+            </div>
+            {consentError && <p className="text-xs text-[#ba1a1a]" role="alert">{consentError}</p>}
+
+            {/* Privacy disclosure summarizes exactly which fields the public API exposes. */}
             <div className="bg-[#f8f9ff] p-3.5 rounded-lg border border-[#e2e8f0] space-y-2 text-xs">
               <span className="font-['Inter'] font-bold text-[#0b1c30] flex items-center gap-1.5">
                 <EyeOff className="w-4 h-4 text-[#ba1a1a]" />
@@ -470,17 +641,32 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
+                  aria-label={copy.contribute}
                   type="checkbox"
-                  checked={isPublic}
-                  onChange={(e) => onTogglePublic(e.target.checked)}
-                  className="sr-only peer"
+                  checked={isPublic && publicSharingConsentActive}
+                  disabled={!isAuthenticated || !surveyCatalog || shareBusy}
+                  onChange={(e) => void togglePublicSharing(e.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-[#00855b] disabled:opacity-50"
                 />
-                <div className="w-11 h-6 bg-[#cbd5e1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#cbd5e1] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00855b]"></div>
               </label>
             </div>
+            {shareError && <p className="text-xs text-[#ba1a1a]" role="alert">{shareError}</p>}
+            {isPublic && !publicSharingConsentActive && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900" role="status">
+                <span>{copy.publicShareNeedsConsent}</span>
+                <button
+                  type="button"
+                  disabled={shareBusy}
+                  onClick={() => void togglePublicSharing(false)}
+                  className="font-semibold underline disabled:opacity-50"
+                >
+                  {copy.turnPublicOff}
+                </button>
+              </div>
+            )}
 
             {/* Public sharing status */}
-            {isPublic && (
+            {publicSharingEnabled && (
               <div className="p-3 bg-[#f8f9ff] rounded border border-[#dce9ff] flex flex-col gap-1.5 text-xs animate-in fade-in">
                 <span className="font-['JetBrains_Mono'] text-[#006947] font-semibold">
                   {copy.sharingOn}

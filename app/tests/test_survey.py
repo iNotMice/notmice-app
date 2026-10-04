@@ -21,7 +21,13 @@ from app.core.config import Settings, validate_survey_config
 from app.core.deps import get_account_service, get_survey_service
 from app.core.security import Argon2SeedHasher
 from app.domain.accounts import AccountExport, ConsentRecord, UserRecord
-from app.domain.consents import HEALTH_DATA, HEALTH_DATA_VERSION, PARTICIPANT_PROFILE
+from app.domain.consents import (
+    HEALTH_DATA,
+    HEALTH_DATA_VERSION,
+    PARTICIPANT_PROFILE,
+    PARTICIPANT_PROFILE_VERSION,
+    ConsentChoice,
+)
 from app.domain.survey import ParticipantProfile, ParticipantProfileInput, profile_from_input
 from app.main import create_app
 from app.repositories.models import Base
@@ -58,6 +64,43 @@ class InMemoryAccountService:
     async def list_consents(self, user_id: UUID) -> tuple[ConsentRecord, ...]:
         del user_id
         return self.consents
+
+    async def set_consent(
+        self, user_id: UUID, choice: ConsentChoice
+    ) -> ConsentRecord | None:
+        del user_id
+        consent_type = choice.consent_type
+        text_version = choice.text_version
+        accepted = choice.accepted
+        now = datetime.now(UTC)
+        previous = next(
+            (
+                row
+                for row in reversed(self.consents)
+                if row.consent_type == consent_type
+                and row.text_version == text_version
+                and row.withdrawn_at is None
+            ),
+            None,
+        )
+        if accepted:
+            row = ConsentRecord(
+                consent_type=consent_type,
+                text_version=text_version,
+                granted_at=now,
+                withdrawn_at=None,
+            )
+        elif previous is not None:
+            row = ConsentRecord(
+                consent_type=consent_type,
+                text_version=text_version,
+                granted_at=previous.granted_at,
+                withdrawn_at=now,
+            )
+        else:
+            return None
+        self.consents = (*self.consents, row)
+        return row
 
 
 class InMemoryExportStore:
@@ -149,10 +192,9 @@ def test_profile_input_preserves_bounded_profile_values() -> None:
     assert profile.weight_kg == Decimal("67.50")
 
 
-def test_startup_rejects_survey_without_approved_consent_version() -> None:
-    """An environment flag cannot bypass the source-controlled legal gate."""
-    with pytest.raises(RuntimeError, match="PARTICIPANT_PROFILE_VERSION"):
-        validate_survey_config(Settings(survey_enabled=True))
+def test_startup_allows_survey_only_with_approved_consent_version() -> None:
+    """The approved source-controlled profile consent permits explicit opt-in rollout."""
+    validate_survey_config(Settings(survey_enabled=True))
 
 
 @pytest.mark.asyncio
@@ -216,7 +258,8 @@ async def test_catalog_and_profile_collection_are_closed_by_default() -> None:
     assert catalog.status_code == 200
     assert catalog.json()["enabled"] is False
     assert "DE" in catalog.json()["countries"]
-    assert catalog.json()["profile_consent_version"] is None
+    assert catalog.json()["profile_consent_version"] == "2026-10-03"
+    assert catalog.json()["public_sharing_consent_version"] == "2026-10-03"
     assert catalog.json()["goals"] == []
     assert response.status_code == 503
     assert repository.profiles == {}
@@ -283,6 +326,39 @@ async def test_consented_profile_is_owner_scoped_and_deletable(
     assert read_response.json()["country"] == "DE"
     assert write_response.status_code == 200
     assert write_response.json()["country"] == "NL"
+    assert delete_response.status_code == 204
     assert user.id not in repository.profiles
     assert repository.profiles[other_user_id] == foreign_profile
-    assert delete_response.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_withdrawing_profile_consent_deletes_saved_profile() -> None:
+    user = _user()
+    repository = InMemorySurveyRepository()
+    repository.profiles[user.id] = profile_from_input(
+        ParticipantProfileInput(country="DE")
+    )
+    accounts = InMemoryAccountService(
+        (
+            _consent(HEALTH_DATA, HEALTH_DATA_VERSION),
+            _consent(PARTICIPANT_PROFILE, PARTICIPANT_PROFILE_VERSION),
+        )
+    )
+    application = _application(user, repository, accounts, enabled=True)
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/accounts/me/consents",
+            json={
+                "type": PARTICIPANT_PROFILE,
+                "version": PARTICIPANT_PROFILE_VERSION,
+                "accepted": False,
+            },
+        )
+
+    assert response.status_code == 200
+    assert user.id not in repository.profiles
+    assert any(
+        row.consent_type == HEALTH_DATA and row.withdrawn_at is None
+        for row in accounts.consents
+    )

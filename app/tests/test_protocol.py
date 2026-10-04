@@ -10,7 +10,10 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.api.accounts import get_current_user
+from app.api.accounts import (
+    get_current_user,
+    get_current_user_with_current_health_consent,
+)
 from app.core.deps import get_account_service, get_protocol_service
 from app.domain.accounts import ExportedProtocolEntry, UserRecord
 from app.domain.export import EXPORT_COLUMNS
@@ -125,6 +128,9 @@ def _application(store: InMemoryProtocolStore, user: UserRecord) -> FastAPI:
 
     application.dependency_overrides[get_protocol_service] = override_service
     application.dependency_overrides[get_current_user] = override_user
+    application.dependency_overrides[get_current_user_with_current_health_consent] = (
+        override_user
+    )
     return application
 
 
@@ -305,7 +311,7 @@ async def test_journal_text_stays_out_of_postgres_research_packages() -> None:
     payload = {
         "email": email,
         "password": "correct-horse-battery",
-        "consents": [{"type": "health_data", "version": "2026-09-28", "accepted": True}],
+        "consents": [{"type": "health_data", "version": "2026-10-03", "accepted": True}],
     }
     application = create_app()
     transport = ASGITransport(app=application)

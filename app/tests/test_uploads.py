@@ -15,7 +15,8 @@ from app.api.accounts import SESSION_COOKIE_NAME
 from app.core.deps import get_account_rate_limiter, get_account_service, get_upload_service
 from app.core.rate_limit import SlidingWindowRateLimiter
 from app.core.security import Argon2SeedHasher
-from app.domain.accounts import UserRecord
+from app.domain.accounts import CreatedAccount, UserRecord
+from app.domain.consents import HEALTH_DATA, HEALTH_DATA_VERSION, ConsentChoice
 from app.domain.enums import MappingStatus
 from app.domain.schemas import ConfirmedMarkerInput, ConfirmRequest
 from app.domain.uploads import (
@@ -278,7 +279,16 @@ class InMemoryLabStore:
 
 
 def _account_service() -> AccountService:
-    return AccountService(
+    class ConsentedAccountService(AccountService):
+        async def create(self) -> CreatedAccount:
+            created = await super().create()
+            await self.set_consent(
+                created.user.id,
+                ConsentChoice(HEALTH_DATA, HEALTH_DATA_VERSION, accepted=True),
+            )
+            return created
+
+    return ConsentedAccountService(
         users=InMemoryUserStore(),
         hasher=Argon2SeedHasher("test-pepper-secret-key-32-bytes!!"),
     )

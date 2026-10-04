@@ -8,8 +8,9 @@ from decimal import Decimal
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.consents import PUBLIC_SHARING, PUBLIC_SHARING_VERSION
 from app.domain.dataset import PublicBiomarkerRow
-from app.repositories.models import Biomarker, LabResult, ShareSettings, User
+from app.repositories.models import Biomarker, Consent, LabResult, ShareSettings, User
 
 _PublicColumns = tuple[
     str,
@@ -49,7 +50,11 @@ def public_biomarker_select(*, public_id: str | None = None) -> Select[_PublicCo
         .join(LabResult, Biomarker.lab_result_id == LabResult.id)
         .join(User, LabResult.user_id == User.id)
         .join(ShareSettings, ShareSettings.user_id == User.id)
+        .join(Consent, Consent.user_id == User.id)
         .where(ShareSettings.is_public.is_(True))
+        .where(Consent.consent_type == PUBLIC_SHARING)
+        .where(Consent.text_version == PUBLIC_SHARING_VERSION)
+        .where(Consent.withdrawn_at.is_(None))
         .where(LabResult.confirmed_at.is_not(None))
     )
     if public_id is not None:
@@ -129,8 +134,12 @@ class DatasetRepository:
         stmt = (
             select(User.public_id)
             .join(ShareSettings, ShareSettings.user_id == User.id)
+            .join(Consent, Consent.user_id == User.id)
             .where(User.public_id == public_id)
             .where(ShareSettings.is_public.is_(True))
+            .where(Consent.consent_type == PUBLIC_SHARING)
+            .where(Consent.text_version == PUBLIC_SHARING_VERSION)
+            .where(Consent.withdrawn_at.is_(None))
         )
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none() is not None

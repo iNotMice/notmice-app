@@ -69,6 +69,7 @@ async def read_survey_catalog(
         health_data_consent_version=catalog.health_data_consent_version,
         research_reuse_consent_version=catalog.research_reuse_consent_version,
         profile_consent_version=catalog.profile_consent_version,
+        public_sharing_consent_version=catalog.public_sharing_consent_version,
         country_code_pattern=r"^[A-Z]{2}$",
         countries=list(catalog.countries),
         sex_at_birth=list(catalog.sex_at_birth),

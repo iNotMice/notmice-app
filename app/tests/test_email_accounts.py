@@ -19,7 +19,7 @@ from app.services.mailer import CapturingMailer
 from app.tests.test_accounts import InMemoryUserStore, _override_app, _service
 
 _PASSWORD = "correct-horse-battery"
-_HEALTH = ConsentChoice(consent_type=HEALTH_DATA, text_version="2026-09-28", accepted=True)
+_HEALTH = ConsentChoice(consent_type=HEALTH_DATA, text_version="2026-10-03", accepted=True)
 
 
 def _email_service(
@@ -43,10 +43,10 @@ def _token_from(mailer: CapturingMailer) -> str:
 
 def _register_body(email: str, *, research: bool = False) -> dict[str, object]:
     consents: list[dict[str, object]] = [
-        {"type": "health_data", "version": "2026-09-28", "accepted": True}
+        {"type": "health_data", "version": "2026-10-03", "accepted": True}
     ]
     if research:
-        consents.append({"type": "research_reuse", "version": "2026-09-28", "accepted": True})
+        consents.append({"type": "research_reuse", "version": "2026-10-03", "accepted": True})
     return {"email": email, "password": _PASSWORD, "consents": consents}
 
 
@@ -194,7 +194,7 @@ async def test_short_password_is_rejected() -> None:
             json={
                 "email": "person@example.com",
                 "password": "short-pass",
-                "consents": [{"type": "health_data", "version": "2026-09-28", "accepted": True}],
+                "consents": [{"type": "health_data", "version": "2026-10-03", "accepted": True}],
             },
         )
     assert response.status_code == 422
@@ -278,7 +278,7 @@ async def test_research_consent_can_be_withdrawn() -> None:
         assert SESSION_COOKIE_NAME in confirmed.cookies
         withdrawn = await client.post(
             "/api/v1/accounts/me/consents",
-            json={"type": RESEARCH_REUSE, "version": "2026-09-28", "accepted": False},
+            json={"type": RESEARCH_REUSE, "version": "2026-10-03", "accepted": False},
         )
         assert withdrawn.status_code == 200
         assert withdrawn.json()["withdrawn_at"] is not None
