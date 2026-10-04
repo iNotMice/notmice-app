@@ -130,14 +130,7 @@ def _eligible_user_predicates(
             exists(
                 select(ParticipantProfileRow.id)
                 .where(ParticipantProfileRow.user_id == User.id)
-                .where(
-                    or_(
-                        *(
-                            _age_band_predicate(band, current_year)
-                            for band in query.age_bands
-                        )
-                    )
-                )
+                .where(or_(*(_age_band_predicate(band, current_year) for band in query.age_bands)))
             )
         )
     if query.countries:
@@ -163,12 +156,10 @@ def eligible_participant_count_select(
     query: CohortQuery | None = None,
     *,
     current_year: int | None = None,
-) -> Select[tuple[int]]:
+) -> Select[int]:
     """Count eligible participants without ever returning their rows."""
     year = current_year if current_year is not None else datetime.now(UTC).year
-    return select(func.count(User.id)).where(
-        *_eligible_user_predicates(query, current_year=year)
-    )
+    return select(func.count(User.id)).where(*_eligible_user_predicates(query, current_year=year))
 
 
 def _date_predicates(query: CohortQuery) -> tuple[ColumnElement[bool], ...]:
@@ -305,9 +296,7 @@ class CohortRepository:
 
         current_year = timestamp.year
         eligible = _eligible_user_predicates(None, current_year=current_year)
-        count_statement = eligible_participant_count_select(
-            current_year=current_year
-        )
+        count_statement = eligible_participant_count_select(current_year=current_year)
         raw_size = int((await self._session.execute(count_statement)).scalar_one())
         audit.result_cohort_size = publish_count(raw_size)
 
@@ -409,8 +398,7 @@ class CohortRepository:
         similar_count = sum(
             1
             for (previous_query,) in recent.all()
-            if isinstance(previous_query, dict)
-            and _differs_by_one_filter(query, previous_query)
+            if isinstance(previous_query, dict) and _differs_by_one_filter(query, previous_query)
         )
         if similar_count >= _DIFFERENCING_ALERT_THRESHOLD - 1:
             logger.warning(
@@ -483,9 +471,7 @@ class CohortRepository:
     ) -> tuple[LabQueryAudit, bool]:
         """Serialize each organization's budget check and persist its audit entry."""
         organization = await self._session.execute(
-            select(Organization.id)
-            .where(Organization.id == organization_id)
-            .with_for_update()
+            select(Organization.id).where(Organization.id == organization_id).with_for_update()
         )
         if organization.scalar_one_or_none() is None:
             raise ValueError("Verified laboratory organization no longer exists")

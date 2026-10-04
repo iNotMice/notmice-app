@@ -69,9 +69,7 @@ def test_lab_identity_tables_are_registered_with_separate_foreign_keys() -> None
     }
     assert expected.issubset(Base.metadata.tables)
     lab_user_fks = Base.metadata.tables["lab_users"].foreign_keys
-    assert {foreign_key.target_fullname for foreign_key in lab_user_fks} == {
-        "organizations.id"
-    }
+    assert {foreign_key.target_fullname for foreign_key in lab_user_fks} == {"organizations.id"}
 
 
 def test_aggregate_eligibility_requires_current_unwithdrawn_research_consent() -> None:

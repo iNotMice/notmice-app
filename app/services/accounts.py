@@ -464,9 +464,7 @@ class AccountService:
                 "country": bundle.profile.country,
                 "height_cm": bundle.profile.height_cm,
                 "weight_kg": (
-                    None
-                    if bundle.profile.weight_kg is None
-                    else str(bundle.profile.weight_kg)
+                    None if bundle.profile.weight_kg is None else str(bundle.profile.weight_kg)
                 ),
                 "smoking": bundle.profile.smoking,
                 "alcohol": bundle.profile.alcohol,
@@ -620,9 +618,7 @@ class AccountService:
                     ),
                     "profile_country": bundle.profile.country or "",
                     "profile_height_cm": (
-                        ""
-                        if bundle.profile.height_cm is None
-                        else str(bundle.profile.height_cm)
+                        "" if bundle.profile.height_cm is None else str(bundle.profile.height_cm)
                     ),
                     "profile_weight_kg": (
                         ""

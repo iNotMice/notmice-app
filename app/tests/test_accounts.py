@@ -328,10 +328,7 @@ async def test_health_data_dependency_requires_the_current_explicit_consent() ->
         created.user.id,
         ConsentChoice(HEALTH_DATA, HEALTH_DATA_VERSION, accepted=True),
     )
-    assert (
-        await get_current_user_with_current_health_consent(created.user, service)
-        == created.user
-    )
+    assert await get_current_user_with_current_health_consent(created.user, service) == created.user
 
     await service.set_consent(
         created.user.id,
@@ -615,7 +612,8 @@ async def test_share_toggle_http() -> None:
         assert public.json()["is_public"] is True
         consents = await client.get("/api/v1/accounts/me/consents")
         public_consent = next(
-            consent for consent in consents.json()["consents"]
+            consent
+            for consent in consents.json()["consents"]
             if consent["type"] == "public_sharing"
         )
         assert public_consent["version"] == "2026-10-03"
@@ -627,7 +625,8 @@ async def test_share_toggle_http() -> None:
         assert private.status_code == 200
         consents = await client.get("/api/v1/accounts/me/consents")
         public_consent = next(
-            consent for consent in consents.json()["consents"]
+            consent
+            for consent in consents.json()["consents"]
             if consent["type"] == "public_sharing"
         )
         assert public_consent["withdrawn_at"] is not None
@@ -670,9 +669,9 @@ async def test_accounts_against_postgres() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         with capture_logs() as logs:
             created = await client.post("/api/v1/accounts", json=payload)
+            again = await client.post("/api/v1/accounts", json=payload)
         assert created.status_code == 202
         assert created.json() == {"status": "accepted"}
-        again = await client.post("/api/v1/accounts", json=payload)
         assert again.status_code == 202
         assert again.json() == created.json()
         blocked = await client.post(
@@ -680,8 +679,10 @@ async def test_accounts_against_postgres() -> None:
             json={"email": email, "password": "correct-horse-battery"},
         )
         assert blocked.status_code == 401
-        body = next(row["body"] for row in logs if row.get("event") == "auth_mail_dev")
-        token = str(body).split("confirm=", maxsplit=1)[1].split()[0]
+        # The second registration retires the first unused token, so confirm the
+        # latest one that was mailed.
+        bodies = [row["body"] for row in logs if row.get("event") == "auth_mail_dev"]
+        token = str(bodies[-1]).split("confirm=", maxsplit=1)[1].split()[0]
         confirmed = await client.post("/api/v1/accounts/confirm", json={"token": token})
         assert confirmed.status_code == 200
         assert "mnemonic" not in confirmed.json()

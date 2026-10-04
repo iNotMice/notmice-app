@@ -12,20 +12,10 @@ from app.domain.consents import PUBLIC_SHARING, PUBLIC_SHARING_VERSION
 from app.domain.dataset import PublicBiomarkerRow
 from app.repositories.models import Biomarker, Consent, LabResult, ShareSettings, User
 
-_PublicColumns = tuple[
-    str,
-    date | None,
-    Decimal | None,
-    str | None,
-    str | None,
-    str,
-    Decimal,
-    str,
-    str,
-]
 
-
-def public_biomarker_select(*, public_id: str | None = None) -> Select[_PublicColumns]:
+def public_biomarker_select(
+    *, public_id: str | None = None
+) -> Select[str, date | None, Decimal | None, str | None, str | None, str, Decimal, str, str]:
     """Build the opt-in confirmed-biomarker query.
 
     The selected columns are the public contract: pseudonymous ``public_id`` and

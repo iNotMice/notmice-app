@@ -497,10 +497,7 @@ async def update_share(
         reject_pii(payload.model_dump())
         share_consent_version = current_version(PUBLIC_SHARING)
         if payload.is_public:
-            if (
-                share_consent_version is None
-                or payload.consent_version != share_consent_version
-            ):
+            if share_consent_version is None or payload.consent_version != share_consent_version:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Current public-sharing consent is required",

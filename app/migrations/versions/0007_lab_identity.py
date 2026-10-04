@@ -67,9 +67,7 @@ def upgrade() -> None:
             "role IN ('owner', 'admin', 'member')",
             name="ck_lab_users_role",
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
     )
@@ -133,9 +131,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_lab_query_audit_lab_user_id", "lab_query_audit", ["lab_user_id"])
-    op.create_index(
-        "ix_lab_query_audit_organization_id", "lab_query_audit", ["organization_id"]
-    )
+    op.create_index("ix_lab_query_audit_organization_id", "lab_query_audit", ["organization_id"])
 
 
 def downgrade() -> None:
