@@ -41,8 +41,11 @@ def test_empty_secret_is_rejected() -> None:
         validate_runtime_secrets(settings)
 
 
-def test_production_rejects_dev_insecure_defaults() -> None:
+def test_production_rejects_dev_insecure_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     """The dev-insecure prefix, including the old shared default, cannot boot in production."""
+    # CI and local shells may export real secrets; this test is about the code defaults.
+    monkeypatch.delenv("SEED_HASH_SECRET", raising=False)
+    monkeypatch.delenv("JWT_SECRET", raising=False)
     defaults = Settings(app_env="production")
     with pytest.raises(InsecureSecretError, match="SEED_HASH_SECRET"):
         validate_runtime_secrets(defaults)
