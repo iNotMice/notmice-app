@@ -1,5 +1,6 @@
 import type { AppMessages } from '../en';
 // Sections rewritten in October 2026 show in English until a German translation exists.
+import { cabinet } from '../en/cabinet';
 import { home } from '../en/home';
 import { instructions } from '../en/instructions';
 import { specialists } from '../en/specialists';
@@ -24,6 +25,7 @@ export const deMessages = {
   shell,
   home,
   specialists,
+  cabinet,
   upload,
   review,
   phenoage,

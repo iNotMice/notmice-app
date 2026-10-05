@@ -28,7 +28,7 @@ export function localeFromBrowser(languages: readonly string[]): LocaleId | null
 
 /** Sections a locale still shows in English, until their translation exists. */
 const ENGLISH_FALLBACK: Partial<Record<LocaleId, readonly string[]>> = {
-  de: ['home', 'specialists', 'instructions'],
+  de: ['home', 'specialists', 'instructions', 'cabinet'],
 };
 
 /** `lang` for a section root: "en" when the locale shows that section in English. */

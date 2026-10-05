@@ -2,6 +2,8 @@ export const nav = {
   overview: 'Обзор',
   overviewLanding: 'Обзор',
   lab: 'Лаборатория',
+  upload: 'Загрузка',
+  cabinet: 'Кабинет',
   myTests: 'Мои анализы',
   uploadLab: 'Загрузить анализ',
   reviewExtraction: 'Проверка цифр',

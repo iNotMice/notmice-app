@@ -1,7 +1,7 @@
 export const sovereignty = {
   stage: 'Account',
   stageMeta: 'Your data and consents',
-  title: 'My data and consents',
+  title: 'Data and consents',
   lead: 'Your consents, the public sharing switch, and a copy or deletion of your account. Confirmed values stay on a pseudonymous ID. Original lab files are not kept.',
   charterLink: 'How the public dataset works',
   purgeLocal: 'Clear this screen',

@@ -1,7 +1,7 @@
 export const sovereignty = {
   stage: 'Konto',
   stageMeta: 'Ihre Daten und Einwilligungen',
-  title: 'Meine Daten und Einwilligungen',
+  title: 'Daten und Einwilligungen',
   lead: 'Ihre Einwilligungen, der Schalter für das öffentliche Teilen sowie eine Kopie oder Löschung Ihres Kontos. Bestätigte Werte bleiben an einer pseudonymen ID. Originale Labordateien werden nicht aufbewahrt.',
   charterLink: 'So funktioniert der öffentliche Datensatz',
   purgeLocal: 'Diesen Bildschirm leeren',

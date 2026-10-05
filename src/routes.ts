@@ -4,7 +4,29 @@ import { TabType } from './types';
 const TAB_PATHS: Partial<Record<TabType, string>> = {
   specialists: '/specialists',
   'user-instructions': '/guide',
+  cabinet: '/account',
+  'cabinet-tests': '/account/tests',
+  'biomarker-history': '/account/markers',
+  'protocol-journal': '/account/journal',
+  'data-sovereignty-public-sharing': '/account/data',
+  'cabinet-security': '/account/security',
 };
+
+/** Personal account sections in menu order, with their label key. */
+export const CABINET_SECTIONS = [
+  { tab: 'cabinet', key: 'overview' },
+  { tab: 'cabinet-tests', key: 'tests' },
+  { tab: 'biomarker-history', key: 'markers' },
+  { tab: 'protocol-journal', key: 'journal' },
+  { tab: 'data-sovereignty-public-sharing', key: 'data' },
+  { tab: 'cabinet-security', key: 'security' },
+] as const satisfies readonly { tab: TabType; key: string }[];
+
+export type CabinetSectionKey = (typeof CABINET_SECTIONS)[number]['key'];
+
+export function isCabinetTab(tab: TabType): boolean {
+  return CABINET_SECTIONS.some((section) => section.tab === tab);
+}
 
 export const SPECIALIST_PAGES = ['method', 'limits', 'data', 'labs', 'contact'] as const;
 export type SpecialistPage = (typeof SPECIALIST_PAGES)[number];

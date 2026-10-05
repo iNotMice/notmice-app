@@ -22,9 +22,11 @@ from app.domain.accounts import (
     AuthenticatedSession,
     ConsentRequiredError,
     ConsentVersionError,
+    CurrentPasswordError,
     InvalidAuthTokenError,
     InvalidCredentialsError,
     InvalidMnemonicError,
+    PasswordNotSetError,
     UnauthenticatedError,
     UserRecord,
     normalize_email,
@@ -47,8 +49,10 @@ from app.domain.schemas import (
     ConsentListResponse,
     ConsentView,
     EmailLoginRequest,
+    PasswordChangeRequest,
     PasswordResetConfirmRequest,
     PasswordResetRequest,
+    SessionsRevokedResponse,
     ShareSettingsUpdate,
 )
 from app.services.accounts import AccountService
@@ -469,6 +473,60 @@ async def export_account_csv(
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="notmice-account.csv"'},
     )
+
+
+@router.post("/me/password", response_model=SessionsRevokedResponse)
+async def change_password(
+    payload: PasswordChangeRequest,
+    request: Request,
+    response: Response,
+    current: Annotated[UserRecord, Depends(get_current_user)],
+    account_service: Annotated[AccountService, Depends(get_account_service)],
+    identity_limiter: Annotated[
+        SlidingWindowRateLimiter, Depends(get_account_identity_rate_limiter)
+    ],
+    _: Annotated[None, Depends(enforce_account_rate_limit)],
+) -> SessionsRevokedResponse:
+    """Change the password from the cabinet and sign out every other device."""
+    await _charge_identity(
+        identity_limiter, _identity_key("password-change", current.public_id), response
+    )
+    try:
+        revoked = await account_service.change_password(
+            current.id,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+            current_session=request.cookies.get(SESSION_COOKIE_NAME),
+        )
+    except PasswordNotSetError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This account signs in with a recovery phrase",
+        ) from exc
+    except CurrentPasswordError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        ) from exc
+    except InvalidCredentialsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="New password must be 12-128 characters",
+        ) from exc
+    return SessionsRevokedResponse(revoked_sessions=revoked)
+
+
+@router.post("/me/sessions/revoke-others", response_model=SessionsRevokedResponse)
+async def revoke_other_sessions(
+    request: Request,
+    current: Annotated[UserRecord, Depends(get_current_user)],
+    account_service: Annotated[AccountService, Depends(get_account_service)],
+) -> SessionsRevokedResponse:
+    """Sign out every other device. The session making the request stays."""
+    revoked = await account_service.sign_out_other_sessions(
+        current.id, request.cookies.get(SESSION_COOKIE_NAME)
+    )
+    return SessionsRevokedResponse(revoked_sessions=revoked)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
