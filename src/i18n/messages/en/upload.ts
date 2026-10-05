@@ -57,5 +57,8 @@ export const upload = {
   redactionBody:
     'This is what will be sent. Painted areas: {count}. If a name, date of birth, or order number is still readable, do not send it.',
   redactionConfirm: 'Send this frame',
+  consentMissing:
+    'This account has not accepted the current health-data consent (version 2026-10-03). Without it the server cannot accept medical files. Accept it in Account → Data and consents, then upload again.',
+  consentAction: 'Open data and consents',
   redactionCancel: 'Do not send',
 };
