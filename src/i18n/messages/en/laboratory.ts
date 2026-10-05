@@ -17,6 +17,10 @@ export const laboratory = {
   organizationType: 'Organization type',
   countryCode: 'Country code (ISO 3166-1 alpha-2)',
   email: 'Work email',
+  workEmailHint:
+    'Use the organization’s own email domain. Free mailboxes such as Gmail, Outlook, Mail.ru or Yandex are not accepted.',
+  workEmailRequired:
+    'A work email of the organization is required. Free mailboxes such as Gmail, Outlook, Mail.ru or Yandex are not accepted.',
   password: 'Password',
   passwordHint: 'Use 12-128 characters.',
   createAccount: 'Create laboratory account',

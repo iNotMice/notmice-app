@@ -17,6 +17,10 @@ export const laboratory = {
   organizationType: 'Organisationstyp',
   countryCode: 'Ländercode (ISO 3166-1 alpha-2)',
   email: 'Geschäftliche E-Mail',
+  workEmailHint:
+    'Verwenden Sie die eigene E-Mail-Domain der Organisation. Kostenfreie Postfächer wie Gmail, Outlook, GMX oder Web.de werden nicht akzeptiert.',
+  workEmailRequired:
+    'Eine dienstliche E-Mail-Adresse der Organisation ist erforderlich. Kostenfreie Postfächer wie Gmail, Outlook, GMX oder Web.de werden nicht akzeptiert.',
   password: 'Passwort',
   passwordHint: '12 bis 128 Zeichen verwenden.',
   createAccount: 'Laborkonto erstellen',

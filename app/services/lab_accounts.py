@@ -25,6 +25,7 @@ from app.domain.lab_accounts import (
     LabVerificationStatus,
     lab_organization_values,
     normalized_lab_email,
+    require_work_email,
 )
 from app.services.mailer import Mailer, OutboundMail
 
@@ -146,6 +147,7 @@ class LabAccountService:
             country=country,
         )
         normalized_email = normalized_lab_email(email)
+        require_work_email(normalized_email)
         self._require_password(password)
         existing = await self._store.login_material(normalized_email)
         if existing is not None:
