@@ -13,7 +13,7 @@ export async function generateHistoricalReportPDF(history: HistoricalTestRecord[
 
   const { locale, messages } = getActiveI18n();
   const copy = messages.report;
-  const dateLocale = locale === 'de' ? 'de-DE' : locale === 'ru' ? 'ru-RU' : 'en-US';
+  const dateLocale = locale === 'de' ? 'de-DE' : locale === 'ru' ? 'ru-RU' : locale === 'fr' ? 'fr-FR' : 'en-US';
   const sortedHistory = [...history].sort((a, b) => a.date.localeCompare(b.date));
   const scored = scoredRecords(sortedHistory);
   const latest = scored.length > 0 ? scored[scored.length - 1] : sortedHistory[sortedHistory.length - 1];

@@ -39,6 +39,7 @@ _MARKER_IDS = (
 _JOURNAL_FILES = {
     "src/i18n/messages/en/journal.ts",
     "src/i18n/messages/de/journal.ts",
+    "src/i18n/messages/fr/journal.ts",
 }
 # Field names and kind ids. The visible labels live in the journal catalogs.
 _CODE_TOKENS = frozenset({"supplement", "drug", "nutrition", "activity", "sleep", "other", "dose"})

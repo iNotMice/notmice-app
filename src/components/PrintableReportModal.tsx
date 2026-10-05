@@ -38,7 +38,7 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
     window.print();
   };
 
-  const formattedPrintDate = new Date().toLocaleDateString(locale === 'de' ? 'de-DE' : locale === 'ru' ? 'ru-RU' : 'en-US', {
+  const formattedPrintDate = new Date().toLocaleDateString(locale === 'de' ? 'de-DE' : locale === 'ru' ? 'ru-RU' : locale === 'fr' ? 'fr-FR' : 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
