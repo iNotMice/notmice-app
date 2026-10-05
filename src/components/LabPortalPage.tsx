@@ -98,7 +98,8 @@ export function LabPortalPage() {
         setPassword('');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : copy.requestFailed);
+      const message = err instanceof Error ? err.message : copy.requestFailed;
+      setError(message === 'Work email required' ? copy.workEmailRequired : message);
     } finally {
       setBusy(false);
     }
@@ -270,6 +271,9 @@ export function LabPortalPage() {
                     onChange={(event) => setEmail(event.target.value)}
                     className={inputClass}
                   />
+                  {mode === 'register' && (
+                    <span className="mt-1 block text-xs font-normal text-[#526579]">{copy.workEmailHint}</span>
+                  )}
                 </label>
                 <label className="block text-sm font-medium text-[#31465b]">
                   {copy.password}

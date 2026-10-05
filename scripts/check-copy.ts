@@ -13,6 +13,7 @@
  */
 import { deMessages } from '../src/i18n/messages/de/index.ts';
 import { enMessages } from '../src/i18n/messages/en/index.ts';
+import { frMessages } from '../src/i18n/messages/fr/index.ts';
 import { ruMessages } from '../src/i18n/messages/ru/index.ts';
 
 type Entry = { path: string; value: string };
@@ -30,7 +31,7 @@ function flatten(node: unknown, prefix = ''): Entry[] {
   return [];
 }
 
-const locales = { en: enMessages, de: deMessages, ru: ruMessages } as const;
+const locales = { en: enMessages, de: deMessages, ru: ruMessages, fr: frMessages } as const;
 type Locale = keyof typeof locales;
 
 /** Negation words that may stand before "diagnosis" in the same sentence. */
@@ -38,12 +39,14 @@ const NEGATION: Record<Locale, RegExp> = {
   en: /\b(not|no|nor|never|without)\b|n't\b/i,
   de: /\b(kein\w*|nicht|ohne|weder)\b/i,
   ru: /(^|[^а-яё])(не|нет|без|ни)([^а-яё]|$)/i,
+  fr: /(^|[^a-zà-ÿ])(ne|n['’]|pas|sans|aucun\w*|ni|non)([^a-zà-ÿ]|$)/i,
 };
 
 const DIAGNOSIS: Record<Locale, RegExp> = {
   en: /diagnos\w*/gi,
   de: /diagnos\w*/gi,
   ru: /диагноз\w*/gi,
+  fr: /diagnosti\w*/gi,
 };
 
 /** Lists whose heading already says "what you will not get" / "is this ...?". */
@@ -61,7 +64,7 @@ const BANNED: { pattern: RegExp; reason: string }[] = [
   { pattern: /anonymi[sz]ed (rows|cohorts)|anonymisierte zeilen|обезличенн\w* строк/i, reason: 'rows are pseudonymous, not anonymous' },
   { pattern: /бесплатн|free of charge|\bfor free\b|\bfree tool\b|kostenlos/i, reason: '"free" is not decided yet' },
   { pattern: /биохакинг|biohacking/i, reason: 'word removed from the external vocabulary' },
-  { pattern: /победить старение|defeat(ing)? aging|beat(ing)? aging|altern besiegen/i, reason: 'decision 05.10.2026: "understand aging"' },
+  { pattern: /победить старение|defeat(ing)? aging|beat(ing)? aging|altern besiegen|vaincre le vieillissement/i, reason: 'decision 05.10.2026: "understand aging"' },
   { pattern: /супер-?ген|super-?gene/i, reason: 'the platform does not collect genetics' },
   { pattern: /лекарств\w* от старости|anti-aging drugs?/i, reason: 'reads as a promise of therapy' },
   { pattern: /скорост\w* старения|rate of (biological )?aging/i, reason: 'the index is an age at one test, not a rate' },

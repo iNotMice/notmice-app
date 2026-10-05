@@ -12,12 +12,14 @@ import {
 } from './locales';
 import { enMessages, type AppMessages } from './messages/en';
 import { deMessages } from './messages/de';
+import { frMessages } from './messages/fr';
 import { ruMessages } from './messages/ru';
 
 const dictionaries: Record<LocaleId, AppMessages> = {
   en: enMessages,
   de: deMessages,
   ru: ruMessages,
+  fr: frMessages,
 };
 
 function readStoredLocale(): LocaleId {

@@ -28,13 +28,32 @@ export const sovereignty = {
     'Neue Konten melden sich mit E-Mail und einem Passwort von mindestens 12 Zeichen an. Adresse und Passwort-Hash liegen getrennt von den Laborzeilen. Bestehende Phrasen-Konten können die 12 Wörter weiter nutzen.',
   ownTitle: 'Ihre Kopie',
   ownLead: 'Laden Sie das Konto herunter, mit dem Sie angemeldet sind, oder löschen Sie es zusammen mit den bestätigten Werten.',
+  consentsTitle: 'Ihre Einwilligungen',
+  consentsLead: 'Ein Häkchen wirkt sofort. Sie können jede Einwilligung hier jederzeit widerrufen.',
+  profileConsentTitle: 'Fragebogen (freiwillig)',
+  profileConsentBody: 'Erlauben, den freiwilligen Fragebogen unten zu speichern: Geschlecht bei Geburt, Geburtsjahr, Land, Größe, Gewicht, Rauchen, Alkohol und Aktivität. Sie können die Antworten jederzeit ändern oder löschen.',
   profileSurveyTitle: 'Optionales Teilnehmerprofil',
+  profileSurveyShowPreview: 'Vorschau des Fragebogens anzeigen (wird noch nicht erhoben)',
   profileSurveyLoading: 'Status der Profilerfassung wird geprüft…',
   profileSurveyDisabled:
     'Die Profilerfassung ist derzeit deaktiviert. Es werden keine Umfrageantworten gesammelt. Sie bleibt gesperrt, bis Zweck und Einwilligungstext genehmigt sind.',
   profileSurveyConfigured:
-    'Der Umfragedienst ist aktiviert. Akzeptieren Sie die aktuelle Profileinwilligung, bevor Sie Antworten senden; diese Vorschau lädt oder speichert noch keine Profildaten.',
+    'Die Erhebung des Fragebogens ist eingeschaltet. Sie funktioniert, sobald oben die Einwilligung gesetzt ist.',
   profileSurvey: {
+    formIntro: 'Alle Fragen sind freiwillig. Lassen Sie beliebige Felder leer.',
+    loading: 'Antworten werden geladen…',
+    loadFailed: 'Ihre Antworten konnten nicht geladen werden.',
+    save: 'Antworten speichern',
+    saving: 'Wird gespeichert…',
+    saved: 'Antworten gespeichert.',
+    saveFailed: 'Die Antworten konnten nicht gespeichert werden.',
+    clear: 'Meine Antworten löschen',
+    clearConfirm: 'Alle Antworten des Fragebogens löschen? Die übrigen Kontodaten bleiben.',
+    cleared: 'Antworten gelöscht.',
+    needConsent: 'Setzen Sie oben unter „Ihre Einwilligungen“ das Häkchen bei „Fragebogen (freiwillig)“, dann öffnet sich das Formular hier.',
+    outOfRange: 'Bitte Werte prüfen: Geburtsjahr 1900–2015, Größe 100–250 cm, Gewicht 30–400 kg.',
+    cm: 'cm',
+    kg: 'kg',
     previewIntro:
       'Nur eine Vorschau des Fragebogens. Alle Felder sind deaktiviert; es werden keine Kontodaten geladen oder an den Server gesendet.',
     loginRequired: 'Melden Sie sich an, um die Vorschau des Teilnehmerfragebogens zu sehen.',
@@ -48,7 +67,7 @@ export const sovereignty = {
     alcohol: 'Alkohol',
     activity: 'Körperliche Aktivität',
     noFreeText:
-      'Dieser Entwurf verwendet ausschließlich vorgegebene Auswahlwerte. Erkrankungen und Ziele bleiben bis zur wissenschaftlichen Freigabe des Wörterbuchs ausgeblendet.',
+      'Der Fragebogen verwendet nur vorgegebene Antworten. Erkrankungen und Ziele sind nicht enthalten, bis ihr Vokabular wissenschaftlich freigegeben ist.',
     legalDocumentLink: 'Genehmigten Einwilligungstext lesen (Russisch, Version 2026-10-03).',
     options: {
       female: 'Weiblich',

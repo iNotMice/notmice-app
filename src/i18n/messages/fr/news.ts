@@ -1,0 +1,21 @@
+export const news = {
+  stage: 'Fil de la recherche',
+  stageMeta: 'PubMed et flux RSS d’éditeurs',
+  title: 'Actualités',
+  lead: 'Recherches récentes sur le vieillissement et commentaires pratiques d’éditeurs. Titres et résumés restent dans la langue de la source.',
+  disclaimer:
+    'Ces cartes renvoient à des publications. Ce n’est ni un diagnostic, ni un plan de traitement, ni un avis médical.',
+  filterAll: 'Tout',
+  filterPapers: 'Recherche',
+  filterBiohacking: 'Pratique et opinions',
+  filterMine: 'Mes marqueurs',
+  kindPaper: 'Recherche',
+  kindBiohacking: 'Opinion',
+  openArticle: 'Ouvrir l’article',
+  loading: 'Chargement des dernières publications…',
+  unavailable: 'Les flux n’ont pas pu être chargés. Réessayez un peu plus tard.',
+  stale: 'Dernière liste enregistrée : une source n’a pas répondu.',
+  emptyFeed: 'Aucune publication récente dans les flux.',
+  emptyFilter: 'Rien ne correspond à ce filtre.',
+  retry: 'Réessayer',
+};

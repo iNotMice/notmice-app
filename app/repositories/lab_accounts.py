@@ -73,6 +73,10 @@ class LabAccountRepository:
             country=country,
             verification_status="pending",
         )
+        # No ORM relationship links the two rows, so the unit of work does not
+        # order them by the foreign key. Write the organization first.
+        self._session.add(organization)
+        await self._session.flush()
         user = LabUser(
             id=uuid4(),
             organization_id=organization.id,
@@ -80,7 +84,7 @@ class LabAccountRepository:
             password_hash=password_hash,
             role="owner",
         )
-        self._session.add_all((organization, user))
+        self._session.add(user)
         await self._session.flush()
         return _user_record(user, organization)
 

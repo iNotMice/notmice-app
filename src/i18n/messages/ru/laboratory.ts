@@ -17,6 +17,10 @@ export const laboratory = {
   organizationType: 'Тип организации',
   countryCode: 'Код страны (ISO 3166-1 alpha-2)',
   email: 'Рабочая почта',
+  workEmailHint:
+    'Укажите почту на домене организации. Публичные почтовые сервисы (Gmail, Outlook, Mail.ru, Яндекс и т. п.) не принимаются.',
+  workEmailRequired:
+    'Нужна рабочая почта на домене организации. Публичные почтовые сервисы (Gmail, Outlook, Mail.ru, Яндекс и т. п.) не принимаются.',
   password: 'Пароль',
   passwordHint: 'От 12 до 128 символов.',
   createAccount: 'Создать аккаунт лаборатории',

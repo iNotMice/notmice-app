@@ -106,3 +106,85 @@ class LabLoginMaterial:
 def normalized_lab_email(value: str) -> str:
     """Use the participant email normalization rules for laboratory logins."""
     return normalize_email(value)
+
+
+# Free mailbox providers. A laboratory registers with its own domain so the
+# manual review can tie the account to the organization.
+FREE_EMAIL_DOMAINS: frozenset[str] = frozenset(
+    {
+        "gmail.com",
+        "googlemail.com",
+        "outlook.com",
+        "hotmail.com",
+        "live.com",
+        "msn.com",
+        "yahoo.com",
+        "ymail.com",
+        "icloud.com",
+        "me.com",
+        "mac.com",
+        "aol.com",
+        "gmx.com",
+        "gmx.de",
+        "gmx.net",
+        "web.de",
+        "t-online.de",
+        "mail.com",
+        "proton.me",
+        "protonmail.com",
+        "pm.me",
+        "tutanota.com",
+        "tuta.io",
+        "zoho.com",
+        "yandex.ru",
+        "yandex.com",
+        "ya.ru",
+        "yandex.by",
+        "yandex.kz",
+        "mail.ru",
+        "inbox.ru",
+        "list.ru",
+        "bk.ru",
+        "internet.ru",
+        "rambler.ru",
+        "tut.by",
+        "ukr.net",
+        "i.ua",
+        "wp.pl",
+        "o2.pl",
+        "onet.pl",
+        "interia.pl",
+        "op.pl",
+        "seznam.cz",
+        "libero.it",
+        "orange.fr",
+        "free.fr",
+        "laposte.net",
+        "qq.com",
+        "163.com",
+        "126.com",
+        "mailinator.com",
+        "guerrillamail.com",
+        "10minutemail.com",
+        "temp-mail.org",
+        "yopmail.com",
+    }
+)
+
+
+class LabPersonalEmailError(ValueError):
+    """A laboratory tried to register with a free personal mailbox."""
+
+
+def require_work_email(email: str) -> None:
+    """Reject free mailbox providers for a new laboratory owner.
+
+    Args:
+        email: Already-normalized address.
+
+    Raises:
+        LabPersonalEmailError: The domain is a known free or disposable mailbox.
+    """
+    domain = email.rsplit("@", 1)[-1]
+    if domain in FREE_EMAIL_DOMAINS:
+        raise LabPersonalEmailError("A work email address of the organization is required")

@@ -145,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-[#ffffff]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-[#e2e8f0]">
       <div className="relative w-full max-w-[1440px] mx-auto px-4 lg:px-6 h-20 flex items-center justify-between gap-4 xl:gap-6 min-w-0">
-        <div className="flex items-center min-w-0">
+        <div className="flex items-center shrink-0">
           <button
             onClick={() => setActiveTab('overview-landing')}
             className="flex items-center gap-3 text-left focus:outline-none group cursor-pointer shrink-0"
@@ -166,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {BRAND_NAME}
                 </span>
               </div>
-              <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] hidden sm:inline-block xl:hidden 2xl:inline-block">
+              <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] hidden sm:inline-block xl:hidden">
                 {m.nav.researchProtocol}
               </span>
             </div>

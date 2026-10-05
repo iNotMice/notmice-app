@@ -1,8 +1,9 @@
-/** Supported UI languages. Polish and French join this list only after their dictionaries exist. */
+/** Supported UI languages. Polish joins this list only after its dictionary exists. */
 export const SUPPORTED_LOCALES = [
   { id: 'en', code: 'EN', label: 'English' },
   { id: 'de', code: 'DE', label: 'Deutsch' },
   { id: 'ru', code: 'RU', label: 'Русский' },
+  { id: 'fr', code: 'FR', label: 'Français' },
 ] as const;
 
 export type LocaleId = (typeof SUPPORTED_LOCALES)[number]['id'];

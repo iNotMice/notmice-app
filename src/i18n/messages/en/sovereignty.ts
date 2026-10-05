@@ -28,13 +28,32 @@ export const sovereignty = {
     'New accounts sign in with email and a password of at least 12 characters. The address and password hash are stored apart from lab rows. Existing phrase accounts can still use the 12 words.',
   ownTitle: 'Your copy',
   ownLead: 'Download the account you are signed into, or delete it together with the confirmed values.',
+  consentsTitle: 'Your consents',
+  consentsLead: 'Tick a consent and it applies at once. You can withdraw any of them here at any time.',
+  profileConsentTitle: 'Questionnaire (optional)',
+  profileConsentBody: 'Allow the optional questionnaire below to be stored: sex at birth, year of birth, country, height, weight, smoking, alcohol and activity. You can change or delete the answers at any time.',
   profileSurveyTitle: 'Optional participant profile',
+  profileSurveyShowPreview: 'Show the questionnaire preview (not collected yet)',
   profileSurveyLoading: 'Checking whether profile collection is enabled…',
   profileSurveyDisabled:
     'Profile collection is currently disabled. No survey answers are being collected. It will remain unavailable until its purpose and consent text are approved.',
   profileSurveyConfigured:
-    'The survey service is enabled. Accept the current profile consent before submitting answers; this preview does not load or save profile data yet.',
+    'Questionnaire collection is on. It works as soon as its consent above is ticked.',
   profileSurvey: {
+    formIntro: 'All questions are optional. Leave any of them empty.',
+    loading: 'Loading your answers…',
+    loadFailed: 'Your answers could not be loaded.',
+    save: 'Save answers',
+    saving: 'Saving…',
+    saved: 'Answers saved.',
+    saveFailed: 'The answers could not be saved.',
+    clear: 'Delete my answers',
+    clearConfirm: 'Delete all questionnaire answers? Other account data stays.',
+    cleared: 'Answers deleted.',
+    needConsent: 'Tick “Questionnaire (optional)” in “Your consents” above, and the form opens here.',
+    outOfRange: 'Check the numbers: year of birth 1900–2015, height 100–250 cm, weight 30–400 kg.',
+    cm: 'cm',
+    kg: 'kg',
     previewIntro:
       'Questionnaire preview only. Every control is disabled; nothing is loaded from your account or sent to the server.',
     loginRequired: 'Sign in to view the participant questionnaire preview.',
@@ -48,7 +67,7 @@ export const sovereignty = {
     alcohol: 'Alcohol',
     activity: 'Physical activity',
     noFreeText:
-      'This draft uses controlled choices only. Conditions and goals are omitted until their vocabulary is scientifically approved.',
+      'The questionnaire uses controlled choices only. Conditions and goals are not included until their vocabulary is scientifically approved.',
     legalDocumentLink: 'Read approved consent text (Russian, version 2026-10-03).',
     options: {
       female: 'Female',

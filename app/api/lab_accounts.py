@@ -19,6 +19,7 @@ from app.domain.lab_accounts import (
     LabDuaUnavailableError,
     LabInvalidCredentialsError,
     LabOrganizationAccessError,
+    LabPersonalEmailError,
     LabUnauthenticatedError,
     LabUserRecord,
     normalized_lab_email,
@@ -208,6 +209,11 @@ async def register_lab(
             email=email,
             password=payload.password,
         )
+    except LabPersonalEmailError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Work email required",
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
