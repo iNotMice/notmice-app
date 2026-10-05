@@ -1,18 +1,23 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { BRAND_NAME } from '../config/site';
 import { setActiveI18n } from './catalog';
+import { fill } from './fill';
 import {
   DEFAULT_LOCALE,
   isLocaleId,
+  localeFromBrowser,
   LOCALE_STORAGE_KEY,
   SUPPORTED_LOCALES,
   type LocaleId,
 } from './locales';
 import { enMessages, type AppMessages } from './messages/en';
 import { deMessages } from './messages/de';
+import { ruMessages } from './messages/ru';
 
 const dictionaries: Record<LocaleId, AppMessages> = {
   en: enMessages,
   de: deMessages,
+  ru: ruMessages,
 };
 
 function readStoredLocale(): LocaleId {
@@ -22,9 +27,13 @@ function readStoredLocale(): LocaleId {
       return raw;
     }
   } catch {
-    // Storage can be blocked. English remains the default.
+    // Storage can be blocked. The browser language decides below.
   }
-  return DEFAULT_LOCALE;
+  try {
+    return localeFromBrowser(navigator.languages ?? [navigator.language]) ?? DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
 }
 
 type I18nValue = {
@@ -48,7 +57,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     setActiveI18n(locale, m);
     document.documentElement.lang = locale;
-    document.title = m.shell.documentTitle;
+    document.title = fill(m.shell.documentTitle, { brand: BRAND_NAME });
   }, [locale, m]);
 
   const setLocale = (next: LocaleId) => {
