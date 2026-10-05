@@ -375,11 +375,16 @@ function MainApp() {
     await restoreSavedPanels();
   };
 
-  const handleRegister = async (email: string, password: string, researchReuse: boolean) => {
+  const handleRegister = async (
+    email: string,
+    password: string,
+    researchReuse: boolean,
+    participantProfile: boolean,
+  ) => {
     setAuthBusy(true);
     setAuthError(null);
     try {
-      await registerAccount({ email, password, researchReuse });
+      await registerAccount({ email, password, researchReuse, participantProfile });
       setAccount(null);
       setAuthNotice('check-email');
     } catch (err) {
@@ -736,8 +741,8 @@ function MainApp() {
         onConfirmEmail={() => {
           void handleConfirmEmail();
         }}
-        onRegister={(email, password, researchReuse) => {
-          void handleRegister(email, password, researchReuse);
+        onRegister={(email, password, researchReuse, participantProfile) => {
+          void handleRegister(email, password, researchReuse, participantProfile);
         }}
         onEmailLogin={(email, password) => {
           void handleEmailLogin(email, password);

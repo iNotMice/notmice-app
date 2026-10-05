@@ -68,6 +68,7 @@ export function forgetLegacyToken(): void {
 
 export const HEALTH_CONSENT_VERSION = '2026-10-03';
 export const RESEARCH_CONSENT_VERSION = '2026-10-03';
+export const PROFILE_CONSENT_VERSION = '2026-10-03';
 
 export type ConsentType =
   | 'health_data'
@@ -112,6 +113,7 @@ export interface RegisterInput {
   email: string;
   password: string;
   researchReuse: boolean;
+  participantProfile: boolean;
 }
 
 export async function registerAccount(input: RegisterInput): Promise<void> {
@@ -124,6 +126,9 @@ export async function registerAccount(input: RegisterInput): Promise<void> {
       version: RESEARCH_CONSENT_VERSION,
       accepted: true,
     });
+  }
+  if (input.participantProfile) {
+    consents.push({ type: 'participant_profile', version: PROFILE_CONSENT_VERSION, accepted: true });
   }
   await requestJson<{ status: string }>('/api/v1/accounts', {
     method: 'POST',

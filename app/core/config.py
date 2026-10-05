@@ -51,7 +51,9 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 15_728_640
     extract_session_ttl_seconds: int = 1_800
     auth_seed_enabled: bool = True
-    survey_enabled: bool = False
+    # Owner decision 2026-10-05: collect the optional questionnaire under the approved
+    # 2026-10-03 consent. Set SURVEY_ENABLED=false to switch collection off.
+    survey_enabled: bool = True
     auth_token_ttl_seconds: int = 88_200
     public_app_url: str = "http://localhost:8080"
     smtp_host: str = ""
