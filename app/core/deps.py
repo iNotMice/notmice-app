@@ -24,6 +24,7 @@ from app.repositories.protocol import ProtocolRepository
 from app.repositories.survey import SurveyRepository
 from app.repositories.users import UserRepository
 from app.services.accounts import AccountService
+from app.services.cabinet import CabinetService
 from app.services.dataset import DatasetService
 from app.services.export import ExportService
 from app.services.extract_sessions import InMemoryExtractSessionStore
@@ -355,3 +356,12 @@ async def dispose_engine() -> None:
         _news_service.clear()
     _news_service = None
     _gemini_budget = None
+
+
+async def get_cabinet_service(
+    accounts: Annotated[AccountService, Depends(get_account_service)],
+    uploads: Annotated[UploadService, Depends(get_upload_service)],
+    protocol: Annotated[ProtocolService, Depends(get_protocol_service)],
+) -> CabinetService:
+    """Build the read-only cabinet overview from the per-request services."""
+    return CabinetService(accounts=accounts, uploads=uploads, protocol=protocol)

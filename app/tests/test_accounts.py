@@ -33,6 +33,7 @@ from app.domain.accounts import (
     ExportedProtocolEntry,
     InvalidCredentialsError,
     InvalidMnemonicError,
+    OwnCredential,
     UnauthenticatedError,
     UserRecord,
 )
@@ -304,6 +305,27 @@ class InMemoryUserStore:
         self._sessions = {
             digest: row for digest, row in self._sessions.items() if row.user_id != user_id
         }
+
+    async def credential_for_user(self, user_id: UUID) -> OwnCredential | None:
+        credential = self._credential_by_user.get(user_id)
+        if credential is None:
+            return None
+        return OwnCredential(email=credential.email, password_hash=credential.password_hash)
+
+    async def count_live_sessions(self, user_id: UUID, now: datetime) -> int:
+        return sum(
+            1 for row in self._sessions.values() if row.user_id == user_id and row.expires_at > now
+        )
+
+    async def revoke_other_sessions(self, user_id: UUID, keep_token_sha256: str) -> int:
+        kept = {
+            digest: row
+            for digest, row in self._sessions.items()
+            if row.user_id != user_id or digest == keep_token_sha256
+        }
+        removed = len(self._sessions) - len(kept)
+        self._sessions = kept
+        return removed
 
 
 def _service(store: InMemoryUserStore | None = None) -> tuple[AccountService, InMemoryUserStore]:
