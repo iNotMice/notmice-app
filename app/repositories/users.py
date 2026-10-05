@@ -40,6 +40,10 @@ from app.repositories.models import (
     User,
 )
 
+# Matches the auth_tokens.purpose check constraint. Confirmation links are not
+# retired on re-issue; password-reset links are.
+_PURPOSE_CONFIRM = "confirm_email"
+
 
 def _to_record(user: User) -> UserRecord:
     """Map an ORM row to a domain record.
@@ -216,15 +220,19 @@ class UserRepository:
             select(Credential).where(Credential.user_id == user_id)
         )
         credential = result.scalar_one()
-        await self._session.execute(
-            update(AuthToken)
-            .where(
-                AuthToken.credential_id == credential.id,
-                AuthToken.purpose == purpose,
-                AuthToken.used_at.is_(None),
+        # A fresh password-reset link supersedes older ones. Email confirmation does
+        # NOT retire earlier links: a participant who registers more than once (or
+        # whose first email was slow) can still confirm with any link they received.
+        if purpose != _PURPOSE_CONFIRM:
+            await self._session.execute(
+                update(AuthToken)
+                .where(
+                    AuthToken.credential_id == credential.id,
+                    AuthToken.purpose == purpose,
+                    AuthToken.used_at.is_(None),
+                )
+                .values(used_at=now)
             )
-            .values(used_at=now)
-        )
         self._session.add(
             AuthToken(
                 id=uuid4(),
