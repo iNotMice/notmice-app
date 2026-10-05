@@ -291,42 +291,40 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
         </div>
       </div>
 
-      <section
-        className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-2"
-        aria-live="polite"
-      >
-        <h2 className="font-['Inter'] text-base font-bold text-[#0b1c30]">
-          {copy.profileSurveyTitle}
-        </h2>
-        {surveyCatalog === null && surveyError === null && (
-          <p className="font-['Inter'] text-sm text-[#3f4850]">{copy.profileSurveyLoading}</p>
-        )}
-        {surveyError !== null && (
-          <p className="font-['Inter'] text-sm text-[#ba1a1a]" role="alert">
-            {surveyError === 0
-              ? copy.profileSurveySilent
-              : fill(copy.profileSurveyFailed, { status: surveyError })}
+      {isAuthenticated && surveyCatalog && (
+        <section className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
+          <h2 className="font-['Inter'] text-base font-bold text-[#0b1c30]">
+            {copy.healthConsentTitle}
+          </h2>
+          <p className="font-['Inter'] text-sm text-[#3f4850]">
+            {copy.healthConsentBody}
           </p>
-        )}
-        {surveyCatalog && (
-          <>
-            <p className="font-['Inter'] text-sm text-[#3f4850]">
-              {surveyCatalog.enabled ? copy.profileSurveyConfigured : copy.profileSurveyDisabled}
+          <a
+            href="/legal/consent-personal-research-2026-10-03.html"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs font-semibold text-[#006194] underline"
+          >
+            {copy.healthConsentLegalLink}
+          </a>
+          <label className="flex items-start gap-3 rounded-lg border border-[#e1e8ef] p-3 text-sm">
+            <input
+              aria-label={copy.healthConsentTitle}
+              type="checkbox"
+              checked={healthDataActive}
+              disabled={consentBusy}
+              onChange={(event) => void toggleHealthData(event.target.checked)}
+              className="mt-1 h-4 w-4 shrink-0 accent-[#006194] disabled:opacity-50"
+            />
+            <span>{healthDataActive ? copy.healthConsentActive : copy.healthConsentRequired}</span>
+          </label>
+          {consentError && (
+            <p className="text-xs text-[#ba1a1a]" role="alert">
+              {consentError}
             </p>
-            {isAuthenticated && (
-              <ParticipantProfilePreview
-                catalog={surveyCatalog}
-                copy={copy.profileSurvey}
-              />
-            )}
-            {!isAuthenticated && (
-              <p className="font-['Inter'] text-sm text-[#607286]">
-                {copy.profileSurvey.loginRequired}
-              </p>
-            )}
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {isAuthenticated && (
         <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
@@ -364,41 +362,6 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
             </p>
           )}
         </div>
-      )}
-
-      {isAuthenticated && surveyCatalog && (
-        <section className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
-          <h2 className="font-['Inter'] text-base font-bold text-[#0b1c30]">
-            {copy.healthConsentTitle}
-          </h2>
-          <p className="font-['Inter'] text-sm text-[#3f4850]">
-            {copy.healthConsentBody}
-          </p>
-          <a
-            href="/legal/consent-personal-research-2026-10-03.html"
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs font-semibold text-[#006194] underline"
-          >
-            {copy.healthConsentLegalLink}
-          </a>
-          <label className="flex items-start gap-3 rounded-lg border border-[#e1e8ef] p-3 text-sm">
-            <input
-              aria-label={copy.healthConsentTitle}
-              type="checkbox"
-              checked={healthDataActive}
-              disabled={consentBusy}
-              onChange={(event) => void toggleHealthData(event.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0 accent-[#006194] disabled:opacity-50"
-            />
-            <span>{healthDataActive ? copy.healthConsentActive : copy.healthConsentRequired}</span>
-          </label>
-          {consentError && (
-            <p className="text-xs text-[#ba1a1a]" role="alert">
-              {consentError}
-            </p>
-          )}
-        </section>
       )}
 
       {/* Main Grid: Export Modules vs Decentralized Cohort Sharing */}
@@ -547,6 +510,54 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
         </div>
       </div>
 
+
+      {/* The survey is a disabled preview until its purpose and consent are approved; keep it last. */}
+      <section
+        className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-2"
+        aria-live="polite"
+      >
+        <h2 className="font-['Inter'] text-base font-bold text-[#0b1c30]">
+          {copy.profileSurveyTitle}
+        </h2>
+        {surveyCatalog === null && surveyError === null && (
+          <p className="font-['Inter'] text-sm text-[#3f4850]">{copy.profileSurveyLoading}</p>
+        )}
+        {surveyError !== null && (
+          <p className="font-['Inter'] text-sm text-[#ba1a1a]" role="alert">
+            {surveyError === 0
+              ? copy.profileSurveySilent
+              : fill(copy.profileSurveyFailed, { status: surveyError })}
+          </p>
+        )}
+        {surveyCatalog && (
+          <>
+            <p className="font-['Inter'] text-sm text-[#3f4850]">
+              {surveyCatalog.enabled ? copy.profileSurveyConfigured : copy.profileSurveyDisabled}
+            </p>
+            {isAuthenticated && surveyCatalog.enabled && (
+              <ParticipantProfilePreview
+                catalog={surveyCatalog}
+                copy={copy.profileSurvey}
+              />
+            )}
+            {isAuthenticated && !surveyCatalog.enabled && (
+              <details className="rounded-lg border border-[#e2e8f0] p-3">
+                <summary className="cursor-pointer font-['Inter'] text-sm font-semibold text-[#006194]">
+                  {copy.profileSurveyShowPreview}
+                </summary>
+                <div className="mt-3">
+                  <ParticipantProfilePreview catalog={surveyCatalog} copy={copy.profileSurvey} />
+                </div>
+              </details>
+            )}
+            {!isAuthenticated && (
+              <p className="font-['Inter'] text-sm text-[#607286]">
+                {copy.profileSurvey.loginRequired}
+              </p>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 };

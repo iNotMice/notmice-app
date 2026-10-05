@@ -29,6 +29,7 @@ export const sovereignty = {
   ownTitle: 'Ihre Kopie',
   ownLead: 'Laden Sie das Konto herunter, mit dem Sie angemeldet sind, oder löschen Sie es zusammen mit den bestätigten Werten.',
   profileSurveyTitle: 'Optionales Teilnehmerprofil',
+  profileSurveyShowPreview: 'Vorschau des Fragebogens anzeigen (wird noch nicht erhoben)',
   profileSurveyLoading: 'Status der Profilerfassung wird geprüft…',
   profileSurveyDisabled:
     'Die Profilerfassung ist derzeit deaktiviert. Es werden keine Umfrageantworten gesammelt. Sie bleibt gesperrt, bis Zweck und Einwilligungstext genehmigt sind.',

@@ -29,6 +29,7 @@ export const sovereignty = {
   ownTitle: 'Your copy',
   ownLead: 'Download the account you are signed into, or delete it together with the confirmed values.',
   profileSurveyTitle: 'Optional participant profile',
+  profileSurveyShowPreview: 'Show the questionnaire preview (not collected yet)',
   profileSurveyLoading: 'Checking whether profile collection is enabled…',
   profileSurveyDisabled:
     'Profile collection is currently disabled. No survey answers are being collected. It will remain unavailable until its purpose and consent text are approved.',
