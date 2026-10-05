@@ -1,7 +1,7 @@
 export const laboratory = {
   navLink: 'Für Labore',
-  backToPlatform: 'Zurück zu NotMice',
-  eyebrow: 'NotMice-Forschungsportal',
+  backToPlatform: 'Zurück zur Plattform',
+  eyebrow: 'Forschungsportal',
   title: 'Laborzugang',
   intro:
     'Erstellen Sie ein Laborkonto, um Zugang zu datenschutzgeschützten Forschungskohorten anzufragen. Jede Organisation wird geprüft, bevor Forschungsdaten zugänglich sind.',
@@ -41,7 +41,7 @@ export const laboratory = {
   pendingHelp:
     'Ihre E-Mail-Adresse ist bestätigt. Die Organisation wartet auf die manuelle Prüfung. Forschungsdaten bleiben bis zur Verifizierung und zum Abschluss der rechtlichen Vereinbarung gesperrt.',
   rejectedHelp:
-    'Die Organisation konnte nicht verifiziert werden. Kontaktieren Sie das NotMice-Team, falls Sie eine Überprüfung dieser Entscheidung wünschen.',
+    'Die Organisation konnte nicht verifiziert werden. Kontaktieren Sie das Projektteam, falls Sie eine Überprüfung dieser Entscheidung wünschen.',
   duaUnavailable:
     'Die Organisation ist verifiziert, aber die Datennutzungsvereinbarung wurde noch nicht rechtlich genehmigt. Der Zugang zu Forschungsdaten bleibt gesperrt.',
   duaNeedsAcceptance:

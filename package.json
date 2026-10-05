@@ -9,9 +9,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "check:copy": "tsx scripts/check-copy.ts",
+    "test": "node --import tsx --test src/**/*.test.ts"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "jspdf": "^4.2.1",

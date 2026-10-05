@@ -15,6 +15,8 @@ export type BiomarkerId = (typeof BIOMARKER_IDS)[number];
 export type BiomarkerCopy = {
   name: string;
   shortName: string;
+  /** Unit as shown to a reader in this language. */
+  unit: string;
   domain: string;
   risk: string;
   weight: string;

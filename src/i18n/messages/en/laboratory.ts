@@ -1,7 +1,7 @@
 export const laboratory = {
   navLink: 'For laboratories',
-  backToPlatform: 'Back to NotMice',
-  eyebrow: 'NotMice research portal',
+  backToPlatform: 'Back to the platform',
+  eyebrow: 'Research portal',
   title: 'Laboratory access',
   intro:
     'Create a laboratory account to request access to privacy-protected research cohorts. Each organization is reviewed before any research data can be accessed.',
@@ -41,7 +41,7 @@ export const laboratory = {
   pendingHelp:
     'Your email is confirmed. The organization is waiting for manual review. Research data remains unavailable until verification and the legal agreement are complete.',
   rejectedHelp:
-    'The organization could not be verified. Contact the NotMice team if you believe this decision needs review.',
+    'The organization could not be verified. Contact the project team if you believe this decision needs review.',
   duaUnavailable:
     'Organization verification is complete, but the data-use agreement has not yet been legally approved. Research data access remains closed.',
   duaNeedsAcceptance: 'Review and accept the current data-use agreement ({version}) to request research access.',

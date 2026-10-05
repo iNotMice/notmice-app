@@ -1,7 +1,7 @@
 export const phenoage = {
   stage: 'Pipeline-Stufe 04',
   stageMeta: 'Forschungsindex nach Levine 2018',
-  title: 'PhenoAge™-Engine-Anzeigetafel',
+  title: 'PhenoAge-Forschungsindex',
   lead: 'Der Forschungsindex nach Levine 2018 aus neun Blutmarkern. Verschieben Sie einen Marker, um den Index neu zu berechnen.',
   reset: 'Basis zurücksetzen',
   saved: 'Für diese Sitzung gespeichert',
@@ -19,7 +19,7 @@ export const phenoage = {
   min: 'Min.: {value}',
   max: 'Max.: {value}',
   contributions: 'Markergewichte auf diesem Bildschirm',
-  weightImpact: 'Rechenbeispiel',
+  weightImpact: 'Im Vergleich zum Beispiel',
   contributionLead:
     'Jeder Balken vergleicht den eingestellten Marker mit dem Rechenbeispiel auf diesem Bildschirm. Das ist kein Intervall, das ein Labor gedruckt hat.',
   yearsSigned: '{sign}{value}',

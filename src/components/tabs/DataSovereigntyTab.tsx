@@ -7,26 +7,10 @@ import {
   updateOwnConsent,
   type ConsentRecord,
 } from '../../api/accounts';
-import {
-  DatasetRequestError,
-  downloadPublicDatasetExport,
-  fetchPublicDataset,
-  fetchPublicTimeseries,
-  PublicDatasetPage,
-  PublicExportKind,
-  PublicTimeseries,
-} from '../../api/dataset';
+import { DatasetRequestError, fetchPublicTimeseries, PublicTimeseries } from '../../api/dataset';
 import { fetchSurveyCatalog, SurveyCatalogRequestError, type SurveyCatalog } from '../../api/survey';
 import { ParticipantProfilePreview } from '../ParticipantProfilePreview';
-import {
-  Download,
-  Share2,
-  Trash2,
-  Lock,
-  FileCode,
-  EyeOff,
-  FlaskConical,
-} from 'lucide-react';
+import { ArrowRight, Share2, Trash2, Lock, EyeOff } from 'lucide-react';
 import { getActiveI18n } from '../../i18n/catalog';
 import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -40,6 +24,8 @@ interface DataSovereigntyTabProps {
   onPurgeMemory: () => void | Promise<void>;
   onOpenSeedPhrase: () => void;
   setActiveTab: (tab: TabType) => void;
+  /** Opens the public dataset and charter page for specialists. */
+  onOpenCharter: () => void;
 }
 
 export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
@@ -50,17 +36,11 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   onAccountDeleted,
   onPurgeMemory,
   onOpenSeedPhrase,
-  setActiveTab,
+  onOpenCharter,
 }) => {
   const { m } = useI18n();
   const copy = m.sovereignty;
-  const [exportKind, setExportKind] = useState<PublicExportKind | null>(null);
-  const [exportSuccess, setExportSuccess] = useState<PublicExportKind | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
   const [datasetReload, setDatasetReload] = useState(0);
-  const [datasetPage, setDatasetPage] = useState<PublicDatasetPage | null>(null);
-  const [datasetError, setDatasetError] = useState<string | null>(null);
-  const [datasetLoading, setDatasetLoading] = useState(true);
   const [series, setSeries] = useState<PublicTimeseries | null>(null);
   const [seriesNote, setSeriesNote] = useState<string | null>(null);
   const [purgeBusy, setPurgeBusy] = useState(false);
@@ -136,31 +116,6 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   }, [isAuthenticated, copy.consentsFailed]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    setDatasetLoading(true);
-    setDatasetError(null);
-    void fetchPublicDataset({ limit: 20, signal: controller.signal })
-      .then((page) => {
-        setDatasetPage(page);
-        setDatasetLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return;
-        }
-        setDatasetPage(null);
-        const messages = getActiveI18n().messages.sovereignty;
-        setDatasetError(
-          err instanceof DatasetRequestError
-            ? fill(messages.datasetFailed, { status: err.status })
-            : messages.datasetSilent,
-        );
-        setDatasetLoading(false);
-      });
-    return () => controller.abort();
-  }, [datasetReload, isPublic]);
-
-  useEffect(() => {
     if (!publicSharingEnabled || !isAuthenticated) {
       setSeries(null);
       setSeriesNote(null);
@@ -191,29 +146,6 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
       });
     return () => controller.abort();
   }, [accountAddress, isAuthenticated, publicSharingEnabled, datasetReload]);
-
-  const downloadExport = (kind: PublicExportKind) => {
-    setExportError(null);
-    setExportKind(kind);
-    void downloadPublicDatasetExport(kind)
-      .then(() => {
-        setExportSuccess(kind);
-        setExportKind(null);
-        window.setTimeout(() => {
-          setExportSuccess((current) => (current === kind ? null : current));
-        }, 3000);
-      })
-      .catch((err: unknown) => {
-        setExportKind(null);
-        setExportSuccess(null);
-        const messages = getActiveI18n().messages.sovereignty;
-        setExportError(
-          err instanceof DatasetRequestError
-            ? fill(messages.exportFailed, { status: err.status })
-            : messages.exportSilent,
-        );
-      });
-  };
 
   const handlePurge = () => {
     setPurgeError(null);
@@ -332,6 +264,14 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
           <p className="font-['Inter'] text-sm text-[#3f4850] mt-1 max-w-2xl">
             {copy.lead}
           </p>
+          <button
+            type="button"
+            onClick={onOpenCharter}
+            className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#006194] hover:underline cursor-pointer"
+          >
+            {copy.charterLink}
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -463,92 +403,8 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
 
       {/* Main Grid: Export Modules vs Decentralized Cohort Sharing */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Public dataset export */}
+        {/* Account sign-in */}
         <div className="lg:col-span-6 flex flex-col gap-6">
-          <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <span className="font-['Inter'] text-base font-bold text-[#0b1c30] flex items-center gap-2">
-                <Download className="w-5 h-5 text-[#006194]" />
-                {copy.exportTitle}
-              </span>
-              <span className="font-['JetBrains_Mono'] text-xs bg-[#eff4ff] text-[#006194] px-2 py-0.5 rounded font-semibold">
-                CC0-1.0
-              </span>
-            </div>
-
-            <p className="font-['Inter'] text-xs text-[#565e74] leading-relaxed">
-              {copy.exportLead}
-            </p>
-
-            {exportError && (
-              <p className="text-xs text-[#ba1a1a]" role="alert">
-                {exportError}
-              </p>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => downloadExport('csv')}
-                disabled={exportKind !== null}
-                className="p-4 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#eff4ff] transition-all flex flex-col gap-1 text-left cursor-pointer group disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-['Inter'] text-xs font-bold text-[#0b1c30] group-hover:text-[#006194]">
-                    CSV
-                  </span>
-                  <Download className="w-4 h-4 text-[#006947]" />
-                </div>
-                <span className="text-[11px] text-[#565e74]">
-                  {copy.csvHint}
-                </span>
-                <span className="text-[10px] text-[#006947] font-semibold mt-2">
-                  {exportSuccess === 'csv' ? copy.downloaded : copy.csvAction}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => downloadExport('parquet')}
-                disabled={exportKind !== null}
-                className="p-4 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#eff4ff] transition-all flex flex-col gap-1 text-left cursor-pointer group disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-['Inter'] text-xs font-bold text-[#0b1c30] group-hover:text-[#006194]">
-                    Parquet
-                  </span>
-                  <Download className="w-4 h-4 text-[#006947]" />
-                </div>
-                <span className="text-[11px] text-[#565e74]">
-                  {copy.parquetHint}
-                </span>
-                <span className="text-[10px] text-[#006947] font-semibold mt-2">
-                  {exportSuccess === 'parquet' ? copy.downloaded : copy.parquetAction}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => downloadExport('datasheet')}
-                disabled={exportKind !== null}
-                className="p-4 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#eff4ff] transition-all flex flex-col gap-1 text-left cursor-pointer group disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-['Inter'] text-xs font-bold text-[#0b1c30] group-hover:text-[#006194]">
-                    {copy.datasheet}
-                  </span>
-                  <FileCode className="w-4 h-4 text-[#006194]" />
-                </div>
-                <span className="text-[11px] text-[#565e74]">
-                  {copy.datasheetHint}
-                </span>
-                <span className="text-[10px] text-[#006947] font-semibold mt-2">
-                  {exportSuccess === 'datasheet' ? copy.downloaded : copy.datasheetAction}
-                </span>
-              </button>
-            </div>
-          </div>
-
           {/* Seed Phrase Security Card */}
           <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -688,84 +544,9 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
             )}
           </div>
 
-          {/* Research Charter Statement */}
-          <div className="bg-[#007bb9] text-[#ffffff] p-6 rounded-xl flex flex-col gap-2.5 shadow-sm">
-            <span className="font-['Inter'] text-sm font-bold flex items-center gap-2">
-              <FlaskConical className="w-4 h-4 text-white" />
-              {copy.manifestoTitle}
-            </span>
-            <p className="font-['Inter'] text-xs opacity-90 leading-relaxed">
-              {copy.manifesto}
-            </p>
-          </div>
         </div>
       </div>
 
-      <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-['Inter'] text-base font-bold text-[#0b1c30]">
-            {copy.datasetTitle}
-          </span>
-          <button
-            type="button"
-            onClick={() => setDatasetReload((value) => value + 1)}
-            className="font-['Inter'] text-xs font-semibold text-[#006194] hover:underline cursor-pointer"
-          >
-            {copy.reload}
-          </button>
-        </div>
-        <p className="font-['Inter'] text-xs text-[#565e74] leading-relaxed">
-          {copy.datasetLead}
-        </p>
-        {datasetLoading && (
-          <p className="text-xs text-[#565e74]">{copy.datasetLoading}</p>
-        )}
-        {datasetError && (
-          <p className="text-xs text-[#ba1a1a]" role="alert">
-            {datasetError}
-          </p>
-        )}
-        {datasetPage && !datasetLoading && datasetPage.total === 0 && (
-          <p className="text-xs text-[#565e74]">{copy.datasetEmpty}</p>
-        )}
-        {datasetPage && !datasetLoading && datasetPage.rows.length > 0 && (
-          <div className="overflow-x-auto">
-            <p className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] mb-2">
-              {fill(copy.showing, {
-                shown: datasetPage.rows.length,
-                total: datasetPage.total,
-              })}
-            </p>
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="font-['Inter'] text-[#565e74] border-b border-[#e2e8f0]">
-                  <th className="py-2 pr-3 font-semibold">{copy.colPublicId}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colCollected}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colLoinc}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colMarker}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colValue}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {datasetPage.rows.map((row, index) => (
-                  <tr
-                    key={`${row.publicId}-${row.loincCode ?? row.rawName}-${row.collectedAt ?? 'na'}-${index}`}
-                    className="border-b border-[#f1f5f9] font-['JetBrains_Mono'] text-[#0b1c30]"
-                  >
-                    <td className="py-2 pr-3">{row.publicId}</td>
-                    <td className="py-2 pr-3">{row.collectedAt ?? '—'}</td>
-                    <td className="py-2 pr-3">{row.loincCode ?? '—'}</td>
-                    <td className="py-2 pr-3">{row.canonicalName ?? row.rawName}</td>
-                    <td className="py-2 pr-3">
-                      {row.value} {row.unit}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
