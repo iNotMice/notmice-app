@@ -1,5 +1,6 @@
 import type { AppMessages } from '../en';
 import { biomarkers } from './biomarkers';
+import { cabinet } from './cabinet';
 import { history } from './history';
 import { home } from './home';
 import { instructions } from './instructions';
@@ -23,6 +24,7 @@ export const ruMessages = {
   shell,
   home,
   specialists,
+  cabinet,
   upload,
   review,
   phenoage,

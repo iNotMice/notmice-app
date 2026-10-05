@@ -60,7 +60,7 @@ export const instructions = {
     ],
   },
   share: {
-    lead: 'Sharing is off by default. You can turn it on or off at any time in “My data and consents”.',
+    lead: 'Sharing is off by default. You can turn it on or off at any time in “Account → Data and consents”.',
     shownTitle: 'If you turn it on, we publish',
     shown: [
       'a pseudonymous ID, not linked to your name;',
@@ -93,7 +93,7 @@ export const instructions = {
     },
     {
       q: 'How do I delete my data?',
-      a: 'In “My data and consents” you can delete saved tests or the whole account together with the confirmed values. Copies of public rows that others have already downloaded cannot be recalled.',
+      a: 'In “Account → Data and consents” you can delete saved tests or the whole account together with the confirmed values. Copies of public rows that others have already downloaded cannot be recalled.',
     },
     {
       q: 'Who sees my data?',

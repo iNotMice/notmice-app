@@ -8,7 +8,10 @@ export type TabType =
   | 'data-sovereignty-public-sharing'
   | 'research-news'
   | 'user-instructions'
-  | 'specialists';
+  | 'specialists'
+  | 'cabinet'
+  | 'cabinet-tests'
+  | 'cabinet-security';
 
 export interface BiomarkerDefinition {
   id: string;

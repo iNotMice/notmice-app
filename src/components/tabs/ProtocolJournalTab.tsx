@@ -133,7 +133,7 @@ export const ProtocolJournalTab: React.FC<ProtocolJournalTabProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8" id="protocol-journal">
+    <div className="w-full flex flex-col gap-8" id="protocol-journal">
       <div className="border-b border-[#e2e8f0] pb-6">
         <div className="flex items-center gap-2 mb-1">
           <span className="bg-[#cce5ff] text-[#004b73] font-['JetBrains_Mono'] text-xs font-semibold px-2 py-0.5 rounded">
@@ -141,7 +141,7 @@ export const ProtocolJournalTab: React.FC<ProtocolJournalTabProps> = ({
           </span>
           <span className="font-['JetBrains_Mono'] text-xs text-[#565e74]">{copy.stageMeta}</span>
         </div>
-        <h1 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">{copy.title}</h1>
+        <h2 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">{copy.title}</h2>
         <p className="font-['Inter'] text-sm text-[#3f4850] mt-1 max-w-2xl">{copy.lead}</p>
       </div>
 

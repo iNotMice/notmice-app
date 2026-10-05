@@ -22,6 +22,10 @@ import { Header } from './components/Header';
 import { HomeTab } from './components/tabs/HomeTab';
 import { SpecialistsTab } from './components/tabs/SpecialistsTab';
 import { FirstUploadNotice, firstUploadNoticeSeen } from './components/FirstUploadNotice';
+import { CabinetLayout } from './components/cabinet/CabinetLayout';
+import { CabinetOverview } from './components/cabinet/CabinetOverview';
+import { CabinetSecurity } from './components/cabinet/CabinetSecurity';
+import { CabinetTests } from './components/cabinet/CabinetTests';
 import { UploadLabTab } from './components/tabs/UploadLabTab';
 import { ReviewExtractionTab } from './components/tabs/ReviewExtractionTab';
 import { PhenoAgeEngineTab } from './components/tabs/PhenoAgeEngineTab';
@@ -40,6 +44,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { getActiveI18n } from './i18n/catalog';
 import { useI18n } from './i18n/I18nProvider';
 import {
+  isCabinetTab,
   pathForTab,
   specialistPageFromHash,
   tabFromPath,
@@ -599,46 +604,90 @@ function MainApp() {
           />
         )}
 
-        {/* Tab 5: Biomarker History */}
-        {activeTab === 'biomarker-history' && (
-          <BiomarkerHistoryTab
-            history={history}
+        {/* Personal account: overview, tests, markers, journal, data, security. */}
+        {isCabinetTab(activeTab) && (
+          <CabinetLayout
+            activeTab={activeTab}
+            navigate={setActiveTab}
             isAuthenticated={account !== null}
-            onDeleteHistory={handleDeleteHistory}
-            onSelectRecord={handleSelectHistoricalRecord}
-            setActiveTab={setActiveTab}
-          />
-        )}
-
-        {activeTab === 'protocol-journal' && (
-          <ProtocolJournalTab
-            isAuthenticated={account !== null}
-            onRequestAuth={() => {
+            publicId={account?.publicId ?? null}
+            onOpenAccount={() => {
               setAuthError(null);
               setIsSeedPhraseModalOpen(true);
             }}
-          />
-        )}
+          >
+            {activeTab === 'cabinet' && <CabinetOverview navigate={setActiveTab} />}
 
-        {/* Tab 6: Data Sovereignty & Public Sharing */}
-        {activeTab === 'data-sovereignty-public-sharing' && (
-          <DataSovereigntyTab
-            accountAddress={publicIdLabel}
-            isAuthenticated={account !== null}
-            isPublic={account?.isPublic ?? false}
-            onTogglePublic={handleTogglePublic}
-            onAccountDeleted={() => {
-              setAccount(null);
-              setRevealedMnemonic(null);
-            }}
-            onPurgeMemory={handlePurgeMemory}
-            onOpenSeedPhrase={() => {
-              setAuthError(null);
-              setIsSeedPhraseModalOpen(true);
-            }}
-            setActiveTab={setActiveTab}
-            onOpenCharter={() => navigate('specialists', 'data')}
-          />
+            {activeTab === 'cabinet-tests' && (
+              <CabinetTests
+                onDelete={async (panelId) => {
+                  if (history.some((row) => row.id === panelId)) {
+                    await handleDeleteHistory(panelId);
+                  } else {
+                    await deleteOwnLabResult(panelId);
+                  }
+                }}
+                onOpenIndex={(panelId) => {
+                  const record = history.find((row) => row.id === panelId);
+                  if (record) {
+                    handleSelectHistoricalRecord(record);
+                  }
+                  setActiveTab('phenoage-engine');
+                }}
+              />
+            )}
+
+            {activeTab === 'cabinet-security' && (
+              <CabinetSecurity
+                navigate={setActiveTab}
+                onSignOut={() => {
+                  void handleLogout().then(() => setActiveTab('overview-landing'));
+                }}
+              />
+            )}
+
+            {/* Tab 5: Biomarker History */}
+            {activeTab === 'biomarker-history' && (
+              <BiomarkerHistoryTab
+                history={history}
+                isAuthenticated={account !== null}
+                onDeleteHistory={handleDeleteHistory}
+                onSelectRecord={handleSelectHistoricalRecord}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === 'protocol-journal' && (
+              <ProtocolJournalTab
+                isAuthenticated={account !== null}
+                onRequestAuth={() => {
+                  setAuthError(null);
+                  setIsSeedPhraseModalOpen(true);
+                }}
+              />
+            )}
+
+            {/* Tab 6: Data Sovereignty & Public Sharing */}
+            {activeTab === 'data-sovereignty-public-sharing' && (
+              <DataSovereigntyTab
+                accountAddress={publicIdLabel}
+                isAuthenticated={account !== null}
+                isPublic={account?.isPublic ?? false}
+                onTogglePublic={handleTogglePublic}
+                onAccountDeleted={() => {
+                  setAccount(null);
+                  setRevealedMnemonic(null);
+                }}
+                onPurgeMemory={handlePurgeMemory}
+                onOpenSeedPhrase={() => {
+                  setAuthError(null);
+                  setIsSeedPhraseModalOpen(true);
+                }}
+                setActiveTab={setActiveTab}
+                onOpenCharter={() => navigate('specialists', 'data')}
+              />
+            )}
+          </CabinetLayout>
         )}
 
         {activeTab === 'research-news' && (

@@ -246,7 +246,7 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
+    <div className="w-full flex flex-col gap-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#e2e8f0] pb-6">
         <div>
@@ -258,9 +258,9 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
               {copy.stageMeta}
             </span>
           </div>
-          <h1 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">
+          <h2 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">
             {copy.title}
-          </h1>
+          </h2>
           <p className="font-['Inter'] text-sm text-[#3f4850] mt-1 max-w-2xl">
             {copy.lead}
           </p>

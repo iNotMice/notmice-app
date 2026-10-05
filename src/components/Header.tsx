@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TabType } from '../types';
 import { ChevronDown, Shield, Terminal, Menu, X, KeyRound, Stethoscope } from 'lucide-react';
 import { BRAND_NAME } from '../config/site';
-import { pathForTab } from '../routes';
+import { CABINET_SECTIONS, isCabinetTab, pathForTab } from '../routes';
 import logo from '../assets/images/logo.jpg';
 import { useI18n } from '../i18n/I18nProvider';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -63,34 +63,49 @@ export const Header: React.FC<HeaderProps> = ({
     [],
   );
 
-  const myTestsItems: DesktopGroupItem[] = [
+  const uploadItems: DesktopGroupItem[] = [
     { id: 'upload-lab', label: m.nav.uploadLab },
     { id: 'review-extraction', label: m.nav.reviewExtraction },
-    { id: 'data-sovereignty-public-sharing', label: m.nav.myData },
   ];
-  const phenoAgeItems: DesktopGroupItem[] = [
-    { id: 'phenoage-engine', label: m.nav.phenoAgeEngine },
-    { id: 'biomarker-history', label: m.nav.biomarkerHistory },
-  ];
+  const cabinetItems: DesktopGroupItem[] = CABINET_SECTIONS.map((section) => ({
+    id: section.tab,
+    label: m.cabinet.nav[section.key],
+  }));
 
-  const desktopGroups: { id: string; label: string; items: DesktopGroupItem[] }[] = [
-    { id: 'my-tests', label: m.nav.myTests, items: myTestsItems },
-    { id: 'phenoage', label: m.nav.phenoAge, items: phenoAgeItems },
-  ];
+  type DesktopEntry =
+    | { kind: 'group'; id: string; label: string; items: DesktopGroupItem[] }
+    | { kind: 'link'; item: DesktopGroupItem };
 
-  const plainItems: DesktopGroupItem[] = [
-    { id: 'protocol-journal', label: m.nav.journal },
-    { id: 'research-news', label: m.nav.news },
-    { id: 'user-instructions', label: m.nav.documents },
+  const desktopEntries: DesktopEntry[] = [
+    { kind: 'group', id: 'upload', label: m.nav.upload, items: uploadItems },
+    { kind: 'link', item: { id: 'phenoage-engine', label: m.nav.phenoAge } },
+    { kind: 'group', id: 'cabinet', label: m.nav.cabinet, items: cabinetItems },
+    { kind: 'link', item: { id: 'research-news', label: m.nav.news } },
+    { kind: 'link', item: { id: 'user-instructions', label: m.nav.documents } },
   ];
 
   /** Mobile drawer: the same order as the desktop bar, groups flattened under a heading. */
   const mobileSections: { heading?: string; items: DesktopGroupItem[] }[] = [
     { items: [{ id: 'overview-landing', label: m.nav.overview }] },
-    { heading: m.nav.myTests, items: myTestsItems },
-    { heading: m.nav.phenoAge, items: phenoAgeItems },
-    { items: plainItems },
+    { heading: m.nav.upload, items: uploadItems },
+    { items: [{ id: 'phenoage-engine', label: m.nav.phenoAgeEngine }] },
+    { heading: m.nav.cabinet, items: cabinetItems },
+    {
+      items: [
+        { id: 'research-news', label: m.nav.news },
+        { id: 'user-instructions', label: m.nav.documents },
+      ],
+    },
   ];
+
+  /** Signed in: the account chip opens the cabinet. Guest: it opens sign-in. */
+  const openAccountChip = () => {
+    if (isAuthenticated) {
+      selectTab('cabinet');
+    } else {
+      onOpenSeedPhrase();
+    }
+  };
 
   useEffect(() => {
     if (!openMenu) {
@@ -176,9 +191,30 @@ export const Header: React.FC<HeaderProps> = ({
               {m.nav.overview}
             </a>
 
-            {desktopGroups.map((group) => {
+            {desktopEntries.map((entry) => {
+              if (entry.kind === 'link') {
+                const item = entry.item;
+                return (
+                  <a
+                    key={item.id}
+                    href={pathForTab(item.id)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      selectTab(item.id);
+                    }}
+                    aria-current={activeTab === item.id ? 'page' : undefined}
+                    data-path={item.id}
+                    className={linkClass(activeTab === item.id)}
+                  >
+                    {item.label}
+                  </a>
+                );
+              }
+              const group = entry;
               const isOpen = openMenu === group.id;
-              const isActive = group.items.some((item) => item.id === activeTab);
+              const isActive =
+                group.items.some((item) => item.id === activeTab) ||
+                (group.id === 'cabinet' && isCabinetTab(activeTab));
               return (
                 <div
                   key={group.id}
@@ -228,22 +264,6 @@ export const Header: React.FC<HeaderProps> = ({
               );
             })}
 
-            {plainItems.map((item) => (
-              <a
-                key={item.id}
-                href={pathForTab(item.id)}
-                onClick={(event) => {
-                  event.preventDefault();
-                  selectTab(item.id);
-                }}
-                aria-current={activeTab === item.id ? 'page' : undefined}
-                data-path={item.id}
-                className={linkClass(activeTab === item.id)}
-              >
-                {item.label}
-              </a>
-            ))}
-
             <a
               href={pathForTab('specialists')}
               onClick={(event) => {
@@ -273,7 +293,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <button
               type="button"
-              onClick={onOpenSeedPhrase}
+              onClick={openAccountChip}
               onFocus={() => openMenuNow('account-id')}
               onBlur={(event) => {
                 const nextTarget = event.relatedTarget;
@@ -286,7 +306,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
               aria-expanded={openMenu === 'account-id'}
               aria-describedby={openMenu === 'account-id' ? 'account-public-id' : undefined}
-              title={isAuthenticated ? m.nav.accountRecovery : m.nav.signInOrCreate}
+              title={isAuthenticated ? m.nav.cabinet : m.nav.signInOrCreate}
               className="flex items-center gap-2 bg-[#eff4ff] hover:bg-[#e5eeff] px-2.5 py-1.5 rounded border border-[#dce9ff] transition-colors cursor-pointer"
             >
               <span className="w-2 h-2 rounded-full bg-[#00855b] animate-pulse"></span>
@@ -400,7 +420,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                onOpenSeedPhrase();
+                openAccountChip();
               }}
               title={isAuthenticated ? m.nav.accountRecovery : m.nav.signInOrCreate}
               className="mt-2 border-t border-[#e2e8f0] flex w-full items-center justify-between px-3 py-2.5 text-left text-xs text-[#565e74] hover:bg-[#eff4ff] rounded cursor-pointer"
