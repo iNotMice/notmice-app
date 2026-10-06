@@ -101,6 +101,10 @@ export const home = {
   howTitle: 'How it works',
   howSteps: [
     {
+      title: 'Create an account',
+      body: 'You sign in first — uploads and results are only available once registered.',
+    },
+    {
       title: 'Upload a test',
       body: 'A PDF, a scan or a photo of the report.',
     },
