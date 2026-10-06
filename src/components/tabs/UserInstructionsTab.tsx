@@ -5,7 +5,20 @@ import { BIOMARKER_IDS } from '../../i18n/biomarkerIds';
 import { useI18n } from '../../i18n/I18nProvider';
 import { sectionLang } from '../../i18n/locales';
 
-const SECTION_IDS = ['need', 'upload', 'file', 'check', 'get', 'share', 'faq'] as const;
+const SECTION_IDS = [
+  'start',
+  'account',
+  'consents',
+  'need',
+  'upload',
+  'file',
+  'check',
+  'get',
+  'cabinet',
+  'share',
+  'trouble',
+  'faq',
+] as const;
 type SectionId = (typeof SECTION_IDS)[number];
 
 const h2 = "font-['Inter'] text-xl lg:text-2xl font-bold text-[#0b1c30]";
@@ -24,7 +37,38 @@ function Bullets({ items }: { items: string[] }) {
   );
 }
 
-/** One page with anchors that a participant reads before the first upload. */
+function Questions({ items }: { items: { q: string; a: string }[] }) {
+  return (
+    <div className="flex flex-col divide-y divide-[#e2e8f0]">
+      {items.map((item) => (
+        <details key={item.q} className="group py-3">
+          <summary className="cursor-pointer list-none text-base font-semibold text-[#0b1c30] marker:hidden">
+            <span className="mr-2 inline-block text-[#006194] transition-transform group-open:rotate-90" aria-hidden="true">
+              ›
+            </span>
+            {item.q}
+          </summary>
+          <p className={`mt-2 pl-5 ${p}`}>{item.a}</p>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function TitledList({ items }: { items: { title: string; body: string }[] }) {
+  return (
+    <dl className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {items.map((item) => (
+        <div key={item.title} className="rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-4 py-3">
+          <dt className="text-base font-semibold text-[#0b1c30]">{item.title}</dt>
+          <dd className={`mt-1 ${p}`}>{item.body}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** One page with anchors: a step-by-step guide from sign-up to results. */
 export const UserInstructionsTab: React.FC = () => {
   const { m, locale } = useI18n();
   const copy = m.instructions;
@@ -75,6 +119,68 @@ export const UserInstructionsTab: React.FC = () => {
 
       <div className="lg:col-span-9 flex flex-col gap-5 min-w-0">
         {section(
+          'start',
+          <>
+            <p className={p}>{copy.start.lead}</p>
+            <ol className="flex flex-col gap-3">
+              {copy.start.steps.map((step, index) => (
+                <li key={step.title} className="flex gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#006194] text-sm font-bold text-[#ffffff]"
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold text-[#0b1c30]">{step.title}</p>
+                    <p className={p}>{step.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="rounded-lg bg-[#eff4ff] px-4 py-3 text-base text-[#0b1c30]">{copy.start.languageNote}</p>
+          </>,
+        )}
+        {section(
+          'account',
+          <>
+            <p className={p}>{copy.account.lead}</p>
+            <ol className="flex flex-col gap-2 list-decimal pl-6">
+              {copy.account.steps.map((step) => (
+                <li key={step} className={p}>
+                  {step}
+                </li>
+              ))}
+            </ol>
+            <p className={p}>{copy.account.forgot}</p>
+            <p className={p}>{copy.account.phrase}</p>
+          </>,
+        )}
+        {section(
+          'consents',
+          <>
+            <p className={p}>{copy.consents.lead}</p>
+            <ul className="flex flex-col gap-3">
+              {copy.consents.items.map((item, index) => (
+                <li key={item.title} className="rounded-lg border border-[#e2e8f0] px-4 py-3">
+                  <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-[#0b1c30]">
+                    {item.title}
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                        index === 0 ? 'bg-[#fff6e0] text-[#5c3a00]' : 'bg-[#eff4ff] text-[#006194]'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  </p>
+                  <p className={`mt-1 ${p}`}>{item.body}</p>
+                </li>
+              ))}
+            </ul>
+            <p className={p}>{copy.consents.surveyNote}</p>
+          </>,
+        )}
+        {section(
           'need',
           <>
             <p className={p}>{copy.need.lead}</p>
@@ -108,6 +214,13 @@ export const UserInstructionsTab: React.FC = () => {
                 </li>
               ))}
             </ul>
+          </>,
+        )}
+        {section(
+          'cabinet',
+          <>
+            <p className={p}>{copy.cabinet.lead}</p>
+            <TitledList items={copy.cabinet.items} />
           </>,
         )}
         {section(
@@ -147,22 +260,8 @@ export const UserInstructionsTab: React.FC = () => {
             </div>
           </>,
         )}
-        {section(
-          'faq',
-          <div className="flex flex-col divide-y divide-[#e2e8f0]">
-            {copy.faq.map((item) => (
-              <details key={item.q} className="group py-3">
-                <summary className="cursor-pointer list-none text-base font-semibold text-[#0b1c30] marker:hidden">
-                  <span className="mr-2 inline-block text-[#006194] transition-transform group-open:rotate-90" aria-hidden="true">
-                    ›
-                  </span>
-                  {item.q}
-                </summary>
-                <p className={`mt-2 pl-5 ${p}`}>{item.a}</p>
-              </details>
-            ))}
-          </div>,
-        )}
+        {section('trouble', <Questions items={copy.trouble} />)}
+        {section('faq', <Questions items={copy.faq} />)}
       </div>
     </div>
   );
