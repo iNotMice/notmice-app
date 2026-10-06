@@ -1,5 +1,7 @@
 """FastAPI application factory."""
 
+import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -26,23 +28,41 @@ from app.core.config import (
     validate_runtime_secrets,
     validate_survey_config,
 )
-from app.core.deps import dispose_engine
+from app.core.deps import dispose_engine, get_news_service, get_news_translation
 from app.core.logging import configure_logging
 from app.domain.uploads import GeminiBudgetExhaustedError
+from app.services.news_prewarm import run_prewarm
 
 logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Configure logging on startup and dispose the database engine on shutdown."""
+    """Configure logging, warm news translations, dispose the database engine on shutdown."""
     settings = get_settings()
     configure_logging(settings.log_level)
     validate_runtime_secrets(settings)
     validate_mail_config(settings)
     validate_survey_config(settings)
     logger.info("api_start")
+    stop = asyncio.Event()
+    prewarm: asyncio.Task[None] | None = None
+    translation = get_news_translation()
+    if translation.enabled:
+        prewarm = asyncio.create_task(
+            run_prewarm(
+                get_news_service(),
+                translation,
+                interval_seconds=settings.news_prewarm_interval_seconds,
+                stop=stop,
+            )
+        )
     yield
+    stop.set()
+    if prewarm is not None:
+        prewarm.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await prewarm
     await dispose_engine()
     logger.info("api_stop")
 

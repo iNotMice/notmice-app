@@ -227,7 +227,8 @@ def get_news_translation() -> NewsTranslationService:
         _news_translation = NewsTranslationService(
             translator,
             daily_token_budget=settings.news_translation_daily_token_budget,
-            deadline_seconds=settings.news_translation_timeout_seconds + 5,
+            wait_seconds=settings.news_translation_wait_seconds,
+            max_parallel_calls=settings.news_translation_parallel_calls,
         )
     return _news_translation
 

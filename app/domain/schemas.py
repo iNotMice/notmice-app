@@ -594,6 +594,10 @@ class NewsResponse(BaseModel):
     fetched_at: datetime | None
     stale: bool
     error: Literal["unavailable"] | None
+    translation_pending: bool = Field(
+        default=False,
+        description="True while some cards are still being translated; read again shortly",
+    )
 
 
 class ProtocolEntryInput(BaseModel):

@@ -7,6 +7,10 @@ import { cardMatchesPanel, markerTags } from '../../utils/newsMarkers';
 type NewsFilter = 'all' | NewsKind | 'mine';
 type LoadStatus = 'loading' | 'ready' | 'failed';
 
+/** While the server is still translating, read again quietly a few times. */
+const TRANSLATION_POLL_MS = 4000;
+const TRANSLATION_POLL_LIMIT = 8;
+
 interface ResearchNewsTabProps {
   markerIds: readonly string[];
 }
@@ -35,6 +39,7 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
   const [filter, setFilter] = useState<NewsFilter>('all');
   const [reloadKey, setReloadKey] = useState(0);
   const [showOriginal, setShowOriginal] = useState<ReadonlySet<string>>(new Set());
+  const [polls, setPolls] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -43,6 +48,7 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
       .then((next) => {
         setFeed(next);
         setShowOriginal(new Set());
+        setPolls(0);
         setStatus('ready');
       })
       .catch((err: unknown) => {
@@ -54,6 +60,26 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
       });
     return () => controller.abort();
   }, [reloadKey, locale]);
+
+  useEffect(() => {
+    if (!feed?.translationPending || polls >= TRANSLATION_POLL_LIMIT) {
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      // Quiet refresh: the cards stay on screen and only their text changes.
+      void fetchNews(locale, controller.signal)
+        .then((next) => {
+          setFeed(next);
+          setPolls((count) => count + 1);
+        })
+        .catch(() => setPolls(TRANSLATION_POLL_LIMIT));
+    }, TRANSLATION_POLL_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [feed, polls, locale]);
 
   const toggleOriginal = (id: string) => {
     setShowOriginal((current) => {
