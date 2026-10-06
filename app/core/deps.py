@@ -34,6 +34,7 @@ from app.services.image_redact import TesseractImageRedactor
 from app.services.lab_accounts import LabAccountService
 from app.services.mailer import DevLoggingMailer, Mailer, SmtpMailer
 from app.services.news import HttpxTextFetcher, NewsMemoryCache, NewsService
+from app.services.news_translation import GeminiNewsTranslator, NewsTranslationService
 from app.services.protocol import ProtocolService
 from app.services.redaction_holds import RedactionHoldStore
 from app.services.survey import SurveyService
@@ -53,6 +54,7 @@ _password_hasher: Argon2PasswordHasher | None = None
 _mailer: Mailer | None = None
 _news_rate_limiter: SlidingWindowRateLimiter | None = None
 _news_service: NewsService | None = None
+_news_translation: NewsTranslationService | None = None
 _gemini_budget: GeminiTokenBudget | None = None
 
 
@@ -208,6 +210,26 @@ def get_news_service() -> NewsService:
             email=settings.news_contact_email,
         )
     return _news_service
+
+
+def get_news_translation() -> NewsTranslationService:
+    """Return the process-wide news translator. Without a Gemini key it shows originals."""
+    global _news_translation
+    if _news_translation is None:
+        settings = get_settings()
+        translator = None
+        if settings.news_translation_enabled and settings.gemini_api_key:
+            translator = GeminiNewsTranslator(
+                settings.gemini_api_key,
+                settings.gemini_model,
+                timeout_seconds=settings.news_translation_timeout_seconds,
+            )
+        _news_translation = NewsTranslationService(
+            translator,
+            daily_token_budget=settings.news_translation_daily_token_budget,
+            deadline_seconds=settings.news_translation_timeout_seconds + 5,
+        )
+    return _news_translation
 
 
 def get_news_rate_limiter() -> SlidingWindowRateLimiter:

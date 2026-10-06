@@ -2,7 +2,7 @@ export const news = {
   stage: 'Research feed',
   stageMeta: 'PubMed and publisher RSS',
   title: 'News',
-  lead: 'Recent research on aging, plus practical commentary from publishers. Titles and summaries stay in the language of the source.',
+  lead: 'Recent research on aging, plus practical commentary from publishers. Titles and summaries are machine-translated into the language you choose; the original is one click away.',
   disclaimer:
     'These cards point to publications. They are not a diagnosis, a treatment plan, or medical advice.',
   filterAll: 'All',
@@ -17,5 +17,9 @@ export const news = {
   stale: 'Showing the last saved list. A source did not respond.',
   emptyFeed: 'No recent items came back from the feeds.',
   emptyFilter: 'Nothing in this list matches this filter.',
+  machineTranslation: 'Machine translation',
+  originalLabel: 'Original text',
+  showOriginal: 'Show original',
+  showTranslation: 'Show translation',
   retry: 'Try again',
 };

@@ -5,38 +5,57 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.core.config import get_settings
-from app.core.deps import get_news_rate_limiter, get_news_service
+from app.core.deps import get_news_rate_limiter, get_news_service, get_news_translation
 from app.core.rate_limit import SlidingWindowRateLimiter, resolve_client_key
-from app.domain.news import NewsCard
 from app.domain.schemas import NewsCardView, NewsResponse
 from app.services.news import NewsService, NewsSnapshot
+from app.services.news_translation import (
+    LocalizedCard,
+    NewsLanguage,
+    NewsTranslationService,
+)
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["news"])
 
 
-def _card_view(card: NewsCard) -> NewsCardView:
+def _card_view(localized: LocalizedCard) -> NewsCardView:
+    card = localized.card
+    translation = localized.translation
+    if translation is None:
+        return NewsCardView(
+            id=card.id,
+            title=card.title,
+            source=card.source,
+            published_at=card.published_at,
+            snippet=card.snippet,
+            url=card.url,
+            kind=card.kind,
+        )
     return NewsCardView(
         id=card.id,
-        title=card.title,
+        title=translation.title,
         source=card.source,
         published_at=card.published_at,
-        snippet=card.snippet,
+        snippet=translation.snippet,
         url=card.url,
         kind=card.kind,
+        translated=True,
+        original_title=card.title,
+        original_snippet=card.snippet,
     )
 
 
-def _response(snapshot: NewsSnapshot) -> NewsResponse:
+def _response(snapshot: NewsSnapshot, cards: list[LocalizedCard]) -> NewsResponse:
     error: Literal["unavailable"] | None = None
     if snapshot.error == "unavailable":
         error = "unavailable"
     return NewsResponse(
-        items=[_card_view(card) for card in snapshot.items],
+        items=[_card_view(card) for card in cards],
         fetched_at=snapshot.fetched_at,
         stale=snapshot.stale,
         error=error,
@@ -81,12 +100,20 @@ async def enforce_news_rate_limit(
 )
 async def read_news(
     news_service: Annotated[NewsService, Depends(get_news_service)],
+    translation: Annotated[NewsTranslationService, Depends(get_news_translation)],
     _: Annotated[None, Depends(enforce_news_rate_limit)],
+    lang: Annotated[
+        NewsLanguage,
+        Query(description="Interface language; titles and snippets are machine-translated into it"),
+    ] = "en",
 ) -> NewsResponse:
     """Return clipped cards from PubMed and the configured RSS feeds.
 
     The handler does not download article pages. When a source fails, the last
-    cached copy of that source is returned with ``stale`` set.
+    cached copy of that source is returned with ``stale`` set. For a language
+    other than English, titles and snippets are machine-translated and cached;
+    if translation fails, the original text is returned with ``translated`` false.
     """
     snapshot = await news_service.read()
-    return _response(snapshot)
+    cards = await translation.localize(snapshot.items, lang)
+    return _response(snapshot, cards)

@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.core.deps import get_news_rate_limiter, get_news_service
+from app.core.deps import get_news_rate_limiter, get_news_service, get_news_translation
 from app.core.rate_limit import SlidingWindowRateLimiter
 from app.domain.news import (
+    NewsCard,
     NewsFetchError,
     assert_public_https,
     clip_snippet,
@@ -20,6 +22,13 @@ from app.domain.news import (
 )
 from app.main import create_app
 from app.services.news import NewsMemoryCache, NewsService
+from app.services.news_translation import (
+    NewsLanguage,
+    NewsTranslationError,
+    NewsTranslationService,
+    TranslatedText,
+    TranslationBatch,
+)
 
 _ESEARCH = '{"esearchresult":{"idlist":["12345678"]}}'
 _EFETCH = """<?xml version="1.0"?>
@@ -270,8 +279,16 @@ async def test_insecure_feed_url_is_not_requested() -> None:
     assert all(url.startswith("https://") for url in fetcher.calls)
 
 
-def _application(service: NewsService, limiter: SlidingWindowRateLimiter) -> FastAPI:
+def _application(
+    service: NewsService,
+    limiter: SlidingWindowRateLimiter,
+    translation: NewsTranslationService | None = None,
+) -> FastAPI:
     application = create_app()
+    translator = translation or NewsTranslationService(None, daily_token_budget=0)
+
+    def override_translation() -> NewsTranslationService:
+        return translator
 
     def override_service() -> NewsService:
         return service
@@ -281,6 +298,7 @@ def _application(service: NewsService, limiter: SlidingWindowRateLimiter) -> Fas
 
     application.dependency_overrides[get_news_service] = override_service
     application.dependency_overrides[get_news_rate_limiter] = override_limiter
+    application.dependency_overrides[get_news_translation] = override_translation
     return application
 
 
@@ -329,3 +347,130 @@ async def test_news_rate_limit_is_per_ip() -> None:
     assert third.json()["detail"] == "Rate limit exceeded"
     assert int(third.headers["retry-after"]) >= 1
     assert other.status_code == 200
+
+
+class _FakeTranslator:
+    """Prefixes text with the language code. Can fail or answer for unknown ids."""
+
+    def __init__(self, *, fail: bool = False, extra_id: bool = False, tokens: int = 100) -> None:
+        self.calls: list[tuple[list[str], str]] = []
+        self.fail = fail
+        self.extra_id = extra_id
+        self.tokens = tokens
+
+    async def translate(
+        self, cards: Sequence[NewsCard], language: NewsLanguage
+    ) -> TranslationBatch:
+        self.calls.append(([card.id for card in cards], language))
+        if self.fail:
+            raise NewsTranslationError("boom", tokens_used=50)
+        items = {
+            card.id: TranslatedText(
+                title=f"[{language}] {card.title}", snippet=f"[{language}] {card.snippet}"
+            )
+            for card in cards
+        }
+        if self.extra_id:
+            items["not-requested"] = TranslatedText(title="x", snippet="y")
+        return TranslationBatch(items=items, tokens=self.tokens)
+
+
+def _card(card_id: str, title: str = "Senescence and longevity") -> NewsCard:
+    return NewsCard(
+        id=card_id,
+        title=title,
+        source="Fight Aging!",
+        published_at=date(2026, 10, 5),
+        snippet="Albumin and CRP were discussed.",
+        url="https://example.org/a",
+        kind="biohacking",
+    )
+
+
+async def test_english_cards_are_not_sent_for_translation() -> None:
+    """The source language passes through without a provider call."""
+    translator = _FakeTranslator()
+    service = NewsTranslationService(translator, daily_token_budget=10_000)
+    result = await service.localize([_card("a")], "en")
+    assert result[0].translation is None
+    assert translator.calls == []
+
+
+async def test_translation_is_cached_per_card_and_language() -> None:
+    """A second read of the same cards does not call the provider again."""
+    translator = _FakeTranslator()
+    service = NewsTranslationService(translator, daily_token_budget=10_000)
+    first = await service.localize([_card("a"), _card("b")], "ru")
+    second = await service.localize([_card("a"), _card("b")], "ru")
+    assert len(translator.calls) == 1
+    assert first[0].translation == TranslatedText(
+        title="[ru] Senescence and longevity", snippet="[ru] Albumin and CRP were discussed."
+    )
+    assert second == first
+    await service.localize([_card("a")], "fr")
+    assert translator.calls[-1] == (["a"], "fr")
+
+
+async def test_changed_card_text_is_translated_again() -> None:
+    """The cache key includes the text, so an edited title is not served stale."""
+    translator = _FakeTranslator()
+    service = NewsTranslationService(translator, daily_token_budget=10_000)
+    await service.localize([_card("a")], "de")
+    updated = await service.localize([_card("a", title="Edited title")], "de")
+    assert len(translator.calls) == 2
+    assert updated[0].translation is not None
+    assert updated[0].translation.title == "[de] Edited title"
+
+
+async def test_failed_translation_falls_back_to_original() -> None:
+    """Provider errors leave the card untranslated instead of failing the feed."""
+    service = NewsTranslationService(_FakeTranslator(fail=True), daily_token_budget=10_000)
+    result = await service.localize([_card("a")], "ru")
+    assert result[0].translation is None
+    assert result[0].card.title == "Senescence and longevity"
+
+
+async def test_unrequested_ids_are_ignored() -> None:
+    """Only ids that were sent can come back."""
+    service = NewsTranslationService(_FakeTranslator(extra_id=True), daily_token_budget=10_000)
+    result = await service.localize([_card("a")], "ru")
+    assert [item.card.id for item in result] == ["a"]
+    assert service._cache  # the requested card is cached
+    assert all(key[0] != "not-requested" for key in service._cache)
+
+
+async def test_daily_budget_stops_new_translations() -> None:
+    """Once the day's tokens are spent, new cards show the original text."""
+    translator = _FakeTranslator(tokens=600)
+    service = NewsTranslationService(
+        translator, daily_token_budget=500, today=lambda: date(2026, 10, 6)
+    )
+    await service.localize([_card("a")], "ru")
+    result = await service.localize([_card("b")], "ru")
+    assert len(translator.calls) == 1
+    assert result[0].translation is None
+
+
+async def test_get_news_translates_into_requested_language() -> None:
+    """lang=ru returns translated text plus the originals; tags can still use the source."""
+    fetcher = _MapFetcher()
+    _loaded(fetcher)
+    translation = NewsTranslationService(_FakeTranslator(), daily_token_budget=10_000)
+    application = _application(
+        _service(fetcher),
+        SlidingWindowRateLimiter(limit=20, window_seconds=60),
+        translation,
+    )
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        translated = await client.get("/api/v1/news", params={"lang": "ru"})
+        english = await client.get("/api/v1/news", params={"lang": "en"})
+        unsupported = await client.get("/api/v1/news", params={"lang": "xx"})
+    item = translated.json()["items"][0]
+    assert item["translated"] is True
+    assert item["title"] == f"[ru] {item['original_title']}"
+    assert item["original_snippet"] is not None
+    plain = english.json()["items"][0]
+    assert plain["translated"] is False
+    assert plain["original_title"] is None
+    assert unsupported.status_code == 422
