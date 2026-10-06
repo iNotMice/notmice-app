@@ -50,6 +50,8 @@ export const laboratory = {
     'Organization verification is complete, but the data-use agreement has not yet been legally approved. Research data access remains closed.',
   duaNeedsAcceptance: 'Review and accept the current data-use agreement ({version}) to request research access.',
   accessGranted: 'The current data-use agreement is accepted. Cohort endpoints are available for this organization.',
+  demoAccess:
+    'Demo access: this organization sees statistics built mostly from synthetic participants (public ID nmdemo…, laboratories marked DEMO). The data-use agreement is not legally approved yet; do not draw conclusions from these numbers.',
   acceptedDua: 'Accepted agreement',
   acceptDua: 'Accept data-use agreement',
   cabinetNote:

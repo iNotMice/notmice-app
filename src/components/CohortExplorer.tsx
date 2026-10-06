@@ -8,9 +8,26 @@ import {
   type CohortQueryInput,
   type CohortQueryResult,
 } from '../api/labCohorts';
+import { LOINC_TO_MARKER } from '../data/loincIndex';
+import { getActiveI18n } from '../i18n/catalog';
+import { markerLabel } from '../i18n/markerLabels';
 import type { AppMessages } from '../i18n/messages/en';
 
 type CohortCopy = AppMessages['laboratory']['explorer'];
+
+/** Marker name in the interface language, then its LOINC code. */
+function loincLabel(code: string): string {
+  const markerId = LOINC_TO_MARKER[code];
+  return markerId ? `${markerLabel(markerId, getActiveI18n().messages)} · ${code}` : code;
+}
+
+function countryLabel(code: string): string {
+  try {
+    return new Intl.DisplayNames([getActiveI18n().locale], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 
 const selectionLimits = {
   markers: 5,
@@ -29,8 +46,8 @@ function initialQuery(): CohortQueryInput {
     age_bands: [],
     countries: [],
     conditions: [],
-    collected_from: '',
-    collected_to: '',
+    collected_from: null,
+    collected_to: null,
   };
 }
 
@@ -129,7 +146,9 @@ function AggregateResult({
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h4 className="font-semibold text-[#18334b]">
-                  {marker.canonical_name ?? marker.loinc_code}
+                  {LOINC_TO_MARKER[marker.loinc_code]
+                    ? markerLabel(LOINC_TO_MARKER[marker.loinc_code], getActiveI18n().messages)
+                    : (marker.canonical_name ?? marker.loinc_code)}
                 </h4>
                 <span className="font-mono text-xs text-[#74869a]">{marker.loinc_code}</span>
               </div>
@@ -274,7 +293,7 @@ export function CohortExplorer({
               limit={selectionLimits.markers}
               disabled={searching}
               onToggle={(value) => toggle('markers', value)}
-              label={(value) => value}
+              label={loincLabel}
             />
             <CheckboxFacet
               title={copy.sexAtBirth}
@@ -299,7 +318,7 @@ export function CohortExplorer({
               limit={selectionLimits.countries}
               disabled={searching}
               onToggle={(value) => toggle('countries', value)}
-              label={(value) => value}
+              label={countryLabel}
             />
             <CheckboxFacet
               title={copy.conditions}

@@ -1,0 +1,23 @@
+/** LOINC code to canonical marker id, as in app/data/loinc/dictionary.v1.json. */
+export const LOINC_TO_MARKER: Readonly<Record<string, string>> = {
+  '1751-7': 'albumin',
+  '2160-0': 'creatinine',
+  '2345-7': 'glucose',
+  '30522-7': 'crp',
+  '26474-7': 'lymphocyte',
+  '787-2': 'mcv',
+  '788-0': 'rdw',
+  '6768-6': 'alp',
+  '6690-2': 'wbc',
+  '718-7': 'hemoglobin',
+  '4544-3': 'hematocrit',
+  '777-3': 'platelets',
+  '1742-6': 'alt',
+  '1920-8': 'ast',
+  '2093-3': 'cholesterol',
+  '2085-9': 'hdl',
+  '2571-8': 'triglycerides',
+  '4548-4': 'hba1c',
+  '3016-3': 'tsh',
+  '2276-4': 'ferritin',
+};

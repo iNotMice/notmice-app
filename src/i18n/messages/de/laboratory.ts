@@ -52,6 +52,8 @@ export const laboratory = {
     'Prüfen und akzeptieren Sie die aktuelle Datennutzungsvereinbarung ({version}), um Forschungszugang anzufragen.',
   accessGranted:
     'Die aktuelle Datennutzungsvereinbarung wurde akzeptiert. Kohorten-Endpunkte sind für diese Organisation verfügbar.',
+  demoAccess:
+    'Demo-Zugang: Diese Organisation sieht Statistiken, die überwiegend aus synthetischen Teilnehmenden bestehen (öffentliche ID nmdemo…, Labore mit DEMO markiert). Die Datennutzungsvereinbarung ist noch nicht rechtlich freigegeben; ziehen Sie aus diesen Zahlen keine Schlüsse.',
   acceptedDua: 'Akzeptierte Vereinbarung',
   acceptDua: 'Datennutzungsvereinbarung akzeptieren',
   cabinetNote:

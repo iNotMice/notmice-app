@@ -37,6 +37,17 @@ _SESSION_TTL = timedelta(hours=12)
 _DUMMY_PASSWORD = "notmice-lab-login-timing-pad"
 # Set only after legal approval of the laboratory data-use agreement.
 CURRENT_DUA_VERSION: str | None = None
+# Demo access for showing the cohort explorer on synthetic data. It is never
+# offered to a laboratory; only an operator grants it with
+# ``python -m app.scripts.demo_data grant-lab --org UUID``.
+DEMO_DUA_VERSION = "demo-not-legal"
+
+
+def effective_dua_version(organization_dua_version: str | None) -> str | None:
+    """The agreement version that opens data for this organization, if any."""
+    if organization_dua_version == DEMO_DUA_VERSION:
+        return DEMO_DUA_VERSION
+    return CURRENT_DUA_VERSION
 
 
 class LabAccountStore(Protocol):
@@ -214,9 +225,10 @@ class LabAccountService:
             raise LabUnauthenticatedError
         if user.organization.verification_status != "verified":
             raise LabOrganizationAccessError
-        if CURRENT_DUA_VERSION is None:
+        required = effective_dua_version(user.organization.dua_version)
+        if required is None:
             raise LabDuaUnavailableError
-        if user.organization.dua_version != CURRENT_DUA_VERSION:
+        if user.organization.dua_version != required:
             raise LabOrganizationAccessError
         return user
 
