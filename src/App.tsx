@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TabType, LabPanelData, HistoricalTestRecord, AccountState, PhenoAgeCalculation } from './types';
 import { INITIAL_BIOMARKERS, PHENOAGE_BIOMARKERS } from './data/phenoAgeData';
 import { ALEXEI_START } from './data/alexeiExample';
@@ -483,6 +483,16 @@ function MainApp() {
       setConfirmToken(confirm);
     }
   }, []);
+
+  const confirmAttempted = useRef(false);
+  useEffect(() => {
+    // Opening the email link is itself the confirmation step, so submit it
+    // automatically instead of showing a "check your email" screen again.
+    if (confirmToken && !confirmAttempted.current) {
+      confirmAttempted.current = true;
+      void handleConfirmEmail();
+    }
+  }, [confirmToken]);
 
   const handleLogout = async () => {
     setAuthBusy(true);

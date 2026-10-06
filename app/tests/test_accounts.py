@@ -169,9 +169,10 @@ class InMemoryUserStore:
         expires_at: datetime,
         now: datetime,
     ) -> None:
-        for token in self._tokens:
-            if token.user_id == user_id and token.purpose == purpose and token.used_at is None:
-                token.used_at = now
+        if purpose != "confirm_email":
+            for token in self._tokens:
+                if token.user_id == user_id and token.purpose == purpose and token.used_at is None:
+                    token.used_at = now
         self._tokens.append(_MemoryToken(user_id, purpose, token_sha256, expires_at))
 
     async def consume_auth_token(
@@ -359,6 +360,32 @@ async def test_health_data_dependency_requires_the_current_explicit_consent() ->
     with pytest.raises(HTTPException) as withdrawn:
         await get_current_user_with_current_health_consent(created.user, service)
     assert withdrawn.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_reregistration_keeps_earlier_confirmation_link_valid() -> None:
+    """A second registration must not invalidate the first confirmation link."""
+    from app.services.mailer import CapturingMailer
+
+    mailer = CapturingMailer()
+    users = InMemoryUserStore()
+    service = AccountService(
+        users=users,
+        hasher=Argon2SeedHasher("test-pepper-secret-key-32-bytes!!"),
+        mailer=mailer,
+    )
+    choices = (ConsentChoice(HEALTH_DATA, HEALTH_DATA_VERSION, accepted=True),)
+    await service.register(
+        email="dup@example.com", password="correct-horse-battery", consents=choices
+    )
+    await service.register(
+        email="dup@example.com", password="correct-horse-battery", consents=choices
+    )
+
+    assert len(mailer.sent) == 2
+    first_token = mailer.sent[0].body.split("confirm=", maxsplit=1)[1].split()[0]
+    session = await service.confirm_email(first_token)
+    assert session.user.public_id.startswith("nm")
 
 
 def test_in_memory_store_keeps_hash_not_phrase() -> None:
@@ -701,8 +728,7 @@ async def test_accounts_against_postgres() -> None:
             json={"email": email, "password": "correct-horse-battery"},
         )
         assert blocked.status_code == 401
-        # The second registration retires the first unused token, so confirm the
-        # latest one that was mailed.
+        # Both registrations mail a usable confirmation link; confirm with one.
         bodies = [row["body"] for row in logs if row.get("event") == "auth_mail_dev"]
         token = str(bodies[-1]).split("confirm=", maxsplit=1)[1].split()[0]
         confirmed = await client.post("/api/v1/accounts/confirm", json={"token": token})
