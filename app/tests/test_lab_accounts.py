@@ -31,7 +31,7 @@ from app.domain.lab_accounts import (
 )
 from app.main import create_app
 from app.repositories.lab_accounts import LabAccountRepository
-from app.services.lab_accounts import LabAccountService
+from app.services.lab_accounts import DEMO_DUA_VERSION, LabAccountService, effective_dua_version
 from app.services.mailer import CapturingMailer
 
 
@@ -415,3 +415,38 @@ async def test_repository_writes_the_organization_before_its_owner() -> None:
     )
     assert events == ["add:Organization", "flush", "add:LabUser", "flush"]
     assert record.organization.verification_status == "pending"
+
+
+async def test_operator_demo_agreement_opens_only_that_verified_organization() -> None:
+    """The demo version is granted by an operator, never offered; real DUA stays unset."""
+    service, store, mailer = _service()
+    await service.register(
+        name="Example Institute",
+        org_type="laboratory",
+        country="PL",
+        email="owner@example.org",
+        password="correct-horse-battery",
+    )
+    user, _cookie = await service.confirm_email(_token(mailer))
+    assert await store.verify_organization(
+        user.organization_id,
+        status="verified",
+        operator="operator-1",
+        evidence="Domain checked",
+        verified_at=datetime.now(UTC),
+    )
+    verified = await store.user_by_id(user.id)
+    assert verified is not None
+    with pytest.raises(LabDuaUnavailableError):
+        await service.require_verified_dua(verified)
+    assert effective_dua_version(None) is None
+
+    await store.accept_dua(
+        user.organization_id, version=DEMO_DUA_VERSION, accepted_at=datetime.now(UTC)
+    )
+    demo = await store.user_by_id(user.id)
+    assert demo is not None
+    assert await service.require_verified_dua(demo) == demo
+    assert effective_dua_version(DEMO_DUA_VERSION) == DEMO_DUA_VERSION
+    with pytest.raises(LabDuaUnavailableError):
+        await service.accept_current_dua(demo)

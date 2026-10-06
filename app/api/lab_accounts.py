@@ -33,7 +33,7 @@ from app.domain.schemas import (
     LabRegisterRequest,
     lab_account_view,
 )
-from app.services.lab_accounts import CURRENT_DUA_VERSION, LabAccountService
+from app.services.lab_accounts import LabAccountService, effective_dua_version
 
 router = APIRouter(prefix="/api/v1/lab", tags=["laboratory accounts"])
 LAB_SESSION_COOKIE_NAME = "notmice_lab_session"
@@ -77,7 +77,7 @@ def _lab_view(user: LabUserRecord) -> LabAccountView:
         role=user.role,
         email_confirmed_at=user.email_confirmed_at,
         organization=user.organization,
-        current_dua_version=CURRENT_DUA_VERSION,
+        current_dua_version=effective_dua_version(user.organization.dua_version),
     )
 
 

@@ -50,6 +50,8 @@ export const laboratory = {
     'La vérification de l’organisation est terminée, mais l’accord d’utilisation des données n’est pas encore approuvé juridiquement. L’accès aux données reste fermé.',
   duaNeedsAcceptance: 'Lisez et acceptez l’accord d’utilisation des données en vigueur ({version}) pour demander l’accès.',
   accessGranted: 'L’accord en vigueur est accepté. Les requêtes de cohortes sont disponibles pour cette organisation.',
+  demoAccess:
+    'Accès de démonstration : cette organisation voit des statistiques construites surtout à partir de participants fictifs (ID public nmdemo…, laboratoires marqués DEMO). L’accord d’utilisation des données n’est pas encore approuvé juridiquement ; ne tirez aucune conclusion de ces chiffres.',
   acceptedDua: 'Accord accepté',
   acceptDua: 'Accepter l’accord',
   cabinetNote:
