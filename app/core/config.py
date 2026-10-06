@@ -77,7 +77,10 @@ class Settings(BaseSettings):
     news_rss_feeds: str = "https://www.fightaging.org/feed/,https://www.lifespan.io/feed/"
     news_translation_enabled: bool = True
     news_translation_daily_token_budget: int = 300_000
-    news_translation_timeout_seconds: int = 25
+    news_translation_timeout_seconds: int = 60
+    news_translation_wait_seconds: float = 3
+    news_translation_parallel_calls: int = 4
+    news_prewarm_interval_seconds: int = 900
     trust_proxy_headers: bool = True
 
     @property

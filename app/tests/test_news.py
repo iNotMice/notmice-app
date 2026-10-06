@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from datetime import date
 
@@ -22,7 +23,9 @@ from app.domain.news import (
 )
 from app.main import create_app
 from app.services.news import NewsMemoryCache, NewsService
+from app.services.news_prewarm import WARM_LANGUAGES, warm_once
 from app.services.news_translation import (
+    LocalizedFeed,
     NewsLanguage,
     NewsTranslationError,
     NewsTranslationService,
@@ -350,18 +353,28 @@ async def test_news_rate_limit_is_per_ip() -> None:
 
 
 class _FakeTranslator:
-    """Prefixes text with the language code. Can fail or answer for unknown ids."""
+    """Prefixes text with the language code. Can fail, stall or answer for unknown ids."""
 
-    def __init__(self, *, fail: bool = False, extra_id: bool = False, tokens: int = 100) -> None:
+    def __init__(
+        self,
+        *,
+        fail: bool = False,
+        extra_id: bool = False,
+        tokens: int = 100,
+        gate: asyncio.Event | None = None,
+    ) -> None:
         self.calls: list[tuple[list[str], str]] = []
         self.fail = fail
         self.extra_id = extra_id
         self.tokens = tokens
+        self.gate = gate
 
     async def translate(
         self, cards: Sequence[NewsCard], language: NewsLanguage
     ) -> TranslationBatch:
         self.calls.append(([card.id for card in cards], language))
+        if self.gate is not None:
+            await self.gate.wait()
         if self.fail:
             raise NewsTranslationError("boom", tokens_used=50)
         items = {
@@ -387,12 +400,17 @@ def _card(card_id: str, title: str = "Senescence and longevity") -> NewsCard:
     )
 
 
+def _titles(feed: LocalizedFeed) -> list[str | None]:
+    return [None if item.translation is None else item.translation.title for item in feed.cards]
+
+
 async def test_english_cards_are_not_sent_for_translation() -> None:
     """The source language passes through without a provider call."""
     translator = _FakeTranslator()
     service = NewsTranslationService(translator, daily_token_budget=10_000)
-    result = await service.localize([_card("a")], "en")
-    assert result[0].translation is None
+    feed = await service.localize([_card("a")], "en")
+    assert _titles(feed) == [None]
+    assert feed.pending is False
     assert translator.calls == []
 
 
@@ -403,12 +421,21 @@ async def test_translation_is_cached_per_card_and_language() -> None:
     first = await service.localize([_card("a"), _card("b")], "ru")
     second = await service.localize([_card("a"), _card("b")], "ru")
     assert len(translator.calls) == 1
-    assert first[0].translation == TranslatedText(
-        title="[ru] Senescence and longevity", snippet="[ru] Albumin and CRP were discussed."
-    )
+    assert _titles(first) == ["[ru] Senescence and longevity", "[ru] Senescence and longevity"]
+    assert first.cards[0].translation is not None
+    assert first.cards[0].translation.snippet == "[ru] Albumin and CRP were discussed."
     assert second == first
     await service.localize([_card("a")], "fr")
     assert translator.calls[-1] == (["a"], "fr")
+
+
+async def test_cards_are_split_into_parallel_batches() -> None:
+    """Many cards go out in small batches so the whole feed is not one slow call."""
+    translator = _FakeTranslator()
+    service = NewsTranslationService(translator, daily_token_budget=100_000)
+    feed = await service.localize([_card(str(index)) for index in range(14)], "de")
+    assert [len(ids) for ids, _ in translator.calls] == [6, 6, 2]
+    assert all(title is not None for title in _titles(feed))
 
 
 async def test_changed_card_text_is_translated_again() -> None:
@@ -418,25 +445,61 @@ async def test_changed_card_text_is_translated_again() -> None:
     await service.localize([_card("a")], "de")
     updated = await service.localize([_card("a", title="Edited title")], "de")
     assert len(translator.calls) == 2
-    assert updated[0].translation is not None
-    assert updated[0].translation.title == "[de] Edited title"
+    assert _titles(updated) == ["[de] Edited title"]
 
 
-async def test_failed_translation_falls_back_to_original() -> None:
-    """Provider errors leave the card untranslated instead of failing the feed."""
-    service = NewsTranslationService(_FakeTranslator(fail=True), daily_token_budget=10_000)
-    result = await service.localize([_card("a")], "ru")
-    assert result[0].translation is None
-    assert result[0].card.title == "Senescence and longevity"
+async def test_slow_provider_returns_originals_and_finishes_in_background() -> None:
+    """The request does not wait for a slow model; the next read gets the translation."""
+    gate = asyncio.Event()
+    translator = _FakeTranslator(gate=gate)
+    service = NewsTranslationService(translator, daily_token_budget=10_000, wait_seconds=0.01)
+    first = await service.localize([_card("a")], "ru")
+    assert _titles(first) == [None]
+    assert first.pending is True
+    gate.set()
+    await service.wait_idle()
+    second = await service.localize([_card("a")], "ru")
+    assert _titles(second) == ["[ru] Senescence and longevity"]
+    assert second.pending is False
+    assert len(translator.calls) == 1
+
+
+async def test_prewarm_translates_before_the_first_reader() -> None:
+    """The warm-up fills every non-source language without a reader waiting."""
+    fetcher = _MapFetcher()
+    _loaded(fetcher)
+    news = _service(fetcher)
+    translator = _FakeTranslator()
+    translation = NewsTranslationService(translator, daily_token_budget=100_000)
+    await warm_once(news, translation)
+    assert {language for _, language in translator.calls} == set(WARM_LANGUAGES)
+    snapshot = await news.read()
+    feed = await translation.localize(snapshot.items, "fr", wait=False)
+    assert all(title is not None for title in _titles(feed))
+    assert feed.pending is False
+
+
+async def test_failed_translation_falls_back_and_cools_down() -> None:
+    """Provider errors show the original and are not retried on every read."""
+    clock = _Clock()
+    translator = _FakeTranslator(fail=True)
+    service = NewsTranslationService(translator, daily_token_budget=10_000, clock=clock)
+    first = await service.localize([_card("a")], "ru")
+    again = await service.localize([_card("a")], "ru")
+    assert _titles(first) == [None]
+    assert _titles(again) == [None]
+    assert len(translator.calls) == 1
+    clock.value += 301
+    await service.localize([_card("a")], "ru")
+    assert len(translator.calls) == 2
 
 
 async def test_unrequested_ids_are_ignored() -> None:
     """Only ids that were sent can come back."""
     service = NewsTranslationService(_FakeTranslator(extra_id=True), daily_token_budget=10_000)
-    result = await service.localize([_card("a")], "ru")
-    assert [item.card.id for item in result] == ["a"]
-    assert service._cache  # the requested card is cached
-    assert all(key[0] != "not-requested" for key in service._cache)
+    feed = await service.localize([_card("a")], "ru")
+    assert [item.card.id for item in feed.cards] == ["a"]
+    assert _titles(feed) == ["[ru] Senescence and longevity"]
 
 
 async def test_daily_budget_stops_new_translations() -> None:
@@ -446,9 +509,9 @@ async def test_daily_budget_stops_new_translations() -> None:
         translator, daily_token_budget=500, today=lambda: date(2026, 10, 6)
     )
     await service.localize([_card("a")], "ru")
-    result = await service.localize([_card("b")], "ru")
+    feed = await service.localize([_card("b")], "ru")
     assert len(translator.calls) == 1
-    assert result[0].translation is None
+    assert _titles(feed) == [None]
 
 
 async def test_get_news_translates_into_requested_language() -> None:
@@ -466,7 +529,9 @@ async def test_get_news_translates_into_requested_language() -> None:
         translated = await client.get("/api/v1/news", params={"lang": "ru"})
         english = await client.get("/api/v1/news", params={"lang": "en"})
         unsupported = await client.get("/api/v1/news", params={"lang": "xx"})
-    item = translated.json()["items"][0]
+    body = translated.json()
+    assert body["translation_pending"] is False
+    item = body["items"][0]
     assert item["translated"] is True
     assert item["title"] == f"[ru] {item['original_title']}"
     assert item["original_snippet"] is not None

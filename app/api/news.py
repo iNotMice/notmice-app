@@ -14,6 +14,7 @@ from app.domain.schemas import NewsCardView, NewsResponse
 from app.services.news import NewsService, NewsSnapshot
 from app.services.news_translation import (
     LocalizedCard,
+    LocalizedFeed,
     NewsLanguage,
     NewsTranslationService,
 )
@@ -50,15 +51,16 @@ def _card_view(localized: LocalizedCard) -> NewsCardView:
     )
 
 
-def _response(snapshot: NewsSnapshot, cards: list[LocalizedCard]) -> NewsResponse:
+def _response(snapshot: NewsSnapshot, feed: LocalizedFeed) -> NewsResponse:
     error: Literal["unavailable"] | None = None
     if snapshot.error == "unavailable":
         error = "unavailable"
     return NewsResponse(
-        items=[_card_view(card) for card in cards],
+        items=[_card_view(card) for card in feed.cards],
         fetched_at=snapshot.fetched_at,
         stale=snapshot.stale,
         error=error,
+        translation_pending=feed.pending,
     )
 
 
@@ -111,9 +113,10 @@ async def read_news(
 
     The handler does not download article pages. When a source fails, the last
     cached copy of that source is returned with ``stale`` set. For a language
-    other than English, titles and snippets are machine-translated and cached;
-    if translation fails, the original text is returned with ``translated`` false.
+    other than English, titles and snippets are machine-translated in the
+    background and cached; cards not translated yet keep the original text and
+    ``translation_pending`` tells the client to read again shortly.
     """
     snapshot = await news_service.read()
-    cards = await translation.localize(snapshot.items, lang)
-    return _response(snapshot, cards)
+    feed = await translation.localize(snapshot.items, lang)
+    return _response(snapshot, feed)

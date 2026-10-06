@@ -22,6 +22,8 @@ export interface NewsFeed {
   fetchedAt: string | null;
   stale: boolean;
   error: 'unavailable' | null;
+  /** Some cards are still being translated; reading again shortly returns more. */
+  translationPending: boolean;
 }
 
 interface NewsCardPayload {
@@ -42,6 +44,7 @@ interface NewsPayload {
   fetched_at?: unknown;
   stale?: unknown;
   error?: unknown;
+  translation_pending?: unknown;
 }
 
 function apiUrl(path: string): string {
@@ -109,5 +112,6 @@ export async function fetchNews(language: string, signal?: AbortSignal): Promise
     fetchedAt: typeof payload.fetched_at === 'string' ? payload.fetched_at : null,
     stale: payload.stale === true,
     error: payload.error === 'unavailable' ? 'unavailable' : null,
+    translationPending: payload.translation_pending === true,
   };
 }
