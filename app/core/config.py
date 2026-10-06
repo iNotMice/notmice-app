@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     news_snippet_max_chars: int = 420
     news_contact_email: str = ""
     news_rss_feeds: str = "https://www.fightaging.org/feed/,https://www.lifespan.io/feed/"
+    news_translation_enabled: bool = True
+    news_translation_daily_token_budget: int = 300_000
+    news_translation_timeout_seconds: int = 25
     trust_proxy_headers: bool = True
 
     @property

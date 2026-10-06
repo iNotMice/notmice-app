@@ -575,6 +575,14 @@ class NewsCardView(BaseModel):
     snippet: str
     url: str
     kind: Literal["paper", "biohacking"]
+    translated: bool = Field(
+        default=False,
+        description=(
+            "True when title and snippet are machine-translated into the requested language"
+        ),
+    )
+    original_title: str | None = Field(default=None, description="Source title when translated")
+    original_snippet: str | None = Field(default=None, description="Source snippet when translated")
 
 
 class NewsResponse(BaseModel):

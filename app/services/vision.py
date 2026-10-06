@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
 import structlog
+from pydantic import BaseModel
 from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
@@ -71,14 +72,14 @@ class UsageTally:
         return self._total
 
 
-def gemini_response_schema(model: type[RawLabExtraction]) -> dict[str, Any]:
+def gemini_response_schema(model: type[BaseModel]) -> dict[str, Any]:
     """Return a JSON schema the Gemini Developer API will accept.
 
     Pydantic includes ``additionalProperties`` because the models forbid extra
     fields. That key is rejected on ``generateContent``.
 
     Args:
-        model: Structured extraction model sent as ``response_schema``.
+        model: Structured output model sent as ``response_schema``.
     """
     cleaned = _without_additional_properties(model.model_json_schema())
     if not isinstance(cleaned, dict):

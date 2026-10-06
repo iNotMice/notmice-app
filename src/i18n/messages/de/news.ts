@@ -2,7 +2,7 @@ export const news = {
   stage: 'Forschungslauf',
   stageMeta: 'PubMed und Herausgeber-RSS',
   title: 'Nachrichten',
-  lead: 'Aktuelle Alternsforschung und praxisnahe Kommentare von Verlagen. Titel und Kurztexte bleiben in der Sprache der Quelle.',
+  lead: 'Aktuelle Alternsforschung und praxisnahe Kommentare von Verlagen. Titel und Kurztexte werden maschinell in die gewählte Sprache übersetzt; das Original ist einen Klick entfernt.',
   disclaimer:
     'Diese Karten verweisen auf Veröffentlichungen. Sie sind keine Diagnose, kein Behandlungsplan und kein medizinischer Rat.',
   filterAll: 'Alle',
@@ -17,5 +17,9 @@ export const news = {
   stale: 'Die zuletzt gespeicherte Liste wird gezeigt. Eine Quelle hat nicht geantwortet.',
   emptyFeed: 'Die Quellen haben keine aktuellen Einträge geliefert.',
   emptyFilter: 'Nichts in dieser Liste passt zu diesem Filter.',
+  machineTranslation: 'Maschinelle Übersetzung',
+  originalLabel: 'Originaltext',
+  showOriginal: 'Original anzeigen',
+  showTranslation: 'Übersetzung anzeigen',
   retry: 'Erneut versuchen',
 };

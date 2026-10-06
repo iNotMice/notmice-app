@@ -2,7 +2,7 @@ export const news = {
   stage: 'Fil de la recherche',
   stageMeta: 'PubMed et flux RSS d’éditeurs',
   title: 'Actualités',
-  lead: 'Recherches récentes sur le vieillissement et commentaires pratiques d’éditeurs. Titres et résumés restent dans la langue de la source.',
+  lead: 'Recherches récentes sur le vieillissement et commentaires pratiques d’éditeurs. Titres et résumés sont traduits automatiquement dans la langue choisie ; l’original reste à un clic.',
   disclaimer:
     'Ces cartes renvoient à des publications. Ce n’est ni un diagnostic, ni un plan de traitement, ni un avis médical.',
   filterAll: 'Tout',
@@ -17,5 +17,9 @@ export const news = {
   stale: 'Dernière liste enregistrée : une source n’a pas répondu.',
   emptyFeed: 'Aucune publication récente dans les flux.',
   emptyFilter: 'Rien ne correspond à ce filtre.',
+  machineTranslation: 'Traduction automatique',
+  originalLabel: 'Texte original',
+  showOriginal: 'Voir l’original',
+  showTranslation: 'Voir la traduction',
   retry: 'Réessayer',
 };

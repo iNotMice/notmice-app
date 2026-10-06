@@ -10,6 +10,11 @@ export interface NewsCard {
   snippet: string;
   url: string;
   kind: NewsKind;
+  /** Title and snippet are a machine translation into the requested language. */
+  translated: boolean;
+  /** Source text; equal to title and snippet when nothing was translated. */
+  originalTitle: string;
+  originalSnippet: string;
 }
 
 export interface NewsFeed {
@@ -27,6 +32,9 @@ interface NewsCardPayload {
   snippet?: unknown;
   url?: unknown;
   kind?: unknown;
+  translated?: unknown;
+  original_title?: unknown;
+  original_snippet?: unknown;
 }
 
 interface NewsPayload {
@@ -66,19 +74,26 @@ function asCard(value: NewsCardPayload): NewsCard | null {
     return null;
   }
   const publishedAt = typeof value.published_at === 'string' ? value.published_at : null;
+  const snippet = typeof value.snippet === 'string' ? value.snippet : '';
+  const translated = value.translated === true && typeof value.original_title === 'string';
   return {
     id: value.id,
     title: value.title,
     source: typeof value.source === 'string' ? value.source : '',
     publishedAt,
-    snippet: typeof value.snippet === 'string' ? value.snippet : '',
+    snippet,
     url,
     kind: value.kind,
+    translated,
+    originalTitle: translated ? (value.original_title as string) : value.title,
+    originalSnippet: translated && typeof value.original_snippet === 'string' ? value.original_snippet : snippet,
   };
 }
 
-export async function fetchNews(signal?: AbortSignal): Promise<NewsFeed> {
-  const response = await fetch(apiUrl('/api/v1/news'), { signal });
+/** Cards with titles and snippets machine-translated into ``language`` where possible. */
+export async function fetchNews(language: string, signal?: AbortSignal): Promise<NewsFeed> {
+  const query = new URLSearchParams({ lang: language });
+  const response = await fetch(apiUrl(`/api/v1/news?${query.toString()}`), { signal });
   if (!response.ok) {
     throw new Error(`News request failed (${response.status})`);
   }

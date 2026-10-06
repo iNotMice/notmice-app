@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ExternalLink, Newspaper } from 'lucide-react';
+import { ExternalLink, Languages, Newspaper } from 'lucide-react';
 import { fetchNews, type NewsFeed, type NewsKind } from '../../api/news';
 import { useI18n } from '../../i18n/I18nProvider';
 import { cardMatchesPanel, markerTags } from '../../utils/newsMarkers';
@@ -34,13 +34,15 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [filter, setFilter] = useState<NewsFilter>('all');
   const [reloadKey, setReloadKey] = useState(0);
+  const [showOriginal, setShowOriginal] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     const controller = new AbortController();
     setStatus('loading');
-    void fetchNews(controller.signal)
+    void fetchNews(locale, controller.signal)
       .then((next) => {
         setFeed(next);
+        setShowOriginal(new Set());
         setStatus('ready');
       })
       .catch((err: unknown) => {
@@ -51,7 +53,19 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
         setStatus('failed');
       });
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [reloadKey, locale]);
+
+  const toggleOriginal = (id: string) => {
+    setShowOriginal((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const filters: { id: NewsFilter; label: string }[] = [
     { id: 'all', label: copy.filterAll },
@@ -62,7 +76,8 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
 
   const decorated = (feed?.items ?? []).map((card) => ({
     card,
-    tags: markerTags(card.title, card.snippet),
+    // Marker tags match source-language terms, so they read the original text.
+    tags: markerTags(card.originalTitle, card.originalSnippet),
   }));
   const visible = decorated.filter(({ card, tags }) => {
     if ((filter === 'paper' || filter === 'biohacking') && card.kind !== filter) {
@@ -145,6 +160,11 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {visible.map(({ card, tags }) => {
             const published = formatPublished(card.publishedAt, locale);
+            const original = card.translated && showOriginal.has(card.id);
+            const title = original ? card.originalTitle : card.title;
+            const snippet = original ? card.originalSnippet : card.snippet;
+            // Feeds are English; the original is marked so screen readers switch voice.
+            const textLang = card.translated && !original ? undefined : 'en';
             return (
               <article
                 key={card.id}
@@ -161,11 +181,29 @@ export const ResearchNewsTab: React.FC<ResearchNewsTabProps> = ({ markerIds }) =
                     </time>
                   )}
                 </div>
-                <h2 className="font-['Inter'] text-base font-semibold text-[#0b1c30] leading-snug">
-                  {card.title}
+                <h2 lang={textLang} className="font-['Inter'] text-base font-semibold text-[#0b1c30] leading-snug">
+                  {title}
                 </h2>
-                {card.snippet && (
-                  <p className="font-['Inter'] text-sm text-[#3f4850] leading-relaxed">{card.snippet}</p>
+                {snippet && (
+                  <p lang={textLang} className="font-['Inter'] text-sm text-[#3f4850] leading-relaxed">
+                    {snippet}
+                  </p>
+                )}
+                {card.translated && (
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-['Inter'] text-xs text-[#565e74]">
+                    <span className="inline-flex items-center gap-1">
+                      <Languages className="w-3.5 h-3.5" aria-hidden="true" />
+                      {original ? copy.originalLabel : copy.machineTranslation}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleOriginal(card.id)}
+                      aria-pressed={original}
+                      className="font-medium text-[#006194] hover:underline cursor-pointer"
+                    >
+                      {original ? copy.showTranslation : copy.showOriginal}
+                    </button>
+                  </p>
                 )}
                 {card.source && (
                   <p className="font-['Inter'] text-xs text-[#565e74]">{card.source}</p>
