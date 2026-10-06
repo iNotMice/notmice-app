@@ -217,7 +217,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({ navigate, onOpenAccount, isAut
             <span className={kicker}>{copy.howKicker}</span>
             <h2 className={sectionTitle}>{copy.howTitle}</h2>
           </div>
-          <ol className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <ol className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {copy.howSteps.map((step, index) => (
               <li key={step.title} className="rounded-xl border border-[#dce9ff] bg-[#ffffff] p-5 flex gap-4">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#006194] text-base font-bold text-[#ffffff]">

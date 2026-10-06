@@ -14,12 +14,6 @@ const SNAPSHOTS: Record<SnapshotId, ExampleSnapshot> = {
   followUp: ALEXEI_FOLLOW_UP,
 };
 
-/** Slider bounds for the home page; the method page uses each marker's clinical range. */
-const HOME_SLIDERS: { id: BiomarkerId; min: number; max: number; step: number; digits: number }[] = [
-  { id: 'crp', min: 0.1, max: 10, step: 0.1, digits: 1 },
-  { id: 'albumin', min: 30, max: 52, step: 0.5, digits: 1 },
-];
-
 function sliderDigits(step: number): number {
   if (step >= 1) {
     return 0;
@@ -82,24 +76,21 @@ export const ExampleCalculator: React.FC<ExampleCalculatorProps> = ({ variant, s
     setMarkers({ ...SNAPSHOTS[next].biomarkers });
   };
 
-  const sliders =
-    variant === 'home'
-      ? HOME_SLIDERS
-      : PHENOAGE_BIOMARKERS.filter((marker) => isBiomarkerId(marker.id)).map((marker) => ({
-          id: marker.id as BiomarkerId,
-          min: marker.clinicalRange[0],
-          max: marker.clinicalRange[1],
-          step: marker.step,
-          digits: sliderDigits(marker.step),
-        }));
+  // Both variants show all nine markers so the example never implies that a
+  // smaller subset is enough. Home uses plain names; the method page adds LOINC.
+  const sliders = PHENOAGE_BIOMARKERS.filter((marker) => isBiomarkerId(marker.id)).map((marker) => ({
+    id: marker.id as BiomarkerId,
+    min: marker.clinicalRange[0],
+    max: marker.clinicalRange[1],
+    step: marker.step,
+    digits: sliderDigits(marker.step),
+  }));
 
   const loincFor = (id: BiomarkerId) => PHENOAGE_BIOMARKERS.find((marker) => marker.id === id)?.loinc;
-  const sliderLabel = (id: BiomarkerId) => {
-    if (variant === 'home') {
-      return id === 'crp' ? copy.crpLabel : copy.albuminLabel;
-    }
-    return `${m.biomarkers[id].name} · LOINC ${loincFor(id) ?? ''}`;
-  };
+  const sliderLabel = (id: BiomarkerId) =>
+    variant === 'home'
+      ? m.biomarkers[id].name
+      : `${m.biomarkers[id].name} · LOINC ${loincFor(id) ?? ''}`;
 
   const delta = phenoAge === null ? null : phenoAge - age;
 
@@ -164,7 +155,7 @@ export const ExampleCalculator: React.FC<ExampleCalculatorProps> = ({ variant, s
           </p>
           <p className="text-sm text-[#3f4850]">{copy.slidersLead}</p>
         </div>
-        <div className={variant === 'method' ? 'grid grid-cols-1 md:grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {sliders.map((slider) => {
             const value = markers[slider.id] ?? slider.min;
             const unit = m.biomarkers[slider.id].unit;

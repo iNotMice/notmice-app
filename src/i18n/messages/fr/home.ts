@@ -101,6 +101,10 @@ export const home = {
   howTitle: 'Comment ça marche',
   howSteps: [
     {
+      title: 'Créez un compte',
+      body: 'Vous vous connectez d’abord — l’envoi et les résultats ne sont possibles qu’une fois inscrit.',
+    },
+    {
       title: 'Envoyez une analyse',
       body: 'Un PDF, un scan ou une photo du compte rendu.',
     },
