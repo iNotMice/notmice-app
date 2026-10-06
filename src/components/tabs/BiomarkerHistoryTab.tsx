@@ -296,7 +296,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
+    <div className="w-full flex flex-col gap-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#e2e8f0] pb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -307,9 +307,9 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
               {copy.stageMeta}
             </span>
           </div>
-          <h1 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">
+          <h2 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">
             {copy.title}
-          </h1>
+          </h2>
           <p className="font-['Inter'] text-sm text-[#3f4850] mt-1 max-w-2xl">
             {history.length === 0
               ? copy.emptyLead
@@ -521,14 +521,14 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
       </div>
 
       <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="font-['Inter'] text-sm font-bold text-[#0b1c30]">
             {copy.markerTrack}
           </span>
           <select
             value={selectedBiomarker}
             onChange={(e) => setSelectedBiomarker(e.target.value)}
-            className="px-2.5 py-1 bg-[#eff4ff] border border-[#cbd5e1] rounded text-xs font-['JetBrains_Mono'] text-[#0b1c30] focus:outline-none cursor-pointer"
+            className="max-w-full min-w-0 px-2.5 py-1 bg-[#eff4ff] border border-[#cbd5e1] rounded text-xs font-['JetBrains_Mono'] text-[#0b1c30] focus:outline-none cursor-pointer"
           >
             {PHENOAGE_BIOMARKERS.map((b) => (
               <option key={b.id} value={b.id}>

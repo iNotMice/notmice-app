@@ -7,7 +7,11 @@ export type TabType =
   | 'protocol-journal'
   | 'data-sovereignty-public-sharing'
   | 'research-news'
-  | 'user-instructions';
+  | 'user-instructions'
+  | 'specialists'
+  | 'cabinet'
+  | 'cabinet-tests'
+  | 'cabinet-security';
 
 export interface BiomarkerDefinition {
   id: string;

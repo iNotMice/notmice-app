@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TabType, LabPanelData, HistoricalTestRecord, AccountState, PhenoAgeCalculation } from './types';
 import { INITIAL_BIOMARKERS, PHENOAGE_BIOMARKERS } from './data/phenoAgeData';
+import { ALEXEI_START } from './data/alexeiExample';
 import { deleteOwnLabResult, deleteOwnLabResults, fetchOwnLabResults } from './api/uploads';
 import { isBiomarkerId } from './i18n/biomarkerIds';
 import { fetchPhenoAge, PhenoAgeScore } from './api/phenoage';
@@ -18,8 +19,13 @@ import {
   updateShareSettings,
 } from './api/accounts';
 import { Header } from './components/Header';
-import { StatusRibbon } from './components/StatusRibbon';
-import { OverviewTab } from './components/tabs/OverviewTab';
+import { HomeTab } from './components/tabs/HomeTab';
+import { SpecialistsTab } from './components/tabs/SpecialistsTab';
+import { FirstUploadNotice, firstUploadNoticeSeen } from './components/FirstUploadNotice';
+import { CabinetLayout } from './components/cabinet/CabinetLayout';
+import { CabinetOverview } from './components/cabinet/CabinetOverview';
+import { CabinetSecurity } from './components/cabinet/CabinetSecurity';
+import { CabinetTests } from './components/cabinet/CabinetTests';
 import { UploadLabTab } from './components/tabs/UploadLabTab';
 import { ReviewExtractionTab } from './components/tabs/ReviewExtractionTab';
 import { PhenoAgeEngineTab } from './components/tabs/PhenoAgeEngineTab';
@@ -37,6 +43,13 @@ import { Footer } from './components/Footer';
 import { SplashScreen } from './components/SplashScreen';
 import { getActiveI18n } from './i18n/catalog';
 import { useI18n } from './i18n/I18nProvider';
+import {
+  isCabinetTab,
+  pathForTab,
+  specialistPageFromHash,
+  tabFromPath,
+  type SpecialistPage,
+} from './routes';
 
 const SPLASH_SEEN_KEY = 'notmice.splashSeen';
 
@@ -73,16 +86,17 @@ function panelFromHistory(record: HistoricalTestRecord): LabPanelData {
   };
 }
 
+/** The one fictional example on the site (Alexei, 45). Shown until a real panel loads. */
 function tutorialPanel(): LabPanelData {
   return {
     id: 'panel-tutorial',
-    labName: 'Tutorial example',
+    labName: 'Fictional example: Alexei',
     testDate: '—',
     sourceType: 'demo',
-    fileName: 'Worked example, not a laboratory file',
-    chronologicalAge: 42.0,
+    fileName: 'Fictional example, not a laboratory file',
+    chronologicalAge: ALEXEI_START.chronologicalAge,
     gender: 'male',
-    biomarkers: { ...INITIAL_BIOMARKERS },
+    biomarkers: { ...ALEXEI_START.biomarkers },
     confidenceScores: {},
     verified: false,
     hash: '',
@@ -92,9 +106,15 @@ function tutorialPanel(): LabPanelData {
 
 function MainApp() {
   const { m } = useI18n();
-  const [activeTab, setActiveTab] = useState<TabType>('overview-landing');
-  const [chronologicalAge, setChronologicalAge] = useState<number>(42.0);
-  const [biomarkers, setBiomarkers] = useState<Record<string, number>>(INITIAL_BIOMARKERS);
+  const [activeTab, setActiveTabState] = useState<TabType>(
+    () => tabFromPath(window.location.pathname) ?? 'overview-landing',
+  );
+  const [specialistPage, setSpecialistPage] = useState<SpecialistPage>(
+    () => specialistPageFromHash(window.location.hash) ?? 'method',
+  );
+  const [showFirstUploadNotice, setShowFirstUploadNotice] = useState(false);
+  const [chronologicalAge, setChronologicalAge] = useState<number>(ALEXEI_START.chronologicalAge);
+  const [biomarkers, setBiomarkers] = useState<Record<string, number>>({ ...ALEXEI_START.biomarkers });
   const [history, setHistory] = useState<HistoricalTestRecord[]>([]);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [revealedMnemonic, setRevealedMnemonic] = useState<string[] | null>(null);
@@ -114,6 +134,35 @@ function MainApp() {
   const [showSplash, setShowSplash] = useState(() => !splashAlreadySeen());
 
   const [currentPanel, setCurrentPanel] = useState<LabPanelData>(tutorialPanel);
+
+  /** Switch tab, keep the address bar in step, and start the new page at the top. */
+  const navigate = useCallback((tab: TabType, page?: SpecialistPage) => {
+    setActiveTabState(tab);
+    if (tab === 'specialists' && page) {
+      setSpecialistPage(page);
+    }
+    const target = `${pathForTab(tab)}${tab === 'specialists' && page ? `#${page}` : ''}`;
+    if (`${window.location.pathname}${window.location.hash}` !== target) {
+      window.history.pushState({}, '', target);
+    }
+    window.scrollTo({ top: 0 });
+    if (tab === 'upload-lab' && !firstUploadNoticeSeen()) {
+      setShowFirstUploadNotice(true);
+    }
+  }, []);
+  const setActiveTab = useCallback((tab: TabType) => navigate(tab), [navigate]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setActiveTabState(tabFromPath(window.location.pathname) ?? 'overview-landing');
+      const page = specialistPageFromHash(window.location.hash);
+      if (page) {
+        setSpecialistPage(page);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   useEffect(() => {
     forgetLegacyToken();
@@ -302,8 +351,8 @@ function MainApp() {
       handleSelectHistoricalRecord(nextSaved);
       return;
     }
-    setBiomarkers({ ...INITIAL_BIOMARKERS });
-    setChronologicalAge(42.0);
+    setBiomarkers({ ...ALEXEI_START.biomarkers });
+    setChronologicalAge(ALEXEI_START.chronologicalAge);
     setCurrentPanel(tutorialPanel());
   };
 
@@ -311,8 +360,8 @@ function MainApp() {
     if (account) {
       await deleteOwnLabResults();
     }
-    setBiomarkers({ ...INITIAL_BIOMARKERS });
-    setChronologicalAge(42.0);
+    setBiomarkers({ ...ALEXEI_START.biomarkers });
+    setChronologicalAge(ALEXEI_START.chronologicalAge);
     setHistory([]);
     setCurrentPanel(tutorialPanel());
   };
@@ -326,11 +375,16 @@ function MainApp() {
     await restoreSavedPanels();
   };
 
-  const handleRegister = async (email: string, password: string, researchReuse: boolean) => {
+  const handleRegister = async (
+    email: string,
+    password: string,
+    researchReuse: boolean,
+    participantProfile: boolean,
+  ) => {
     setAuthBusy(true);
     setAuthError(null);
     try {
-      await registerAccount({ email, password, researchReuse });
+      await registerAccount({ email, password, researchReuse, participantProfile });
       setAccount(null);
       setAuthNotice('check-email');
     } catch (err) {
@@ -493,30 +547,37 @@ function MainApp() {
 
       {/* Main Content Pane */}
       <main className="w-full pt-20 flex-1 bg-[#f8f9ff]">
-        {/* Live Biological Biomarker Status Ribbon */}
-        <StatusRibbon
-          biomarkers={biomarkers}
-          tutorial={currentPanel.sourceType === 'demo'}
-          labName={currentPanel.labName}
-        />
         <DataDisclaimer />
 
-        {/* Tab 1: Overview / Landing */}
+        {/* The PhenoAge screen starts on the fictional example; say so above it. */}
+        {activeTab === 'phenoage-engine' && currentPanel.sourceType === 'demo' && (
+          <div className="w-full border-b border-[#f5c97a] bg-[#fff6e0] px-4 lg:px-6 py-2.5" role="note">
+            <p className="max-w-[1440px] mx-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px] text-[#5c3a00]">
+              <span>{m.shell.exampleBanner}</span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('upload-lab')}
+                className="font-semibold underline underline-offset-2 cursor-pointer"
+              >
+                {m.shell.exampleBannerAction}
+              </button>
+            </p>
+          </div>
+        )}
+
         {activeTab === 'overview-landing' && (
-          <OverviewTab
-            setActiveTab={setActiveTab}
-            onOpenSeedPhrase={() => {
+          <HomeTab
+            navigate={navigate}
+            onOpenAccount={() => {
               setAuthError(null);
               setIsSeedPhraseModalOpen(true);
             }}
-            onOpenProofModal={() => setIsProofModalOpen(true)}
-            biomarkers={biomarkers}
-            onUpdateBiomarkers={setBiomarkers}
-            phenoAge={phenoAgeCalculation.isValid ? phenoAgeCalculation.phenoAge : null}
-            chronologicalAge={chronologicalAge}
-            disclaimer={phenoAgeCalculation.disclaimer}
             isAuthenticated={account !== null}
           />
+        )}
+
+        {activeTab === 'specialists' && (
+          <SpecialistsTab page={specialistPage} onSelectPage={(page) => navigate('specialists', page)} />
         )}
 
         {/* Tab 2: Upload Lab */}
@@ -543,7 +604,7 @@ function MainApp() {
           />
         )}
 
-        {/* Tab 4: PhenoAge™ Engine */}
+        {/* Tab 4: PhenoAge index */}
         {activeTab === 'phenoage-engine' && (
           <PhenoAgeEngineTab
             calculation={phenoAgeCalculation}
@@ -558,56 +619,110 @@ function MainApp() {
           />
         )}
 
-        {/* Tab 5: Biomarker History */}
-        {activeTab === 'biomarker-history' && (
-          <BiomarkerHistoryTab
-            history={history}
+        {/* Personal account: overview, tests, markers, journal, data, security. */}
+        {isCabinetTab(activeTab) && (
+          <CabinetLayout
+            activeTab={activeTab}
+            navigate={setActiveTab}
             isAuthenticated={account !== null}
-            onDeleteHistory={handleDeleteHistory}
-            onSelectRecord={handleSelectHistoricalRecord}
-            setActiveTab={setActiveTab}
-          />
-        )}
-
-        {activeTab === 'protocol-journal' && (
-          <ProtocolJournalTab
-            isAuthenticated={account !== null}
-            onRequestAuth={() => {
+            publicId={account?.publicId ?? null}
+            onOpenAccount={() => {
               setAuthError(null);
               setIsSeedPhraseModalOpen(true);
             }}
-          />
-        )}
+          >
+            {activeTab === 'cabinet' && <CabinetOverview navigate={setActiveTab} />}
 
-        {/* Tab 6: Data Sovereignty & Public Sharing */}
-        {activeTab === 'data-sovereignty-public-sharing' && (
-          <DataSovereigntyTab
-            accountAddress={publicIdLabel}
-            isAuthenticated={account !== null}
-            isPublic={account?.isPublic ?? false}
-            onTogglePublic={handleTogglePublic}
-            onAccountDeleted={() => {
-              setAccount(null);
-              setRevealedMnemonic(null);
-            }}
-            onPurgeMemory={handlePurgeMemory}
-            onOpenSeedPhrase={() => {
-              setAuthError(null);
-              setIsSeedPhraseModalOpen(true);
-            }}
-            setActiveTab={setActiveTab}
-          />
+            {activeTab === 'cabinet-tests' && (
+              <CabinetTests
+                onDelete={async (panelId) => {
+                  if (history.some((row) => row.id === panelId)) {
+                    await handleDeleteHistory(panelId);
+                  } else {
+                    await deleteOwnLabResult(panelId);
+                  }
+                }}
+                onOpenIndex={(panelId) => {
+                  const record = history.find((row) => row.id === panelId);
+                  if (record) {
+                    handleSelectHistoricalRecord(record);
+                  }
+                  setActiveTab('phenoage-engine');
+                }}
+              />
+            )}
+
+            {activeTab === 'cabinet-security' && (
+              <CabinetSecurity
+                navigate={setActiveTab}
+                onSignOut={() => {
+                  void handleLogout().then(() => setActiveTab('overview-landing'));
+                }}
+              />
+            )}
+
+            {/* Tab 5: Biomarker History */}
+            {activeTab === 'biomarker-history' && (
+              <BiomarkerHistoryTab
+                history={history}
+                isAuthenticated={account !== null}
+                onDeleteHistory={handleDeleteHistory}
+                onSelectRecord={handleSelectHistoricalRecord}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === 'protocol-journal' && (
+              <ProtocolJournalTab
+                isAuthenticated={account !== null}
+                onRequestAuth={() => {
+                  setAuthError(null);
+                  setIsSeedPhraseModalOpen(true);
+                }}
+              />
+            )}
+
+            {/* Tab 6: Data Sovereignty & Public Sharing */}
+            {activeTab === 'data-sovereignty-public-sharing' && (
+              <DataSovereigntyTab
+                accountAddress={publicIdLabel}
+                isAuthenticated={account !== null}
+                isPublic={account?.isPublic ?? false}
+                onTogglePublic={handleTogglePublic}
+                onAccountDeleted={() => {
+                  setAccount(null);
+                  setRevealedMnemonic(null);
+                }}
+                onPurgeMemory={handlePurgeMemory}
+                onOpenSeedPhrase={() => {
+                  setAuthError(null);
+                  setIsSeedPhraseModalOpen(true);
+                }}
+                setActiveTab={setActiveTab}
+                onOpenCharter={() => navigate('specialists', 'data')}
+              />
+            )}
+          </CabinetLayout>
         )}
 
         {activeTab === 'research-news' && (
           <ResearchNewsTab markerIds={currentPanel.focusMarkerIds} />
         )}
 
-        {activeTab === 'user-instructions' && <UserInstructionsTab setActiveTab={setActiveTab} />}
+        {activeTab === 'user-instructions' && <UserInstructionsTab />}
       </main>
 
-      {/* Protocol Footer */}
-      <Footer />
+      <Footer navigate={navigate} />
+
+      {showFirstUploadNotice && (
+        <FirstUploadNotice
+          onClose={() => setShowFirstUploadNotice(false)}
+          onOpenGuide={() => {
+            setShowFirstUploadNotice(false);
+            navigate('user-instructions');
+          }}
+        />
+      )}
 
       {/* Proof Modal */}
       <ProofModal
@@ -636,8 +751,8 @@ function MainApp() {
         onConfirmEmail={() => {
           void handleConfirmEmail();
         }}
-        onRegister={(email, password, researchReuse) => {
-          void handleRegister(email, password, researchReuse);
+        onRegister={(email, password, researchReuse, participantProfile) => {
+          void handleRegister(email, password, researchReuse, participantProfile);
         }}
         onEmailLogin={(email, password) => {
           void handleEmailLogin(email, password);

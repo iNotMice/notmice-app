@@ -5,14 +5,15 @@ import { PHENOAGE_BIOMARKERS } from '../data/phenoAgeData';
 import { getActiveI18n } from '../i18n/catalog';
 import { isBiomarkerId } from '../i18n/biomarkerIds';
 import { fill } from '../i18n/fill';
+import { registerReportFonts } from './pdfFonts';
 import { missingMarkerText, scoredRecords } from './phenoTrend';
 
-export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): void {
+export async function generateHistoricalReportPDF(history: HistoricalTestRecord[]): Promise<void> {
   if (!history || history.length === 0) return;
 
   const { locale, messages } = getActiveI18n();
   const copy = messages.report;
-  const dateLocale = locale === 'de' ? 'de-DE' : 'en-US';
+  const dateLocale = locale === 'de' ? 'de-DE' : locale === 'ru' ? 'ru-RU' : locale === 'fr' ? 'fr-FR' : 'en-US';
   const sortedHistory = [...history].sort((a, b) => a.date.localeCompare(b.date));
   const scored = scoredRecords(sortedHistory);
   const latest = scored.length > 0 ? scored[scored.length - 1] : sortedHistory[sortedHistory.length - 1];
@@ -23,6 +24,7 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
     format: 'a4',
   });
 
+  const font = await registerReportFonts(doc);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 14;
@@ -33,10 +35,10 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
   doc.rect(0, 38, pageWidth, 2, 'F');
 
   doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(font, 'bold');
   doc.setFontSize(16);
   doc.text(copy.pdfTitle, margin, 15);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(font, 'normal');
   doc.setFontSize(9);
   doc.setTextColor(203, 213, 225);
   doc.text(copy.pdfSubtitle, margin, 22, { maxWidth: pageWidth - margin * 2 - 40 });
@@ -53,7 +55,7 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
   doc.text(copy.statusLine, pageWidth - margin, 24, { align: 'right', maxWidth: 70 });
 
   let currentY = 48;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(font, 'bold');
   doc.setFontSize(12);
   doc.setTextColor(11, 28, 48);
   doc.text(copy.pdfSummary, margin, currentY);
@@ -78,21 +80,21 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
     doc.setFillColor(248, 249, 255);
     doc.setDrawColor(226, 232, 240);
     doc.roundedRect(x, currentY, boxWidth, boxHeight, 2, 2, 'FD');
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(font, 'bold');
     doc.setFontSize(7);
     doc.setTextColor(86, 94, 116);
     doc.text(kpi.title, x + 3, currentY + 5);
     doc.setFontSize(11);
     doc.setTextColor(11, 28, 48);
     doc.text(kpi.value, x + 3, currentY + 12);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(font, 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
     doc.text(kpi.sub, x + 3, currentY + 18);
   });
 
   currentY += boxHeight + 8;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(font, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(11, 28, 48);
   doc.text(copy.panelsPdf, margin, currentY);
@@ -120,7 +122,7 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
     styles: {
       fontSize: 8,
       cellPadding: 2.2,
-      font: 'helvetica',
+      font,
       textColor: [51, 65, 85],
     },
     headStyles: {
@@ -134,7 +136,7 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
 
   const afterFirstTable = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
   currentY = (afterFirstTable ?? currentY + 40) + 7;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(font, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(11, 28, 48);
   doc.text(copy.matrixPdf, margin, currentY);
@@ -159,7 +161,7 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
     styles: {
       fontSize: 7.5,
       cellPadding: 2,
-      font: 'helvetica',
+      font,
       textColor: [51, 65, 85],
     },
     headStyles: {
@@ -186,7 +188,7 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
   doc.setFillColor(248, 249, 255);
   doc.setDrawColor(226, 232, 240);
   doc.roundedRect(margin, currentY, pageWidth - margin * 2, boxH, 2, 2, 'FD');
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(font, 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(disclaimer, margin + 3, currentY + 6);
@@ -194,7 +196,7 @@ export function generateHistoricalReportPDF(history: HistoricalTestRecord[]): vo
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i += 1) {
     doc.setPage(i);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(font, 'normal');
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
     const footer = doc.splitTextToSize(copy.footer, pageWidth - margin * 2 - 30);

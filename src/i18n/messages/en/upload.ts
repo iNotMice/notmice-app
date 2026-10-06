@@ -2,13 +2,13 @@ export const upload = {
   stage: 'Pipeline Stage 01',
   stageMeta: 'Server RAM ingest · SHA-256 provenance',
   title: 'Upload Laboratory Blood Panel',
-  lead: 'Drop a Quest, LabCorp, NHS, or clinic PDF or scan. The server hashes it in RAM, extracts markers, and discards the original. Confirmed values are stored only after you sign off.',
+  lead: 'Upload a PDF, a scan or a photo of the report. The server reads it in memory, recognises the markers and does not keep the original. Values are saved only after you confirm them.',
   originalNotStored: 'Original not stored',
   signInToExtract: 'Sign in to extract',
   session: 'Session {id}',
   dropTitle: 'Drag and drop your PDF lab report here',
   dropHint:
-    'Accepts PDF, TIFF, PNG, or scan files from Quest, LabCorp, BioReference, NHS, or private clinics.',
+    'Accepts PDF, TIFF, PNG or a scan of a report from any laboratory or clinic.',
   selectFile: 'Select Lab PDF File',
   demoAside: 'Demo fixtures are separate, on the right',
   parser: 'pdfplumber + Gemini Vision',
@@ -22,13 +22,13 @@ export const upload = {
   demoBadge: 'Not a file upload',
   demoLead:
     'These buttons fill the review screen with sample numbers. They are not read from a PDF, and confirming them does not publish a lab document.',
-  questTitle: 'Quest sample numbers',
+  questTitle: 'Sample 1',
   questBadge: 'Worked example (age 42)',
   questMeta: 'Demo · hs-CRP 0.8 mg/L · Albumin 46.2 g/L',
-  labcorpTitle: 'LabCorp sample numbers',
+  labcorpTitle: 'Sample 2',
   labcorpBadge: 'Second sample (age 42)',
   labcorpMeta: 'Demo · hs-CRP 1.15 mg/L · Albumin 44.8 g/L',
-  nhsTitle: 'NHS sample numbers',
+  nhsTitle: 'Sample 3',
   nhsBadge: 'Baseline Entry (Age 41)',
   nhsMeta: 'Demo · hs-CRP 1.6 mg/L · Albumin 43.5 g/L',
   coverageTitle: 'Automated Parsing Dictionary Coverage',
@@ -57,5 +57,8 @@ export const upload = {
   redactionBody:
     'This is what will be sent. Painted areas: {count}. If a name, date of birth, or order number is still readable, do not send it.',
   redactionConfirm: 'Send this frame',
+  consentMissing:
+    'This account has not accepted the current health-data consent (version 2026-10-03). Without it the server cannot accept medical files. Accept it in Account → Data and consents, then upload again.',
+  consentAction: 'Open data and consents',
   redactionCancel: 'Do not send',
 };

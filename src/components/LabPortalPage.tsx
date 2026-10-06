@@ -98,7 +98,8 @@ export function LabPortalPage() {
         setPassword('');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : copy.requestFailed);
+      const message = err instanceof Error ? err.message : copy.requestFailed;
+      setError(message === 'Work email required' ? copy.workEmailRequired : message);
     } finally {
       setBusy(false);
     }
@@ -270,6 +271,9 @@ export function LabPortalPage() {
                     onChange={(event) => setEmail(event.target.value)}
                     className={inputClass}
                   />
+                  {mode === 'register' && (
+                    <span className="mt-1 block text-xs font-normal text-[#526579]">{copy.workEmailHint}</span>
+                  )}
                 </label>
                 <label className="block text-sm font-medium text-[#31465b]">
                   {copy.password}
@@ -390,6 +394,15 @@ function LabDashboard({
           </button>
         )}
       </div>
+
+      {org.dua_version === 'demo-not-legal' && (
+        <p
+          className="mt-4 rounded-xl border-2 border-[#d97706] bg-[#fff6e0] p-4 text-sm font-semibold leading-6 text-[#5c3a00]"
+          role="note"
+        >
+          {copy.demoAccess}
+        </p>
+      )}
 
       <p className="mt-5 text-xs leading-5 text-[#7b8b9c]">{copy.cabinetNote}</p>
       {org.verification_status === 'verified' &&

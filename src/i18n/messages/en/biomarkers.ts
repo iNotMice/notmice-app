@@ -4,6 +4,7 @@ export const biomarkers: BiomarkerCopyMap = {
   albumin: {
     name: 'Serum Albumin',
     shortName: 'Albumin',
+    unit: 'g/L',
     domain: 'Hepatic / Nutritional Synthesis',
     risk: 'Research index input',
     weight: 'Serum albumin is a protein measured in a blood sample. Laboratories report it in grams per litre.',
@@ -11,6 +12,7 @@ export const biomarkers: BiomarkerCopyMap = {
   creatinine: {
     name: 'Serum Creatinine',
     shortName: 'Creatinine',
+    unit: 'mg/dL',
     domain: 'Renal Filtration Efficiency',
     risk: 'Research index input',
     weight: 'Serum creatinine is measured in a blood sample. Laboratories often report it in milligrams per decilitre.',
@@ -18,6 +20,7 @@ export const biomarkers: BiomarkerCopyMap = {
   glucose: {
     name: 'Fasting Serum Glucose',
     shortName: 'Fasting Glucose',
+    unit: 'mg/dL',
     domain: 'Metabolic / Insulin Sensitivity',
     risk: 'Research index input',
     weight: 'Glucose on this panel is the fasting blood measurement. Laboratories often report it in milligrams per decilitre.',
@@ -25,6 +28,7 @@ export const biomarkers: BiomarkerCopyMap = {
   crp: {
     name: 'hs-C-Reactive Protein',
     shortName: 'hs-CRP',
+    unit: 'mg/L',
     domain: 'Systemic Sterile Inflammation',
     risk: 'Research index input',
     weight: 'C-reactive protein on this panel is the high-sensitivity blood measurement. Laboratories often report it in milligrams per litre.',
@@ -32,6 +36,7 @@ export const biomarkers: BiomarkerCopyMap = {
   lymphocyte: {
     name: 'Lymphocyte Percentage',
     shortName: 'Lymphocytes',
+    unit: '%',
     domain: 'Immunosenescence Balance',
     risk: 'Research index input',
     weight: 'Lymphocyte percent is the share of white blood cells counted as lymphocytes.',
@@ -39,6 +44,7 @@ export const biomarkers: BiomarkerCopyMap = {
   mcv: {
     name: 'Mean Corpuscular Volume (MCV)',
     shortName: 'MCV',
+    unit: 'fL',
     domain: 'Hematology & Methylation',
     risk: 'Research index input',
     weight: 'Mean corpuscular volume is the average volume of red blood cells. Laboratories report it in femtolitres.',
@@ -46,6 +52,7 @@ export const biomarkers: BiomarkerCopyMap = {
   rdw: {
     name: 'Red Cell Distribution Width (RDW)',
     shortName: 'RDW',
+    unit: '%',
     domain: 'Erythrocyte Turnover / Frailty',
     risk: 'Research index input',
     weight: 'Red cell distribution width describes how much red blood cell size varies. Laboratories report it as a percent.',
@@ -53,6 +60,7 @@ export const biomarkers: BiomarkerCopyMap = {
   alp: {
     name: 'Alkaline Phosphatase (ALP)',
     shortName: 'Alk Phos',
+    unit: 'U/L',
     domain: 'Biliary / Bone Mineralization',
     risk: 'Research index input',
     weight: 'Alkaline phosphatase is an enzyme activity measured in a blood sample. Laboratories often report it in units per litre.',
@@ -60,6 +68,7 @@ export const biomarkers: BiomarkerCopyMap = {
   wbc: {
     name: 'White Blood Cell Count (WBC)',
     shortName: 'WBC',
+    unit: '10³/µL',
     domain: 'Innate Immune Activation',
     risk: 'Research index input',
     weight: 'White blood cell count is the number of white cells in a blood sample. Laboratories often report it as thousands per microlitre.',

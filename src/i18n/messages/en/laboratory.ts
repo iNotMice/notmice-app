@@ -1,7 +1,7 @@
 export const laboratory = {
   navLink: 'For laboratories',
-  backToPlatform: 'Back to NotMice',
-  eyebrow: 'NotMice research portal',
+  backToPlatform: 'Back to the platform',
+  eyebrow: 'Research portal',
   title: 'Laboratory access',
   intro:
     'Create a laboratory account to request access to privacy-protected research cohorts. Each organization is reviewed before any research data can be accessed.',
@@ -17,6 +17,10 @@ export const laboratory = {
   organizationType: 'Organization type',
   countryCode: 'Country code (ISO 3166-1 alpha-2)',
   email: 'Work email',
+  workEmailHint:
+    'Use the organization’s own email domain. Free mailboxes such as Gmail, Outlook, Mail.ru or Yandex are not accepted.',
+  workEmailRequired:
+    'A work email of the organization is required. Free mailboxes such as Gmail, Outlook, Mail.ru or Yandex are not accepted.',
   password: 'Password',
   passwordHint: 'Use 12-128 characters.',
   createAccount: 'Create laboratory account',
@@ -41,11 +45,13 @@ export const laboratory = {
   pendingHelp:
     'Your email is confirmed. The organization is waiting for manual review. Research data remains unavailable until verification and the legal agreement are complete.',
   rejectedHelp:
-    'The organization could not be verified. Contact the NotMice team if you believe this decision needs review.',
+    'The organization could not be verified. Contact the project team if you believe this decision needs review.',
   duaUnavailable:
     'Organization verification is complete, but the data-use agreement has not yet been legally approved. Research data access remains closed.',
   duaNeedsAcceptance: 'Review and accept the current data-use agreement ({version}) to request research access.',
   accessGranted: 'The current data-use agreement is accepted. Cohort endpoints are available for this organization.',
+  demoAccess:
+    'Demo access: this organization sees statistics built mostly from synthetic participants (public ID nmdemo…, laboratories marked DEMO). The data-use agreement is not legally approved yet; do not draw conclusions from these numbers.',
   acceptedDua: 'Accepted agreement',
   acceptDua: 'Accept data-use agreement',
   cabinetNote:

@@ -28,6 +28,10 @@ export const modals = {
     'I agree to the processing needed to provide the NotMice service under the current personal and research data consent.',
   researchConsent:
     'Optional: allow research reuse of eligible pseudonymous data. This does not enable public sharing.',
+  profileConsent:
+    'Optional: allow the optional questionnaire (sex at birth, year of birth, country, height, weight, smoking, alcohol, activity) to be stored. You fill it in later in your account.',
+  consentsLater:
+    'Optional consents can also be given or withdrawn later in Account → Data and consents. Public sharing is turned on there separately.',
   consentDocumentLink: 'Read the approved Russian consent text, version 2026-10-03.',
   registerAction: 'Create account',
   haveAccount: 'I already have an account',

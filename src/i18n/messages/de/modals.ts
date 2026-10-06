@@ -29,6 +29,10 @@ export const modals = {
     'Ich willige in die für den NotMice-Dienst erforderliche Verarbeitung gemäß der aktuellen Einwilligung zu personenbezogenen und Forschungsdaten ein.',
   researchConsent:
     'Optional: pseudonyme, geeignete Daten dürfen für Forschungszwecke weiterverwendet werden. Dies aktiviert keine öffentliche Freigabe.',
+  profileConsent:
+    'Freiwillig: Speicherung des freiwilligen Fragebogens erlauben (Geschlecht bei Geburt, Geburtsjahr, Land, Größe, Gewicht, Rauchen, Alkohol, Aktivität). Sie füllen ihn später in Ihrem Konto aus.',
+  consentsLater:
+    'Freiwillige Einwilligungen können Sie auch später unter Konto → Daten und Einwilligungen erteilen oder widerrufen. Das öffentliche Teilen wird dort separat eingeschaltet.',
   consentDocumentLink: 'Genehmigten russischen Einwilligungstext lesen, Version 2026-10-03.',
   registerAction: 'Konto anlegen',
   haveAccount: 'Ich habe bereits ein Konto',

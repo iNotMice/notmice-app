@@ -15,7 +15,7 @@ interface SeedPhraseModalProps {
   resetToken: string | null;
   confirmToken: string | null;
   onConfirmEmail: () => void;
-  onRegister: (email: string, password: string, researchReuse: boolean) => void;
+  onRegister: (email: string, password: string, researchReuse: boolean, participantProfile: boolean) => void;
   onEmailLogin: (email: string, password: string) => void;
   onRequestReset: (email: string) => void;
   onResetPassword: (password: string) => void;
@@ -57,6 +57,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   const [passwordAgain, setPasswordAgain] = useState('');
   const [healthChecked, setHealthChecked] = useState(false);
   const [researchChecked, setResearchChecked] = useState(false);
+  const [profileChecked, setProfileChecked] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,7 +128,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
         setFormError(copy.consentRequired);
         return;
       }
-      onRegister(email.trim(), password, researchChecked);
+      onRegister(email.trim(), password, researchChecked, profileChecked);
       return;
     }
     if (mode === 'reset' && resetToken) {
@@ -379,6 +380,16 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                         />
                         <span>{copy.researchConsent}</span>
                       </label>
+                      <label className="flex items-start gap-2.5 text-xs text-[#3f4850] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={profileChecked}
+                          onChange={(event) => setProfileChecked(event.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>{copy.profileConsent}</span>
+                      </label>
+                      <p className="text-xs text-[#3f4850]">{copy.consentsLater}</p>
                       <a
                         href="/legal/consent-personal-research-2026-10-03.html"
                         target="_blank"

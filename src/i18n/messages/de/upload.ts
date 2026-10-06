@@ -57,5 +57,8 @@ export const upload = {
   redactionBody:
     'Das wird gesendet. Geschwärzte Bereiche: {count}. Wenn Name, Geburtsdatum oder Auftragsnummer noch lesbar sind, nicht senden.',
   redactionConfirm: 'Diesen Rahmen senden',
+  consentMissing:
+    'Dieses Konto hat die aktuelle Einwilligung zur Verarbeitung von Gesundheitsdaten (Version 2026-10-03) nicht erteilt. Ohne sie kann der Server keine medizinischen Dateien annehmen. Erteilen Sie sie unter Konto → Daten und Einwilligungen und laden Sie dann erneut hoch.',
+  consentAction: 'Daten und Einwilligungen öffnen',
   redactionCancel: 'Nicht senden',
 };

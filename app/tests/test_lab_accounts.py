@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from typing import cast
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.lab_accounts import LAB_SESSION_COOKIE_NAME
 from app.core.deps import get_lab_account_service
@@ -20,11 +23,15 @@ from app.domain.lab_accounts import (
     LabLoginMaterial,
     LabOrganizationAccessError,
     LabOrganizationRecord,
+    LabPersonalEmailError,
     LabUserRecord,
     LabVerificationStatus,
+    normalized_lab_email,
+    require_work_email,
 )
 from app.main import create_app
-from app.services.lab_accounts import LabAccountService
+from app.repositories.lab_accounts import LabAccountRepository
+from app.services.lab_accounts import DEMO_DUA_VERSION, LabAccountService, effective_dua_version
 from app.services.mailer import CapturingMailer
 
 
@@ -346,3 +353,100 @@ async def test_lab_me_route_uses_only_lab_session_cookie() -> None:
     assert unauthorized.status_code == 401
     assert LAB_SESSION_COOKIE_NAME == "notmice_lab_session"
     assert lab_cookie not in response.text
+
+
+@pytest.mark.parametrize(
+    "email", ["owner@gmail.com", "Lab@Mail.ru", "head@yandex.by", "x@mailinator.com"]
+)
+def test_free_mailboxes_cannot_register_a_laboratory(email: str) -> None:
+    """A laboratory owner registers with the organization's own domain."""
+    with pytest.raises(LabPersonalEmailError):
+        require_work_email(normalized_lab_email(email))
+
+
+def test_organization_domain_is_accepted() -> None:
+    require_work_email("owner@charite.de")
+    require_work_email("lab@invitro.ru")
+
+
+async def test_register_with_a_free_mailbox_is_refused_without_mail() -> None:
+    """The API answers 422 with a clear detail and sends no confirmation."""
+    service, _store, mailer = _service()
+    app: FastAPI = create_app()
+
+    async def override_service() -> LabAccountService:
+        return service
+
+    app.dependency_overrides[get_lab_account_service] = override_service
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/lab/register",
+            json={
+                "organization_name": "Example Institute",
+                "organization_type": "laboratory",
+                "country": "BY",
+                "email": "owner@gmail.com",
+                "password": "correct-horse-battery",
+            },
+        )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Work email required"
+    assert mailer.sent == []
+
+
+async def test_repository_writes_the_organization_before_its_owner() -> None:
+    """Postgres checks lab_users.organization_id on insert, so the organization goes first."""
+    events: list[str] = []
+    session = Mock()
+    session.add = Mock(side_effect=lambda row: events.append(f"add:{type(row).__name__}"))
+
+    async def flush() -> None:
+        events.append("flush")
+
+    session.flush = flush
+    repository = LabAccountRepository(cast(AsyncSession, session))
+    record = await repository.create_organization_owner(
+        name="Example Institute",
+        org_type="laboratory",
+        country="BY",
+        email="owner@example.org",
+        password_hash="hash",
+    )
+    assert events == ["add:Organization", "flush", "add:LabUser", "flush"]
+    assert record.organization.verification_status == "pending"
+
+
+async def test_operator_demo_agreement_opens_only_that_verified_organization() -> None:
+    """The demo version is granted by an operator, never offered; real DUA stays unset."""
+    service, store, mailer = _service()
+    await service.register(
+        name="Example Institute",
+        org_type="laboratory",
+        country="PL",
+        email="owner@example.org",
+        password="correct-horse-battery",
+    )
+    user, _cookie = await service.confirm_email(_token(mailer))
+    assert await store.verify_organization(
+        user.organization_id,
+        status="verified",
+        operator="operator-1",
+        evidence="Domain checked",
+        verified_at=datetime.now(UTC),
+    )
+    verified = await store.user_by_id(user.id)
+    assert verified is not None
+    with pytest.raises(LabDuaUnavailableError):
+        await service.require_verified_dua(verified)
+    assert effective_dua_version(None) is None
+
+    await store.accept_dua(
+        user.organization_id, version=DEMO_DUA_VERSION, accepted_at=datetime.now(UTC)
+    )
+    demo = await store.user_by_id(user.id)
+    assert demo is not None
+    assert await service.require_verified_dua(demo) == demo
+    assert effective_dua_version(DEMO_DUA_VERSION) == DEMO_DUA_VERSION
+    with pytest.raises(LabDuaUnavailableError):
+        await service.accept_current_dua(demo)

@@ -1,7 +1,7 @@
 export const laboratory = {
   navLink: 'Für Labore',
-  backToPlatform: 'Zurück zu NotMice',
-  eyebrow: 'NotMice-Forschungsportal',
+  backToPlatform: 'Zurück zur Plattform',
+  eyebrow: 'Forschungsportal',
   title: 'Laborzugang',
   intro:
     'Erstellen Sie ein Laborkonto, um Zugang zu datenschutzgeschützten Forschungskohorten anzufragen. Jede Organisation wird geprüft, bevor Forschungsdaten zugänglich sind.',
@@ -17,6 +17,10 @@ export const laboratory = {
   organizationType: 'Organisationstyp',
   countryCode: 'Ländercode (ISO 3166-1 alpha-2)',
   email: 'Geschäftliche E-Mail',
+  workEmailHint:
+    'Verwenden Sie die eigene E-Mail-Domain der Organisation. Kostenfreie Postfächer wie Gmail, Outlook, GMX oder Web.de werden nicht akzeptiert.',
+  workEmailRequired:
+    'Eine dienstliche E-Mail-Adresse der Organisation ist erforderlich. Kostenfreie Postfächer wie Gmail, Outlook, GMX oder Web.de werden nicht akzeptiert.',
   password: 'Passwort',
   passwordHint: '12 bis 128 Zeichen verwenden.',
   createAccount: 'Laborkonto erstellen',
@@ -41,13 +45,15 @@ export const laboratory = {
   pendingHelp:
     'Ihre E-Mail-Adresse ist bestätigt. Die Organisation wartet auf die manuelle Prüfung. Forschungsdaten bleiben bis zur Verifizierung und zum Abschluss der rechtlichen Vereinbarung gesperrt.',
   rejectedHelp:
-    'Die Organisation konnte nicht verifiziert werden. Kontaktieren Sie das NotMice-Team, falls Sie eine Überprüfung dieser Entscheidung wünschen.',
+    'Die Organisation konnte nicht verifiziert werden. Kontaktieren Sie das Projektteam, falls Sie eine Überprüfung dieser Entscheidung wünschen.',
   duaUnavailable:
     'Die Organisation ist verifiziert, aber die Datennutzungsvereinbarung wurde noch nicht rechtlich genehmigt. Der Zugang zu Forschungsdaten bleibt gesperrt.',
   duaNeedsAcceptance:
     'Prüfen und akzeptieren Sie die aktuelle Datennutzungsvereinbarung ({version}), um Forschungszugang anzufragen.',
   accessGranted:
     'Die aktuelle Datennutzungsvereinbarung wurde akzeptiert. Kohorten-Endpunkte sind für diese Organisation verfügbar.',
+  demoAccess:
+    'Demo-Zugang: Diese Organisation sieht Statistiken, die überwiegend aus synthetischen Teilnehmenden bestehen (öffentliche ID nmdemo…, Labore mit DEMO markiert). Die Datennutzungsvereinbarung ist noch nicht rechtlich freigegeben; ziehen Sie aus diesen Zahlen keine Schlüsse.',
   acceptedDua: 'Akzeptierte Vereinbarung',
   acceptDua: 'Datennutzungsvereinbarung akzeptieren',
   cabinetNote:

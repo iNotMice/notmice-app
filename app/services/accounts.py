@@ -26,16 +26,20 @@ from app.core.security import (
 from app.domain.accounts import (
     AccountExport,
     AccountNotFoundError,
+    AccountSecurity,
     AuthenticatedSession,
     ConsentRecord,
     ConsentVersionError,
     CreatedAccount,
+    CurrentPasswordError,
     EmailLogin,
     ExportedMarker,
     ExportedProtocolEntry,
     InvalidAuthTokenError,
     InvalidCredentialsError,
     InvalidMnemonicError,
+    OwnCredential,
+    PasswordNotSetError,
     UnauthenticatedError,
     UserRecord,
 )
@@ -151,6 +155,15 @@ class UserStore(Protocol):
 
     async def revoke_sessions(self, user_id: UUID) -> None:
         """Delete every session for the participant."""
+
+    async def credential_for_user(self, user_id: UUID) -> OwnCredential | None:
+        """Return the owner's address and password hash, or None for a phrase account."""
+
+    async def count_live_sessions(self, user_id: UUID, now: datetime) -> int:
+        """Count sessions of the participant that have not expired."""
+
+    async def revoke_other_sessions(self, user_id: UUID, keep_token_sha256: str) -> int:
+        """Delete every session of the participant except one. Return how many went."""
 
     async def export_account(self, user_id: UUID) -> AccountExport | None:
         """Return the owner's copy of the account, including the address."""
@@ -384,6 +397,79 @@ class AccountService:
         await self._users.set_password_hash(user_id, password_hash)
         await self._users.revoke_sessions(user_id)
         logger.info("password_reset")
+
+    async def security_overview(self, user_id: UUID) -> AccountSecurity:
+        """Return how the owner signs in and how many sessions are live.
+
+        Args:
+            user_id: Authenticated participant.
+        """
+        credential = await self._users.credential_for_user(user_id)
+        sessions = await self._users.count_live_sessions(user_id, self._now())
+        return AccountSecurity(
+            email=None if credential is None else credential.email,
+            sign_in_method="phrase" if credential is None else "email",
+            active_sessions=sessions,
+        )
+
+    async def change_password(
+        self,
+        user_id: UUID,
+        *,
+        current_password: str,
+        new_password: str,
+        current_session: str | None,
+    ) -> int:
+        """Replace the password after checking the current one.
+
+        Every other session is signed out; the one making the change stays.
+
+        Args:
+            user_id: Authenticated participant.
+            current_password: Password the owner typed to prove it is them.
+            new_password: Replacement, 12-128 characters.
+            current_session: Raw cookie of the request, kept signed in.
+
+        Returns:
+            How many other sessions were signed out.
+
+        Raises:
+            PasswordNotSetError: The account uses a recovery phrase.
+            CurrentPasswordError: The current password does not match.
+            InvalidCredentialsError: The new password is outside 12-128 characters.
+        """
+        _require_password(new_password)
+        credential = await self._users.credential_for_user(user_id)
+        if credential is None:
+            raise PasswordNotSetError
+        if not self._passwords.verify(credential.password_hash, current_password):
+            raise CurrentPasswordError
+        await self._users.set_password_hash(user_id, self._passwords.hash_password(new_password))
+        revoked = await self._revoke_others(user_id, current_session)
+        logger.info("password_changed", revoked_sessions=revoked)
+        return revoked
+
+    async def sign_out_other_sessions(self, user_id: UUID, current_session: str | None) -> int:
+        """Sign out every other device of the owner.
+
+        Args:
+            user_id: Authenticated participant.
+            current_session: Raw cookie of the request, kept signed in.
+
+        Returns:
+            How many sessions were signed out.
+        """
+        revoked = await self._revoke_others(user_id, current_session)
+        logger.info("other_sessions_revoked", revoked_sessions=revoked)
+        return revoked
+
+    async def _revoke_others(self, user_id: UUID, current_session: str | None) -> int:
+        """Revoke all sessions but the presented one; without a cookie, revoke all."""
+        digest = None if current_session is None else auth_token_digest(current_session.strip())
+        if digest is None:
+            await self._users.revoke_sessions(user_id)
+            return 0
+        return await self._users.revoke_other_sessions(user_id, digest)
 
     async def list_consents(self, user_id: UUID) -> tuple[ConsentRecord, ...]:
         """Return consent rows for the authenticated participant."""

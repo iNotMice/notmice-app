@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from app.domain.survey import ParticipantProfile
@@ -44,6 +45,31 @@ class ConsentRequiredError(AccountError):
 
 class ConsentVersionError(AccountError):
     """The submitted consent text version is not the current one."""
+
+
+class PasswordNotSetError(AccountError):
+    """The account signs in with a recovery phrase and has no password to change."""
+
+
+class CurrentPasswordError(AccountError):
+    """The current password typed in the cabinet does not match."""
+
+
+@dataclass(frozen=True, slots=True)
+class OwnCredential:
+    """Email login material of the signed-in owner, looked up by participant id."""
+
+    email: str
+    password_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class AccountSecurity:
+    """What the cabinet security page shows. No hash and no session digest."""
+
+    email: str | None
+    sign_in_method: Literal["email", "phrase"]
+    active_sessions: int
 
 
 def normalize_email(value: str) -> str:

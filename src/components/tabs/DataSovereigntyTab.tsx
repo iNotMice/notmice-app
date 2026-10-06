@@ -7,26 +7,11 @@ import {
   updateOwnConsent,
   type ConsentRecord,
 } from '../../api/accounts';
-import {
-  DatasetRequestError,
-  downloadPublicDatasetExport,
-  fetchPublicDataset,
-  fetchPublicTimeseries,
-  PublicDatasetPage,
-  PublicExportKind,
-  PublicTimeseries,
-} from '../../api/dataset';
+import { DatasetRequestError, fetchPublicTimeseries, PublicTimeseries } from '../../api/dataset';
 import { fetchSurveyCatalog, SurveyCatalogRequestError, type SurveyCatalog } from '../../api/survey';
+import { ParticipantProfileForm } from '../ParticipantProfileForm';
 import { ParticipantProfilePreview } from '../ParticipantProfilePreview';
-import {
-  Download,
-  Share2,
-  Trash2,
-  Lock,
-  FileCode,
-  EyeOff,
-  FlaskConical,
-} from 'lucide-react';
+import { ArrowRight, Share2, Trash2, Lock, EyeOff } from 'lucide-react';
 import { getActiveI18n } from '../../i18n/catalog';
 import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -40,6 +25,8 @@ interface DataSovereigntyTabProps {
   onPurgeMemory: () => void | Promise<void>;
   onOpenSeedPhrase: () => void;
   setActiveTab: (tab: TabType) => void;
+  /** Opens the public dataset and charter page for specialists. */
+  onOpenCharter: () => void;
 }
 
 export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
@@ -50,17 +37,11 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   onAccountDeleted,
   onPurgeMemory,
   onOpenSeedPhrase,
-  setActiveTab,
+  onOpenCharter,
 }) => {
   const { m } = useI18n();
   const copy = m.sovereignty;
-  const [exportKind, setExportKind] = useState<PublicExportKind | null>(null);
-  const [exportSuccess, setExportSuccess] = useState<PublicExportKind | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
   const [datasetReload, setDatasetReload] = useState(0);
-  const [datasetPage, setDatasetPage] = useState<PublicDatasetPage | null>(null);
-  const [datasetError, setDatasetError] = useState<string | null>(null);
-  const [datasetLoading, setDatasetLoading] = useState(true);
   const [series, setSeries] = useState<PublicTimeseries | null>(null);
   const [seriesNote, setSeriesNote] = useState<string | null>(null);
   const [purgeBusy, setPurgeBusy] = useState(false);
@@ -83,6 +64,10 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
         consent.type === type && consent.version === version && consent.withdrawn_at === null,
     );
 
+  const profileConsentActive = isConsentActive(
+    'participant_profile',
+    surveyCatalog?.profile_consent_version,
+  );
   const researchReuseActive = isConsentActive(
     'research_reuse',
     surveyCatalog?.research_reuse_consent_version,
@@ -136,31 +121,6 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   }, [isAuthenticated, copy.consentsFailed]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    setDatasetLoading(true);
-    setDatasetError(null);
-    void fetchPublicDataset({ limit: 20, signal: controller.signal })
-      .then((page) => {
-        setDatasetPage(page);
-        setDatasetLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return;
-        }
-        setDatasetPage(null);
-        const messages = getActiveI18n().messages.sovereignty;
-        setDatasetError(
-          err instanceof DatasetRequestError
-            ? fill(messages.datasetFailed, { status: err.status })
-            : messages.datasetSilent,
-        );
-        setDatasetLoading(false);
-      });
-    return () => controller.abort();
-  }, [datasetReload, isPublic]);
-
-  useEffect(() => {
     if (!publicSharingEnabled || !isAuthenticated) {
       setSeries(null);
       setSeriesNote(null);
@@ -191,29 +151,6 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
       });
     return () => controller.abort();
   }, [accountAddress, isAuthenticated, publicSharingEnabled, datasetReload]);
-
-  const downloadExport = (kind: PublicExportKind) => {
-    setExportError(null);
-    setExportKind(kind);
-    void downloadPublicDatasetExport(kind)
-      .then(() => {
-        setExportSuccess(kind);
-        setExportKind(null);
-        window.setTimeout(() => {
-          setExportSuccess((current) => (current === kind ? null : current));
-        }, 3000);
-      })
-      .catch((err: unknown) => {
-        setExportKind(null);
-        setExportSuccess(null);
-        const messages = getActiveI18n().messages.sovereignty;
-        setExportError(
-          err instanceof DatasetRequestError
-            ? fill(messages.exportFailed, { status: err.status })
-            : messages.exportSilent,
-        );
-      });
-  };
 
   const handlePurge = () => {
     setPurgeError(null);
@@ -273,6 +210,22 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
     }
   };
 
+  const toggleProfileConsent = async (accepted: boolean) => {
+    if (!surveyCatalog?.profile_consent_version || !isAuthenticated) {
+      return;
+    }
+    setConsentBusy(true);
+    setConsentError(null);
+    try {
+      await updateOwnConsent('participant_profile', surveyCatalog.profile_consent_version, accepted);
+      setConsents(await fetchOwnConsents());
+    } catch {
+      setConsentError(copy.consentUpdateFailed);
+    } finally {
+      setConsentBusy(false);
+    }
+  };
+
   const toggleResearchReuse = async (accepted: boolean) => {
     if (!surveyCatalog || !isAuthenticated) {
       return;
@@ -314,7 +267,7 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
+    <div className="w-full flex flex-col gap-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#e2e8f0] pb-6">
         <div>
@@ -326,12 +279,20 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
               {copy.stageMeta}
             </span>
           </div>
-          <h1 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">
+          <h2 className="font-['Inter'] text-2xl lg:text-3xl font-bold text-[#0b1c30]">
             {copy.title}
-          </h1>
+          </h2>
           <p className="font-['Inter'] text-sm text-[#3f4850] mt-1 max-w-2xl">
             {copy.lead}
           </p>
+          <button
+            type="button"
+            onClick={onOpenCharter}
+            className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#006194] hover:underline cursor-pointer"
+          >
+            {copy.charterLink}
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -351,6 +312,78 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
         </div>
       </div>
 
+      {isAuthenticated && surveyCatalog && (
+        <section
+          className="bg-[#ffffff] p-6 rounded-xl border-2 border-[#006194]/30 shadow-xs flex flex-col gap-3"
+          aria-labelledby="consents-title"
+        >
+          <h2 id="consents-title" className="font-['Inter'] text-lg font-bold text-[#0b1c30]">
+            {copy.consentsTitle}
+          </h2>
+          <p className="font-['Inter'] text-sm text-[#3f4850]">{copy.consentsLead}</p>
+          <a
+            href="/legal/consent-personal-research-2026-10-03.html"
+            target="_blank"
+            rel="noreferrer"
+            className="self-start text-sm font-semibold text-[#006194] underline"
+          >
+            {copy.healthConsentLegalLink}
+          </a>
+          {[
+            {
+              id: 'health',
+              title: copy.healthConsentTitle,
+              body: healthDataActive ? copy.healthConsentActive : copy.healthConsentRequired,
+              checked: healthDataActive,
+              onChange: toggleHealthData,
+              show: true,
+            },
+            {
+              id: 'profile',
+              title: copy.profileConsentTitle,
+              body: copy.profileConsentBody,
+              checked: profileConsentActive,
+              onChange: toggleProfileConsent,
+              show: surveyCatalog.enabled && surveyCatalog.profile_consent_version !== null,
+            },
+            {
+              id: 'research',
+              title: copy.researchReuseTitle,
+              body: copy.researchReuseBody,
+              checked: researchReuseActive,
+              onChange: toggleResearchReuse,
+              show: true,
+            },
+          ]
+            .filter((item) => item.show)
+            .map((item) => (
+              <label
+                key={item.id}
+                className="flex items-start gap-3 rounded-lg border border-[#e1e8ef] p-3 text-sm cursor-pointer hover:bg-[#f8fbff]"
+              >
+                <input
+                  aria-label={item.title}
+                  type="checkbox"
+                  checked={item.checked}
+                  disabled={consentBusy}
+                  onChange={(event) => void item.onChange(event.target.checked)}
+                  className="mt-1 h-5 w-5 shrink-0 accent-[#006194] disabled:opacity-50"
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-[#0b1c30]">{item.title}</span>
+                  <span className="text-[#3f4850] leading-5">{item.body}</span>
+                </span>
+              </label>
+            ))}
+          {consentError && (
+            <p className="text-sm text-[#ba1a1a]" role="alert">
+              {consentError}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Questionnaire: editable once collection is on and its consent above is ticked. */}
       <section
         className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-2"
         aria-live="polite"
@@ -373,11 +406,23 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
             <p className="font-['Inter'] text-sm text-[#3f4850]">
               {surveyCatalog.enabled ? copy.profileSurveyConfigured : copy.profileSurveyDisabled}
             </p>
-            {isAuthenticated && (
-              <ParticipantProfilePreview
-                catalog={surveyCatalog}
-                copy={copy.profileSurvey}
-              />
+            {isAuthenticated && surveyCatalog.enabled && profileConsentActive && (
+              <ParticipantProfileForm catalog={surveyCatalog} copy={copy.profileSurvey} />
+            )}
+            {isAuthenticated && surveyCatalog.enabled && !profileConsentActive && (
+              <p className="rounded-lg bg-[#fff6e0] px-4 py-3 font-['Inter'] text-[15px] text-[#5c3a00]">
+                {copy.profileSurvey.needConsent}
+              </p>
+            )}
+            {isAuthenticated && !surveyCatalog.enabled && (
+              <details className="rounded-lg border border-[#e2e8f0] p-3">
+                <summary className="cursor-pointer font-['Inter'] text-sm font-semibold text-[#006194]">
+                  {copy.profileSurveyShowPreview}
+                </summary>
+                <div className="mt-3">
+                  <ParticipantProfilePreview catalog={surveyCatalog} copy={copy.profileSurvey} />
+                </div>
+              </details>
             )}
             {!isAuthenticated && (
               <p className="font-['Inter'] text-sm text-[#607286]">
@@ -426,129 +471,10 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
         </div>
       )}
 
-      {isAuthenticated && surveyCatalog && (
-        <section className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
-          <h2 className="font-['Inter'] text-base font-bold text-[#0b1c30]">
-            {copy.healthConsentTitle}
-          </h2>
-          <p className="font-['Inter'] text-sm text-[#3f4850]">
-            {copy.healthConsentBody}
-          </p>
-          <a
-            href="/legal/consent-personal-research-2026-10-03.html"
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs font-semibold text-[#006194] underline"
-          >
-            {copy.healthConsentLegalLink}
-          </a>
-          <label className="flex items-start gap-3 rounded-lg border border-[#e1e8ef] p-3 text-sm">
-            <input
-              aria-label={copy.healthConsentTitle}
-              type="checkbox"
-              checked={healthDataActive}
-              disabled={consentBusy}
-              onChange={(event) => void toggleHealthData(event.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0 accent-[#006194] disabled:opacity-50"
-            />
-            <span>{healthDataActive ? copy.healthConsentActive : copy.healthConsentRequired}</span>
-          </label>
-          {consentError && (
-            <p className="text-xs text-[#ba1a1a]" role="alert">
-              {consentError}
-            </p>
-          )}
-        </section>
-      )}
-
       {/* Main Grid: Export Modules vs Decentralized Cohort Sharing */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Public dataset export */}
+        {/* Account sign-in */}
         <div className="lg:col-span-6 flex flex-col gap-6">
-          <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <span className="font-['Inter'] text-base font-bold text-[#0b1c30] flex items-center gap-2">
-                <Download className="w-5 h-5 text-[#006194]" />
-                {copy.exportTitle}
-              </span>
-              <span className="font-['JetBrains_Mono'] text-xs bg-[#eff4ff] text-[#006194] px-2 py-0.5 rounded font-semibold">
-                CC0-1.0
-              </span>
-            </div>
-
-            <p className="font-['Inter'] text-xs text-[#565e74] leading-relaxed">
-              {copy.exportLead}
-            </p>
-
-            {exportError && (
-              <p className="text-xs text-[#ba1a1a]" role="alert">
-                {exportError}
-              </p>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => downloadExport('csv')}
-                disabled={exportKind !== null}
-                className="p-4 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#eff4ff] transition-all flex flex-col gap-1 text-left cursor-pointer group disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-['Inter'] text-xs font-bold text-[#0b1c30] group-hover:text-[#006194]">
-                    CSV
-                  </span>
-                  <Download className="w-4 h-4 text-[#006947]" />
-                </div>
-                <span className="text-[11px] text-[#565e74]">
-                  {copy.csvHint}
-                </span>
-                <span className="text-[10px] text-[#006947] font-semibold mt-2">
-                  {exportSuccess === 'csv' ? copy.downloaded : copy.csvAction}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => downloadExport('parquet')}
-                disabled={exportKind !== null}
-                className="p-4 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#eff4ff] transition-all flex flex-col gap-1 text-left cursor-pointer group disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-['Inter'] text-xs font-bold text-[#0b1c30] group-hover:text-[#006194]">
-                    Parquet
-                  </span>
-                  <Download className="w-4 h-4 text-[#006947]" />
-                </div>
-                <span className="text-[11px] text-[#565e74]">
-                  {copy.parquetHint}
-                </span>
-                <span className="text-[10px] text-[#006947] font-semibold mt-2">
-                  {exportSuccess === 'parquet' ? copy.downloaded : copy.parquetAction}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => downloadExport('datasheet')}
-                disabled={exportKind !== null}
-                className="p-4 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#eff4ff] transition-all flex flex-col gap-1 text-left cursor-pointer group disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-['Inter'] text-xs font-bold text-[#0b1c30] group-hover:text-[#006194]">
-                    {copy.datasheet}
-                  </span>
-                  <FileCode className="w-4 h-4 text-[#006194]" />
-                </div>
-                <span className="text-[11px] text-[#565e74]">
-                  {copy.datasheetHint}
-                </span>
-                <span className="text-[10px] text-[#006947] font-semibold mt-2">
-                  {exportSuccess === 'datasheet' ? copy.downloaded : copy.datasheetAction}
-                </span>
-              </button>
-            </div>
-          </div>
-
           {/* Seed Phrase Security Card */}
           <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -597,21 +523,6 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
               {copy.publicSharingDisclosure}
             </div>
 
-            <div className="flex items-start justify-between gap-4 rounded-lg border border-[#e1e8ef] p-3">
-              <div>
-                <p className="text-sm font-semibold text-[#18334b]">{copy.researchReuseTitle}</p>
-                <p className="mt-1 text-xs leading-5 text-[#607286]">{copy.researchReuseBody}</p>
-              </div>
-              <input
-                aria-label={copy.researchReuseTitle}
-                type="checkbox"
-                checked={researchReuseActive}
-                disabled={!isAuthenticated || !surveyCatalog || consentBusy}
-                onChange={(event) => void toggleResearchReuse(event.target.checked)}
-                className="mt-1 h-4 w-4 shrink-0 accent-[#006194] disabled:opacity-50"
-              />
-            </div>
-            {consentError && <p className="text-xs text-[#ba1a1a]" role="alert">{consentError}</p>}
 
             {/* Privacy disclosure summarizes exactly which fields the public API exposes. */}
             <div className="bg-[#f8f9ff] p-3.5 rounded-lg border border-[#e2e8f0] space-y-2 text-xs">
@@ -688,84 +599,10 @@ export const DataSovereigntyTab: React.FC<DataSovereigntyTabProps> = ({
             )}
           </div>
 
-          {/* Research Charter Statement */}
-          <div className="bg-[#007bb9] text-[#ffffff] p-6 rounded-xl flex flex-col gap-2.5 shadow-sm">
-            <span className="font-['Inter'] text-sm font-bold flex items-center gap-2">
-              <FlaskConical className="w-4 h-4 text-white" />
-              {copy.manifestoTitle}
-            </span>
-            <p className="font-['Inter'] text-xs opacity-90 leading-relaxed">
-              {copy.manifesto}
-            </p>
-          </div>
         </div>
       </div>
 
-      <div className="bg-[#ffffff] p-6 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-['Inter'] text-base font-bold text-[#0b1c30]">
-            {copy.datasetTitle}
-          </span>
-          <button
-            type="button"
-            onClick={() => setDatasetReload((value) => value + 1)}
-            className="font-['Inter'] text-xs font-semibold text-[#006194] hover:underline cursor-pointer"
-          >
-            {copy.reload}
-          </button>
-        </div>
-        <p className="font-['Inter'] text-xs text-[#565e74] leading-relaxed">
-          {copy.datasetLead}
-        </p>
-        {datasetLoading && (
-          <p className="text-xs text-[#565e74]">{copy.datasetLoading}</p>
-        )}
-        {datasetError && (
-          <p className="text-xs text-[#ba1a1a]" role="alert">
-            {datasetError}
-          </p>
-        )}
-        {datasetPage && !datasetLoading && datasetPage.total === 0 && (
-          <p className="text-xs text-[#565e74]">{copy.datasetEmpty}</p>
-        )}
-        {datasetPage && !datasetLoading && datasetPage.rows.length > 0 && (
-          <div className="overflow-x-auto">
-            <p className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] mb-2">
-              {fill(copy.showing, {
-                shown: datasetPage.rows.length,
-                total: datasetPage.total,
-              })}
-            </p>
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="font-['Inter'] text-[#565e74] border-b border-[#e2e8f0]">
-                  <th className="py-2 pr-3 font-semibold">{copy.colPublicId}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colCollected}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colLoinc}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colMarker}</th>
-                  <th className="py-2 pr-3 font-semibold">{copy.colValue}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {datasetPage.rows.map((row, index) => (
-                  <tr
-                    key={`${row.publicId}-${row.loincCode ?? row.rawName}-${row.collectedAt ?? 'na'}-${index}`}
-                    className="border-b border-[#f1f5f9] font-['JetBrains_Mono'] text-[#0b1c30]"
-                  >
-                    <td className="py-2 pr-3">{row.publicId}</td>
-                    <td className="py-2 pr-3">{row.collectedAt ?? '—'}</td>
-                    <td className="py-2 pr-3">{row.loincCode ?? '—'}</td>
-                    <td className="py-2 pr-3">{row.canonicalName ?? row.rawName}</td>
-                    <td className="py-2 pr-3">
-                      {row.value} {row.unit}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+
     </div>
   );
 };

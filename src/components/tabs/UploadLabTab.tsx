@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TabType, LabPanelData, TokenUsageNotice } from '../../types';
 import { INITIAL_BIOMARKERS, PHENOAGE_BIOMARKERS, PRESET_LAB_PANELS } from '../../data/phenoAgeData';
 import {
@@ -9,6 +9,7 @@ import {
   discardRedactedFrame,
   extractLabFile,
 } from '../../api/uploads';
+import { HEALTH_CONSENT_VERSION, fetchOwnConsents } from '../../api/accounts';
 import { LabImageCrop, RedactionConfirm } from '../LabImagePrep';
 import { TokenUsageBanner } from '../TokenUsageBanner';
 import { fill } from '../../i18n/fill';
@@ -51,6 +52,43 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
   const [tokenNotice, setTokenNotice] = useState<TokenUsageNotice | null>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [redactionPreview, setRedactionPreview] = useState<RedactionPreview | null>(null);
+  /** The current health-data consent is not active, so the server will refuse a file. */
+  const [consentMissing, setConsentMissing] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setConsentMissing(false);
+      return;
+    }
+    let cancelled = false;
+    void fetchOwnConsents()
+      .then((rows) => {
+        if (!cancelled) {
+          setConsentMissing(
+            !rows.some(
+              (row) =>
+                row.type === 'health_data' &&
+                row.version === HEALTH_CONSENT_VERSION &&
+                row.withdrawn_at === null,
+            ),
+          );
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  /** Turn the API's consent refusal into the prompt; other errors stay as they are. */
+  const showUploadError = (err: unknown) => {
+    if (err instanceof Error && err.message === 'Current health-data consent is required') {
+      setConsentMissing(true);
+      setUploadError(null);
+      return;
+    }
+    setUploadError(err instanceof Error ? err.message : getActiveI18n().messages.shell.extractionFailed);
+  };
 
   const loadPresetPanel = (
     fileName: string,
@@ -153,9 +191,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
         setUploadError(null);
       } else {
         setTokenNotice(null);
-        setUploadError(
-          err instanceof Error ? err.message : getActiveI18n().messages.shell.extractionFailed,
-        );
+        showUploadError(err);
       }
     } finally {
       setIsProcessing(false);
@@ -202,9 +238,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
         setTokenNotice(err.usage);
         setUploadError(null);
       } else {
-        setUploadError(
-          err instanceof Error ? err.message : getActiveI18n().messages.shell.extractionFailed,
-        );
+        showUploadError(err);
       }
     } finally {
       setIsProcessing(false);
@@ -356,6 +390,22 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
           </div>
 
           {tokenNotice && <TokenUsageBanner usage={tokenNotice} />}
+
+          {consentMissing && (
+            <div
+              className="bg-[#fff6e0] p-4 rounded-xl border border-[#f5c97a] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+              role="alert"
+            >
+              <p className="font-['Inter'] text-[15px] text-[#5c3a00]">{copy.consentMissing}</p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('data-sovereignty-public-sharing')}
+                className="shrink-0 rounded-md bg-[#006194] px-4 py-2 font-['Inter'] text-[15px] font-semibold text-[#ffffff] hover:bg-[#004b73] cursor-pointer"
+              >
+                {copy.consentAction}
+              </button>
+            </div>
+          )}
 
           {uploadError && (
             <div className="bg-[#fff1f2] p-4 rounded-xl border border-[#fecdd3] text-xs text-[#9f1239] font-['Inter']">

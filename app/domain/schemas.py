@@ -575,6 +575,14 @@ class NewsCardView(BaseModel):
     snippet: str
     url: str
     kind: Literal["paper", "biohacking"]
+    translated: bool = Field(
+        default=False,
+        description=(
+            "True when title and snippet are machine-translated into the requested language"
+        ),
+    )
+    original_title: str | None = Field(default=None, description="Source title when translated")
+    original_snippet: str | None = Field(default=None, description="Source snippet when translated")
 
 
 class NewsResponse(BaseModel):
@@ -586,6 +594,10 @@ class NewsResponse(BaseModel):
     fetched_at: datetime | None
     stale: bool
     error: Literal["unavailable"] | None
+    translation_pending: bool = Field(
+        default=False,
+        description="True while some cards are still being translated; read again shortly",
+    )
 
 
 class ProtocolEntryInput(BaseModel):
@@ -628,3 +640,112 @@ class ProtocolListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     entries: list[ProtocolEntryView]
+
+
+class PasswordChangeRequest(BaseModel):
+    """Change the password from the cabinet. The current one proves it is the owner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
+
+
+class SessionsRevokedResponse(BaseModel):
+    """How many other devices were signed out."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    revoked_sessions: int = Field(ge=0)
+
+
+class CabinetAccountView(BaseModel):
+    """The owner's own account card. No hash, no session digest, no internal id."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    public_id: str
+    created_at: datetime
+    email: str | None
+    sign_in_method: Literal["email", "phrase"]
+    active_sessions: int = Field(ge=0)
+
+
+class CabinetConsentsView(BaseModel):
+    """Whether the current text version of each consent is active."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    health_data: bool
+    research_reuse: bool
+    public_sharing: bool
+    sharing_enabled: bool = Field(
+        description="Public sharing is on and its current consent is active.",
+    )
+
+
+class CabinetIndexPointView(BaseModel):
+    """One scored panel on the research-index timeline."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    panel_id: UUID
+    observed_on: date
+    pheno_age: float
+    age_delta: float
+    chronological_age: float | None
+
+
+class CabinetMarkerView(BaseModel):
+    """Latest confirmed value of one canonical marker and how often it was measured."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    canonical_id: str
+    measurements: int = Field(ge=1)
+    latest_value: float
+    latest_unit: str
+    latest_on: date
+    latest_outside_interval: bool = Field(
+        description="The latest value leaves the interval printed on its own report.",
+    )
+    in_phenoage: bool
+
+
+class CabinetHistoryView(BaseModel):
+    """Counts and dates of the confirmed history."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    panel_count: int = Field(ge=0)
+    first_observed_on: date | None
+    last_observed_on: date | None
+    laboratory_count: int = Field(ge=0)
+    scored_count: int = Field(ge=0)
+    repeat_marker_count: int = Field(ge=0)
+    unmapped_marker_count: int = Field(ge=0)
+    latest_missing_markers: list[str]
+
+
+class CabinetJournalView(BaseModel):
+    """Journal size. Entry text stays on the journal page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = Field(ge=0)
+    open: int = Field(ge=0)
+
+
+class CabinetView(BaseModel):
+    """Personal cabinet overview, returned only to the signed-in owner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    account: CabinetAccountView
+    consents: CabinetConsentsView
+    history: CabinetHistoryView
+    latest_index: CabinetIndexPointView | None
+    previous_index: CabinetIndexPointView | None
+    markers: list[CabinetMarkerView]
+    journal: CabinetJournalView
+    disclaimer: str

@@ -24,6 +24,7 @@ from app.repositories.protocol import ProtocolRepository
 from app.repositories.survey import SurveyRepository
 from app.repositories.users import UserRepository
 from app.services.accounts import AccountService
+from app.services.cabinet import CabinetService
 from app.services.dataset import DatasetService
 from app.services.export import ExportService
 from app.services.extract_sessions import InMemoryExtractSessionStore
@@ -33,6 +34,7 @@ from app.services.image_redact import TesseractImageRedactor
 from app.services.lab_accounts import LabAccountService
 from app.services.mailer import DevLoggingMailer, Mailer, SmtpMailer
 from app.services.news import HttpxTextFetcher, NewsMemoryCache, NewsService
+from app.services.news_translation import GeminiNewsTranslator, NewsTranslationService
 from app.services.protocol import ProtocolService
 from app.services.redaction_holds import RedactionHoldStore
 from app.services.survey import SurveyService
@@ -52,6 +54,7 @@ _password_hasher: Argon2PasswordHasher | None = None
 _mailer: Mailer | None = None
 _news_rate_limiter: SlidingWindowRateLimiter | None = None
 _news_service: NewsService | None = None
+_news_translation: NewsTranslationService | None = None
 _gemini_budget: GeminiTokenBudget | None = None
 
 
@@ -209,6 +212,27 @@ def get_news_service() -> NewsService:
     return _news_service
 
 
+def get_news_translation() -> NewsTranslationService:
+    """Return the process-wide news translator. Without a Gemini key it shows originals."""
+    global _news_translation
+    if _news_translation is None:
+        settings = get_settings()
+        translator = None
+        if settings.news_translation_enabled and settings.gemini_api_key:
+            translator = GeminiNewsTranslator(
+                settings.gemini_api_key,
+                settings.gemini_model,
+                timeout_seconds=settings.news_translation_timeout_seconds,
+            )
+        _news_translation = NewsTranslationService(
+            translator,
+            daily_token_budget=settings.news_translation_daily_token_budget,
+            wait_seconds=settings.news_translation_wait_seconds,
+            max_parallel_calls=settings.news_translation_parallel_calls,
+        )
+    return _news_translation
+
+
 def get_news_rate_limiter() -> SlidingWindowRateLimiter:
     """Return the process-wide limiter for the news route."""
     global _news_rate_limiter
@@ -355,3 +379,12 @@ async def dispose_engine() -> None:
         _news_service.clear()
     _news_service = None
     _gemini_budget = None
+
+
+async def get_cabinet_service(
+    accounts: Annotated[AccountService, Depends(get_account_service)],
+    uploads: Annotated[UploadService, Depends(get_upload_service)],
+    protocol: Annotated[ProtocolService, Depends(get_protocol_service)],
+) -> CabinetService:
+    """Build the read-only cabinet overview from the per-request services."""
+    return CabinetService(accounts=accounts, uploads=uploads, protocol=protocol)

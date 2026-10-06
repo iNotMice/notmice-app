@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TabType } from '../types';
-import { ChevronDown, Shield, Terminal, Menu, X, KeyRound } from 'lucide-react';
+import { ChevronDown, Shield, Terminal, Menu, X, KeyRound, Stethoscope } from 'lucide-react';
+import { BRAND_NAME } from '../config/site';
+import { CABINET_SECTIONS, isCabinetTab, pathForTab } from '../routes';
 import logo from '../assets/images/logo.jpg';
 import { useI18n } from '../i18n/I18nProvider';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -14,10 +16,7 @@ interface HeaderProps {
   isAuthenticated: boolean;
 }
 
-type DesktopGroupItem = { label: string } & (
-  | { id: TabType; href?: never }
-  | { href: string; id?: never }
-);
+type DesktopGroupItem = { id: TabType; label: string };
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
@@ -64,29 +63,49 @@ export const Header: React.FC<HeaderProps> = ({
     [],
   );
 
-  const navItems: { id: TabType; label: string }[] = [
-    { id: 'overview-landing', label: m.nav.overviewLanding },
+  const uploadItems: DesktopGroupItem[] = [
     { id: 'upload-lab', label: m.nav.uploadLab },
     { id: 'review-extraction', label: m.nav.reviewExtraction },
-    { id: 'phenoage-engine', label: m.nav.phenoAgeEngine },
-    { id: 'biomarker-history', label: m.nav.biomarkerHistory },
-    { id: 'protocol-journal', label: m.nav.journal },
-    { id: 'data-sovereignty-public-sharing', label: m.nav.dataSovereignty },
-    { id: 'research-news', label: m.nav.news },
+  ];
+  const cabinetItems: DesktopGroupItem[] = CABINET_SECTIONS.map((section) => ({
+    id: section.tab,
+    label: m.cabinet.nav[section.key],
+  }));
+
+  type DesktopEntry =
+    | { kind: 'group'; id: string; label: string; items: DesktopGroupItem[] }
+    | { kind: 'link'; item: DesktopGroupItem };
+
+  const desktopEntries: DesktopEntry[] = [
+    { kind: 'group', id: 'upload', label: m.nav.upload, items: uploadItems },
+    { kind: 'link', item: { id: 'phenoage-engine', label: m.nav.phenoAge } },
+    { kind: 'group', id: 'cabinet', label: m.nav.cabinet, items: cabinetItems },
+    { kind: 'link', item: { id: 'research-news', label: m.nav.news } },
+    { kind: 'link', item: { id: 'user-instructions', label: m.nav.documents } },
   ];
 
-  const labItems: DesktopGroupItem[] = [
-    ...navItems.filter((item) => item.id === 'upload-lab' || item.id === 'review-extraction'),
-    { href: '/lab', label: m.nav.laboratoryPortal },
+  /** Mobile drawer: the same order as the desktop bar, groups flattened under a heading. */
+  const mobileSections: { heading?: string; items: DesktopGroupItem[] }[] = [
+    { items: [{ id: 'overview-landing', label: m.nav.overview }] },
+    { heading: m.nav.upload, items: uploadItems },
+    { items: [{ id: 'phenoage-engine', label: m.nav.phenoAgeEngine }] },
+    { heading: m.nav.cabinet, items: cabinetItems },
+    {
+      items: [
+        { id: 'research-news', label: m.nav.news },
+        { id: 'user-instructions', label: m.nav.documents },
+      ],
+    },
   ];
-  const phenoAgeItems = navItems.filter(
-    (item) => item.id === 'phenoage-engine' || item.id === 'biomarker-history',
-  );
 
-  const desktopGroups: { id: string; label: string; items: DesktopGroupItem[] }[] = [
-    { id: 'lab', label: m.nav.lab, items: labItems },
-    { id: 'phenoage', label: m.nav.phenoAge, items: phenoAgeItems },
-  ];
+  /** Signed in: the account chip opens the cabinet. Guest: it opens sign-in. */
+  const openAccountChip = () => {
+    if (isAuthenticated) {
+      selectTab('cabinet');
+    } else {
+      onOpenSeedPhrase();
+    }
+  };
 
   useEffect(() => {
     if (!openMenu) {
@@ -111,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, [openMenu]);
 
   const linkClass = (isActive: boolean) =>
-    `font-['Inter'] text-[13px] font-medium px-3 py-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
+    `font-['Inter'] text-[13px] font-medium px-2.5 2xl:px-3 py-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
       isActive
         ? 'bg-[#007bb9] text-[#ffffff] shadow-sm font-semibold'
         : 'text-[#3f4850] hover:bg-[#e5eeff] hover:text-[#0b1c30]'
@@ -126,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-[#ffffff]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-[#e2e8f0]">
       <div className="relative w-full max-w-[1440px] mx-auto px-4 lg:px-6 h-20 flex items-center justify-between gap-4 xl:gap-6 min-w-0">
-        <div className="flex items-center min-w-0">
+        <div className="flex items-center shrink-0">
           <button
             onClick={() => setActiveTab('overview-landing')}
             className="flex items-center gap-3 text-left focus:outline-none group cursor-pointer shrink-0"
@@ -144,10 +163,10 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-['Inter'] text-[18px] text-[#0b1c30] tracking-tight font-bold">
-                  NotMice
+                  {BRAND_NAME}
                 </span>
               </div>
-              <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] hidden sm:inline-block">
+              <span className="font-['JetBrains_Mono'] text-[11px] text-[#565e74] hidden sm:inline-block xl:hidden">
                 {m.nav.researchProtocol}
               </span>
             </div>
@@ -159,18 +178,43 @@ export const Header: React.FC<HeaderProps> = ({
             className="hidden xl:flex shrink-0 items-center gap-1"
             id="desktop-nav"
           >
-            <button
-              type="button"
-              onClick={() => selectTab('overview-landing')}
+            <a
+              href="/"
+              onClick={(event) => {
+                event.preventDefault();
+                selectTab('overview-landing');
+              }}
+              aria-current={activeTab === 'overview-landing' ? 'page' : undefined}
               data-path="overview-landing"
               className={linkClass(activeTab === 'overview-landing')}
             >
               {m.nav.overview}
-            </button>
+            </a>
 
-            {desktopGroups.map((group) => {
+            {desktopEntries.map((entry) => {
+              if (entry.kind === 'link') {
+                const item = entry.item;
+                return (
+                  <a
+                    key={item.id}
+                    href={pathForTab(item.id)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      selectTab(item.id);
+                    }}
+                    aria-current={activeTab === item.id ? 'page' : undefined}
+                    data-path={item.id}
+                    className={linkClass(activeTab === item.id)}
+                  >
+                    {item.label}
+                  </a>
+                );
+              }
+              const group = entry;
               const isOpen = openMenu === group.id;
-              const isActive = group.items.some((item) => item.id === activeTab);
+              const isActive =
+                group.items.some((item) => item.id === activeTab) ||
+                (group.id === 'cabinet' && isCabinetTab(activeTab));
               return (
                 <div
                   key={group.id}
@@ -196,18 +240,6 @@ export const Header: React.FC<HeaderProps> = ({
                       className="absolute left-0 top-full mt-1 min-w-[220px] rounded-lg border border-[#e2e8f0] bg-[#ffffff] py-1 shadow-lg"
                     >
                       {group.items.map((item) => {
-                        if ('href' in item) {
-                          return (
-                            <a
-                              key={item.href}
-                              href={item.href}
-                              role="menuitem"
-                              className="block w-full text-left px-3 py-2 text-[13px] font-medium text-[#3f4850] hover:bg-[#eff4ff] hover:text-[#0b1c30]"
-                            >
-                              {item.label}
-                            </a>
-                          );
-                        }
                         const itemActive = activeTab === item.id;
                         return (
                           <button
@@ -232,71 +264,23 @@ export const Header: React.FC<HeaderProps> = ({
               );
             })}
 
-            <button
-              type="button"
-              onClick={() => selectTab('protocol-journal')}
-              data-path="protocol-journal"
-              className={linkClass(activeTab === 'protocol-journal')}
+            <a
+              href={pathForTab('specialists')}
+              onClick={(event) => {
+                event.preventDefault();
+                selectTab('specialists');
+              }}
+              aria-current={activeTab === 'specialists' ? 'page' : undefined}
+              data-path="specialists"
+              className={`ml-1 2xl:ml-2 inline-flex items-center gap-1.5 rounded border px-2.5 2xl:px-3 py-1.5 font-['Inter'] text-[13px] font-semibold whitespace-nowrap transition-colors ${
+                activeTab === 'specialists'
+                  ? 'border-[#004b73] bg-[#004b73] text-[#ffffff]'
+                  : 'border-[#006194] text-[#004b73] hover:bg-[#e5eeff]'
+              }`}
             >
-              {m.nav.journal}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => selectTab('data-sovereignty-public-sharing')}
-              data-path="data-sovereignty-public-sharing"
-              className={linkClass(activeTab === 'data-sovereignty-public-sharing')}
-            >
-              {m.nav.data}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => selectTab('research-news')}
-              data-path="research-news"
-              className={linkClass(activeTab === 'research-news')}
-            >
-              {m.nav.news}
-            </button>
-
-            <div
-              className="relative"
-              onMouseEnter={() => openMenuNow('documents')}
-              onMouseLeave={() => scheduleMenuClose('documents')}
-            >
-              <button
-                type="button"
-                aria-expanded={openMenu === 'documents'}
-                aria-haspopup="menu"
-                onClick={() => setOpenMenu(openMenu === 'documents' ? null : 'documents')}
-                className={`${linkClass(activeTab === 'user-instructions')} inline-flex items-center gap-1`}
-              >
-                {m.nav.documents}
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform ${openMenu === 'documents' ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {openMenu === 'documents' && (
-                <div
-                  role="menu"
-                  className="absolute left-0 top-full mt-1 min-w-[220px] rounded-lg border border-[#e2e8f0] bg-[#ffffff] py-1 shadow-lg"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    data-path="user-instructions"
-                    onClick={() => selectTab('user-instructions')}
-                    className={`block w-full text-left px-3 py-2 text-[13px] font-medium cursor-pointer ${
-                      activeTab === 'user-instructions'
-                        ? 'bg-[#007bb9] text-[#ffffff]'
-                        : 'text-[#3f4850] hover:bg-[#eff4ff] hover:text-[#0b1c30]'
-                    }`}
-                  >
-                    {m.nav.userInstructions}
-                  </button>
-                </div>
-              )}
-            </div>
+              <Stethoscope className="w-3.5 h-3.5" aria-hidden="true" />
+              {m.nav.specialists}
+            </a>
           </nav>
 
         {/* Right Status Controls */}
@@ -309,7 +293,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <button
               type="button"
-              onClick={onOpenSeedPhrase}
+              onClick={openAccountChip}
               onFocus={() => openMenuNow('account-id')}
               onBlur={(event) => {
                 const nextTarget = event.relatedTarget;
@@ -322,7 +306,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
               aria-expanded={openMenu === 'account-id'}
               aria-describedby={openMenu === 'account-id' ? 'account-public-id' : undefined}
-              title={isAuthenticated ? m.nav.accountRecovery : m.nav.signInOrCreate}
+              title={isAuthenticated ? m.nav.cabinet : m.nav.signInOrCreate}
               className="flex items-center gap-2 bg-[#eff4ff] hover:bg-[#e5eeff] px-2.5 py-1.5 rounded border border-[#dce9ff] transition-colors cursor-pointer"
             >
               <span className="w-2 h-2 rounded-full bg-[#00855b] animate-pulse"></span>
@@ -344,7 +328,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 bg-[#eff4ff] text-[#3f4850] px-2.5 py-1.5 rounded font-['JetBrains_Mono'] text-[11px] border border-[#dce9ff]">
+          <div className="hidden 2xl:flex items-center gap-1.5 bg-[#eff4ff] text-[#3f4850] px-2.5 py-1.5 rounded font-['JetBrains_Mono'] text-[11px] border border-[#dce9ff]">
             <Shield className="w-3.5 h-3.5 text-[#006947]" />
             <span className="font-medium">{m.nav.noRawFiles}</span>
           </div>
@@ -354,7 +338,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenSeedPhrase}
             aria-label={m.nav.accountRecovery}
             title={m.nav.accountRecovery}
-            className="flex items-center gap-1 text-[#3f4850] hover:text-[#0b1c30] bg-[#eff4ff] hover:bg-[#e5eeff] p-2 rounded transition-colors border border-[#dce9ff] cursor-pointer"
+            className="hidden sm:flex items-center gap-1 text-[#3f4850] hover:text-[#0b1c30] bg-[#eff4ff] hover:bg-[#e5eeff] p-2 rounded transition-colors border border-[#dce9ff] cursor-pointer"
           >
             <KeyRound className="w-4 h-4 text-[#006194]" />
           </button>
@@ -390,51 +374,53 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex justify-end pb-2">
               <LanguageSwitcher />
             </div>
-            {navItems.map((item) => {
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`text-left px-3 py-2 rounded text-[14px] font-medium ${
-                    isActive
-                      ? 'bg-[#007bb9] text-[#ffffff]'
-                      : 'text-[#3f4850] hover:bg-[#eff4ff]'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-            <a
-              href="/lab"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-left px-3 py-2 rounded text-[14px] font-medium text-[#3f4850] hover:bg-[#eff4ff]"
-            >
-              {m.nav.laboratoryPortal}
-            </a>
+            {mobileSections.map((section, index) => (
+              <div key={section.heading ?? `section-${index}`} className="flex flex-col gap-1">
+                {section.heading && (
+                  <span className="px-3 pt-2 text-[12px] font-semibold uppercase tracking-wider text-[#565e74]">
+                    {section.heading}
+                  </span>
+                )}
+                {section.items.map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`text-left px-3 py-2.5 rounded text-[15px] font-medium ${
+                        isActive ? 'bg-[#007bb9] text-[#ffffff]' : 'text-[#3f4850] hover:bg-[#eff4ff]'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
             <button
               type="button"
               onClick={() => {
-                setActiveTab('user-instructions');
+                setActiveTab('specialists');
                 setMobileMenuOpen(false);
               }}
-              className={`text-left px-3 py-2 rounded text-[14px] font-medium ${
-                activeTab === 'user-instructions'
-                  ? 'bg-[#007bb9] text-[#ffffff]'
-                  : 'text-[#3f4850] hover:bg-[#eff4ff]'
+              className={`mt-2 inline-flex items-center gap-2 rounded border px-3 py-2.5 text-left text-[15px] font-semibold ${
+                activeTab === 'specialists'
+                  ? 'border-[#004b73] bg-[#004b73] text-[#ffffff]'
+                  : 'border-[#006194] text-[#004b73] hover:bg-[#e5eeff]'
               }`}
             >
-              {m.nav.userInstructions}
+              <Stethoscope className="w-4 h-4" aria-hidden="true" />
+              {m.nav.specialists}
             </button>
             <button
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                onOpenSeedPhrase();
+                openAccountChip();
               }}
               title={isAuthenticated ? m.nav.accountRecovery : m.nav.signInOrCreate}
               className="mt-2 border-t border-[#e2e8f0] flex w-full items-center justify-between px-3 py-2.5 text-left text-xs text-[#565e74] hover:bg-[#eff4ff] rounded cursor-pointer"

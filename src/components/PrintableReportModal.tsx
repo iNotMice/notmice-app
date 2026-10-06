@@ -31,14 +31,14 @@ export const PrintableReportModal: React.FC<PrintableReportModalProps> = ({
   const unscoredCount = history.length - scored.length;
 
   const handleDownloadPDF = () => {
-    generateHistoricalReportPDF(history);
+    void generateHistoricalReportPDF(history);
   };
 
   const handlePrint = () => {
     window.print();
   };
 
-  const formattedPrintDate = new Date().toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-US', {
+  const formattedPrintDate = new Date().toLocaleDateString(locale === 'de' ? 'de-DE' : locale === 'ru' ? 'ru-RU' : locale === 'fr' ? 'fr-FR' : 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

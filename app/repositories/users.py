@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,6 +19,7 @@ from app.domain.accounts import (
     EmailLogin,
     ExportedMarker,
     ExportedProtocolEntry,
+    OwnCredential,
     UserRecord,
 )
 from app.domain.survey import (
@@ -434,6 +435,56 @@ class UserRepository:
         """
         await self._session.execute(delete(LoginSession).where(LoginSession.user_id == user_id))
         await self._session.flush()
+
+    async def credential_for_user(self, user_id: UUID) -> OwnCredential | None:
+        """Return the owner's address and password hash, or None for a phrase account.
+
+        Args:
+            user_id: Signed-in participant.
+        """
+        result = await self._session.execute(
+            select(Credential).where(Credential.user_id == user_id)
+        )
+        credential = result.scalar_one_or_none()
+        if credential is None:
+            return None
+        return OwnCredential(email=credential.email, password_hash=credential.password_hash)
+
+    async def count_live_sessions(self, user_id: UUID, now: datetime) -> int:
+        """Count sessions that have not expired.
+
+        Args:
+            user_id: Signed-in participant.
+            now: Current time. The caller owns the clock.
+        """
+        result = await self._session.execute(
+            select(func.count())
+            .select_from(LoginSession)
+            .where(LoginSession.user_id == user_id, LoginSession.expires_at > now)
+        )
+        return int(result.scalar_one())
+
+    async def revoke_other_sessions(self, user_id: UUID, keep_token_sha256: str) -> int:
+        """Delete every session of the participant except ``keep_token_sha256``.
+
+        Args:
+            user_id: Signed-in participant.
+            keep_token_sha256: Digest of the cookie that made the request.
+
+        Returns:
+            Number of deleted sessions.
+        """
+        result = await self._session.execute(
+            delete(LoginSession)
+            .where(
+                LoginSession.user_id == user_id,
+                LoginSession.token_sha256 != keep_token_sha256,
+            )
+            .returning(LoginSession.id)
+        )
+        removed = len(result.all())
+        await self._session.flush()
+        return removed
 
     async def delete_account(self, user_id: UUID) -> bool:
         """Delete the participant. Credentials, consents, lab rows, and journal rows cascade.

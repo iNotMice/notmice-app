@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import logo from '../assets/images/logo.jpg';
+import { BRAND_NAME } from '../config/site';
+import { fill } from '../i18n/fill';
 import { useI18n } from '../i18n/I18nProvider';
 
 const HOLD_MS = 1280;
@@ -66,7 +68,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDone }) => {
     <motion.button
       type="button"
       className="no-print fixed inset-0 z-[80] flex h-full w-full cursor-pointer items-center justify-center border-0 bg-[#f8f9ff] p-0 outline-none"
-      aria-label={m.shell.splashAria}
+      aria-label={fill(m.shell.splashAria, { brand: BRAND_NAME })}
       onClick={() => setLeaving(true)}
       initial={{ opacity: 1 }}
       animate={{ opacity: leaving ? 0 : 1 }}
@@ -111,7 +113,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDone }) => {
           transition={{ duration: reduceMotion ? 0 : 0.4, delay: reduceMotion ? 0 : 0.12, ease: 'easeOut' }}
         >
           <span className="font-['Inter'] text-[22px] font-bold tracking-tight text-[#0b1c30] md:text-[44px]">
-            NotMice
+            {BRAND_NAME}
           </span>
           <span className="font-['JetBrains_Mono'] text-[11px] tracking-wide text-[#565e74] md:text-[15px]">
             {m.shell.researchProtocol}
