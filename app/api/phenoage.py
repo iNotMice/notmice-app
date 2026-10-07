@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.api.dataset import enforce_public_rate_limit
 from app.domain.schemas import PhenoAgeRequest, PhenoAgeResponse
 from app.services.phenoage import (
     CanonicalBiomarkers,
@@ -15,7 +18,10 @@ router = APIRouter(prefix="/api/v1/phenoage", tags=["phenoage"])
 
 
 @router.post("", response_model=PhenoAgeResponse)
-def score_phenoage(body: PhenoAgeRequest) -> PhenoAgeResponse:
+def score_phenoage(
+    body: PhenoAgeRequest,
+    _: Annotated[None, Depends(enforce_public_rate_limit)],
+) -> PhenoAgeResponse:
     """Score nine biomarkers. Nothing is stored."""
     markers = body.markers
     try:
