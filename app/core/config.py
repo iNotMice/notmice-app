@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = 43_200
     vision_provider: str = "gemini"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-2.5-flash"
     gemini_daily_token_budget: int = 2_000_000
     gemini_user_daily_token_budget: int = 100_000
     gemini_ip_daily_token_budget: int = 150_000
