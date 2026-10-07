@@ -162,7 +162,13 @@ class GeminiNewsTranslator:
         except TimeoutError as exc:
             raise NewsTranslationError("translation timed out") from exc
         except Exception as exc:
-            logger.warning("news_translation_call_failed", error_type=type(exc).__name__)
+            # The message is a provider/config error (bad model id, auth, quota),
+            # not user data: feed text is public and the key is never echoed.
+            logger.warning(
+                "news_translation_call_failed",
+                error_type=type(exc).__name__,
+                detail=str(exc)[:300],
+            )
             raise NewsTranslationError("translation call failed") from exc
         tokens = usage_token_count(getattr(response, "usage_metadata", None))
         return TranslationBatch(items=_parse(response, cards, tokens), tokens=tokens)
