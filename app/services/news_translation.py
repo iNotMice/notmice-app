@@ -142,7 +142,13 @@ class GeminiNewsTranslator:
             [{"id": card.id, "title": card.title, "snippet": card.snippet} for card in cards],
             ensure_ascii=False,
         )
-        client = genai.Client(api_key=self._api_key)
+        # google-genai's built-in retry closes its httpx client between attempts
+        # ("Cannot send a request, as the client has been closed"); disable it and
+        # rely on this translator's own AsyncRetrying instead.
+        client = genai.Client(
+            api_key=self._api_key,
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
+        )
         config = types.GenerateContentConfig(
             temperature=0,
             system_instruction=_instruction(language),

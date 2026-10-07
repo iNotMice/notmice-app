@@ -277,7 +277,13 @@ class GeminiExtractionProvider:
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=self._api_key)
+        # google-genai's built-in retry closes its httpx client between attempts
+        # ("Cannot send a request, as the client has been closed"); disable it and
+        # rely on this provider's own AsyncRetrying instead.
+        client = genai.Client(
+            api_key=self._api_key,
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
+        )
         config = types.GenerateContentConfig(
             temperature=0,
             response_mime_type="application/json",
