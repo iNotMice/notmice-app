@@ -6,6 +6,7 @@ import { PrintableReportModal } from '../PrintableReportModal';
 import { listProtocolEntries, type ProtocolEntry } from '../../api/protocol';
 import { isBiomarkerId } from '../../i18n/biomarkerIds';
 import { fill } from '../../i18n/fill';
+import { localizeApiError } from '../../i18n/apiErrors';
 import { useI18n } from '../../i18n/I18nProvider';
 import { summarizeLatestChange } from '../../utils/biomarkerChange';
 import {
@@ -101,7 +102,7 @@ export const BiomarkerHistoryTab: React.FC<BiomarkerHistoryTabProps> = ({
   const removeUpload = (id: string) => {
     setDeleteError(null);
     void Promise.resolve(onDeleteHistory(id)).catch((err: unknown) => {
-      setDeleteError(err instanceof Error ? err.message : copy.deleteFailed);
+      setDeleteError(localizeApiError(err, copy.deleteFailed));
     });
   };
 

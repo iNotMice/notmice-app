@@ -11,6 +11,8 @@ export const shell = {
   levineWeights: 'Levine 2018 coefficients',
   exampleBanner:
     'You are looking at a fictional example: Alexei, 45. Upload your own test to see your numbers.',
+  sampleBanner:
+    'You are looking at a fictional sample. Upload your own test to see your numbers.',
   exampleBannerAction: 'Upload a test',
   footerBrand: '{brand}',
   footerNonDiagnostic:
@@ -35,4 +37,30 @@ export const shell = {
   unknownLaboratory: 'Unknown laboratory',
   years: 'years',
   yrs: 'yrs',
+  apiErrors: {
+    invalidCredentials: 'Wrong email or password, or the address is not confirmed yet.',
+    linkExpired:
+      'This link has expired or was already used. Sign in with your email and password, or request a new link.',
+    rateLimited: 'Too many attempts. Wait 15 minutes and try again.',
+    invalidEmail: 'Check the email address.',
+    consentMissing: 'The health-data consent is required.',
+    consentOutdated: 'The consent text has been updated. Reload the page and confirm again.',
+    invalidPhrase: 'The recovery phrase is not correct.',
+    notSignedIn: 'Your session has ended. Sign in again.',
+    healthConsentRequired:
+      'To upload tests, turn on the health-data consent in Account → Data and consents.',
+    labConfirmRequired: 'Confirm the laboratory email address first.',
+    dataAccessClosed: 'Data access is not open for this organization yet.',
+    unsupportedFile: 'This file type is not supported. Use PDF, PNG, JPG or TIFF.',
+    fileTooLarge: 'The file is larger than 15 MB.',
+    emptyFile: 'The file is empty.',
+    unreadableImage: 'The image could not be read. Use a sharper photo or a PDF.',
+    noMarkers: 'No numeric results were found in this file.',
+    sessionExpired: 'The upload session has expired. Upload the file again.',
+    recognitionUnavailable: 'Reading lab reports is temporarily unavailable. Please try again later.',
+    recognitionTimeout:
+      'Reading the report took too long. Try again, or crop the photo to the results table.',
+    recognitionFailed: 'The report could not be read. Try again or upload a clearer file.',
+    serverUnavailable: 'The server is not responding. Please try again in a few minutes.',
+  },
 };

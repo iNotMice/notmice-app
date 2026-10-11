@@ -6,6 +6,7 @@ import { TokenUsageBanner } from '../TokenUsageBanner';
 import { isBiomarkerId } from '../../i18n/biomarkerIds';
 import { fill } from '../../i18n/fill';
 import { getActiveI18n } from '../../i18n/catalog';
+import { localizeApiError } from '../../i18n/apiErrors';
 import { useI18n } from '../../i18n/I18nProvider';
 import {
   CheckSquare,
@@ -158,7 +159,7 @@ export const ReviewExtractionTab: React.FC<ReviewExtractionTabProps> = ({
           const shell = getActiveI18n().messages.shell;
           const rejected = err instanceof Error && err.message === 'Forbidden field';
           setConfirmError(
-            rejected ? shell.confirmRejected : err instanceof Error ? err.message : shell.confirmFailed,
+            rejected ? shell.confirmRejected : localizeApiError(err, shell.confirmFailed),
           );
           setConfirmBusy(false);
           return;
