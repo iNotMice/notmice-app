@@ -129,6 +129,17 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, [openMenu]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileMenuOpen]);
+
   const linkClass = (isActive: boolean) =>
     `font-['Inter'] text-[13px] font-medium px-2.5 2xl:px-3 py-1.5 rounded transition-all cursor-pointer whitespace-nowrap ${
       isActive
@@ -143,8 +154,8 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-[#ffffff]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-[#e2e8f0]">
-      <div className="relative w-full max-w-[1440px] mx-auto px-4 lg:px-6 h-20 flex items-center justify-between gap-4 xl:gap-6 min-w-0">
+    <header className="fixed top-0 left-0 w-full z-50 flex max-h-dvh flex-col bg-[#ffffff]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-[#e2e8f0]">
+      <div className="relative w-full max-w-[1440px] mx-auto px-4 lg:px-6 h-20 shrink-0 flex items-center justify-between gap-4 xl:gap-6 min-w-0">
         <div className="flex items-center shrink-0">
           <button
             onClick={() => setActiveTab('overview-landing')}
@@ -369,7 +380,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="xl:hidden bg-[#ffffff] border-b border-[#e2e8f0] px-4 py-3 shadow-lg">
+        <div className="xl:hidden min-h-0 max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain bg-[#ffffff] border-b border-[#e2e8f0] px-4 py-3 shadow-lg">
           <div className="flex flex-col gap-1">
             <div className="flex justify-end pb-2">
               <LanguageSwitcher />
