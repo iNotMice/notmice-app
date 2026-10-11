@@ -130,6 +130,7 @@ function MainApp() {
   // Modals state
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
   const [isSeedPhraseModalOpen, setIsSeedPhraseModalOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(() => !splashAlreadySeen());
 
@@ -570,6 +571,7 @@ function MainApp() {
             navigate={navigate}
             onOpenAccount={() => {
               setAuthError(null);
+              setAuthInitialMode('register');
               setIsSeedPhraseModalOpen(true);
             }}
             isAuthenticated={account !== null}
@@ -736,9 +738,11 @@ function MainApp() {
       {/* Seed Phrase Vault Modal */}
       <SeedPhraseModal
         isOpen={isSeedPhraseModalOpen}
+        initialMode={authInitialMode}
         onClose={() => {
           if (revealedMnemonic && revealedMnemonic.length === 12) return;
           setIsSeedPhraseModalOpen(false);
+          setAuthInitialMode('login');
         }}
         publicId={account?.publicId ?? null}
         revealedMnemonic={revealedMnemonic}

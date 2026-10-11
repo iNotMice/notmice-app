@@ -2,6 +2,8 @@ export const modals = {
   accountTitle: 'Аккаунт под псевдонимом',
   accountId: 'ID: {id}',
   accountPrompt: 'Вход по электронной почте',
+  accountPromptCreate: 'Создать аккаунт',
+  accountPromptReset: 'Сброс пароля',
   saveBeforeClose: 'Сохраните фразу восстановления, прежде чем закрыть окно',
   close: 'Закрыть',
   shownOnce: 'Показывается один раз',

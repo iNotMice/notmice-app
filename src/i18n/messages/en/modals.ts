@@ -2,6 +2,8 @@ export const modals = {
   accountTitle: 'Pseudonymous Account',
   accountId: 'ID: {id}',
   accountPrompt: 'Sign in with email',
+  accountPromptCreate: 'Create an account',
+  accountPromptReset: 'Reset your password',
   saveBeforeClose: 'Save the recovery phrase before closing',
   close: 'Close',
   shownOnce: 'Shown once',

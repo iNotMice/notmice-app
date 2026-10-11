@@ -6,6 +6,7 @@ import { useI18n } from '../i18n/I18nProvider';
 interface SeedPhraseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'login' | 'register';
   publicId: string | null;
   revealedMnemonic: string[] | null;
   isAuthenticated: boolean;
@@ -27,6 +28,7 @@ interface SeedPhraseModalProps {
 export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   isOpen,
   onClose,
+  initialMode = 'login',
   publicId,
   revealedMnemonic,
   isAuthenticated,
@@ -50,7 +52,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   const [phraseCaptured, setPhraseCaptured] = useState(false);
   const [savedChecked, setSavedChecked] = useState(false);
   const [restorePhrase, setRestorePhrase] = useState('');
-  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>(initialMode);
   const [showPhrase, setShowPhrase] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,8 +68,23 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
     setCopied(false);
   }, [revealedMnemonic]);
 
+  // Open in the mode the caller asked for, so the "Create an account" CTA lands
+  // on the registration form instead of the sign-in form.
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setFormError(null);
+    }
+  }, [isOpen, initialMode]);
+
   const showingReveal = Boolean(revealedMnemonic && revealedMnemonic.length === 12);
   const canContinue = savedChecked && phraseCaptured;
+  const guestPrompt =
+    resetToken || mode === 'reset'
+      ? copy.accountPromptReset
+      : mode === 'register'
+        ? copy.accountPromptCreate
+        : copy.accountPrompt;
 
   const requestClose = () => {
     if (showingReveal) return;
@@ -151,8 +168,8 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
         if (event.target === event.currentTarget) requestClose();
       }}
     >
-      <div className="bg-[#ffffff] rounded-xl border border-[#cbd5e1] shadow-2xl max-w-xl w-full overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between bg-[#eff4ff]">
+      <div className="bg-[#ffffff] rounded-xl border border-[#cbd5e1] shadow-2xl max-w-xl w-full max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col">
+        <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between bg-[#eff4ff] shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded bg-[#cce5ff] flex items-center justify-center text-[#006194]">
               <KeyRound className="w-5 h-5 text-[#006194]" />
@@ -162,7 +179,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                 {copy.accountTitle}
               </h3>
               <p className="font-['JetBrains_Mono'] text-xs text-[#565e74]">
-                {publicId ? fill(copy.accountId, { id: publicId }) : copy.accountPrompt}
+                {publicId ? fill(copy.accountId, { id: publicId }) : guestPrompt}
               </p>
             </div>
           </div>
@@ -177,7 +194,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-0">
           {error && (
             <div className="bg-[#fff1f2] border border-[#fecdd3] p-3 rounded text-xs text-[#ba1a1a]">
               {error}
@@ -493,7 +510,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
           )}
         </div>
 
-        <div className="px-6 py-3.5 border-t border-[#e2e8f0] bg-[#f8f9ff] flex justify-between">
+        <div className="px-6 py-3.5 border-t border-[#e2e8f0] bg-[#f8f9ff] flex justify-between shrink-0">
           {isAuthenticated && !showingReveal ? (
             <button
               onClick={handleLogout}
