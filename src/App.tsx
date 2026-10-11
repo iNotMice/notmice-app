@@ -130,6 +130,7 @@ function MainApp() {
   // Modals state
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
   const [isSeedPhraseModalOpen, setIsSeedPhraseModalOpen] = useState(false);
+  const [authStartMode, setAuthStartMode] = useState<'login' | 'register'>('login');
   const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(() => !splashAlreadySeen());
 
@@ -475,6 +476,7 @@ function MainApp() {
     markSplashSeen();
     window.history.replaceState({}, '', window.location.pathname);
     setAuthNotice(null);
+    setAuthStartMode('login');
     setIsSeedPhraseModalOpen(true);
     if (reset) {
       setResetToken(reset);
@@ -510,7 +512,7 @@ function MainApp() {
 
   const handleTogglePublic = async (isPublic: boolean, consentVersion: string) => {
     if (!account) {
-      setIsSeedPhraseModalOpen(true);
+      openAuth('login');
       return;
     }
     const previous = account.isPublic;
@@ -522,6 +524,12 @@ function MainApp() {
       setAccount({ ...account, isPublic: previous });
       throw new Error('Public sharing settings could not be updated');
     }
+  };
+
+  const openAuth = (mode: 'login' | 'register') => {
+    setAuthError(null);
+    setAuthStartMode(mode);
+    setIsSeedPhraseModalOpen(true);
   };
 
   const dismissSplash = () => {
@@ -537,10 +545,7 @@ function MainApp() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenTerminal={() => setIsTerminalModalOpen(true)}
-        onOpenSeedPhrase={() => {
-          setAuthError(null);
-          setIsSeedPhraseModalOpen(true);
-        }}
+        onOpenSeedPhrase={() => openAuth('login')}
         accountAddress={publicIdLabel}
         isAuthenticated={account !== null}
       />
@@ -568,10 +573,7 @@ function MainApp() {
         {activeTab === 'overview-landing' && (
           <HomeTab
             navigate={navigate}
-            onOpenAccount={() => {
-              setAuthError(null);
-              setIsSeedPhraseModalOpen(true);
-            }}
+            onOpenAccount={() => openAuth('register')}
             isAuthenticated={account !== null}
           />
         )}
@@ -587,10 +589,7 @@ function MainApp() {
             setActiveTab={setActiveTab}
             accountAddress={publicIdLabel}
             isAuthenticated={account !== null}
-            onRequestAuth={() => {
-              setAuthError(null);
-              setIsSeedPhraseModalOpen(true);
-            }}
+            onRequestAuth={() => openAuth('login')}
           />
         )}
 
@@ -626,10 +625,7 @@ function MainApp() {
             navigate={setActiveTab}
             isAuthenticated={account !== null}
             publicId={account?.publicId ?? null}
-            onOpenAccount={() => {
-              setAuthError(null);
-              setIsSeedPhraseModalOpen(true);
-            }}
+            onOpenAccount={(mode) => openAuth(mode)}
           >
             {activeTab === 'cabinet' && <CabinetOverview navigate={setActiveTab} />}
 
@@ -675,10 +671,7 @@ function MainApp() {
             {activeTab === 'protocol-journal' && (
               <ProtocolJournalTab
                 isAuthenticated={account !== null}
-                onRequestAuth={() => {
-                  setAuthError(null);
-                  setIsSeedPhraseModalOpen(true);
-                }}
+                onRequestAuth={() => openAuth('login')}
               />
             )}
 
@@ -694,10 +687,7 @@ function MainApp() {
                   setRevealedMnemonic(null);
                 }}
                 onPurgeMemory={handlePurgeMemory}
-                onOpenSeedPhrase={() => {
-                  setAuthError(null);
-                  setIsSeedPhraseModalOpen(true);
-                }}
+                onOpenSeedPhrase={() => openAuth('login')}
                 setActiveTab={setActiveTab}
                 onOpenCharter={() => navigate('specialists', 'data')}
               />
@@ -748,6 +738,7 @@ function MainApp() {
         notice={authNotice}
         resetToken={resetToken}
         confirmToken={confirmToken}
+        startMode={authStartMode}
         onConfirmEmail={() => {
           void handleConfirmEmail();
         }}

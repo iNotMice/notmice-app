@@ -14,7 +14,7 @@ interface CabinetLayoutProps {
   navigate: (tab: TabType) => void;
   isAuthenticated: boolean;
   publicId: string | null;
-  onOpenAccount: () => void;
+  onOpenAccount: (mode: 'login' | 'register') => void;
   children: React.ReactNode;
 }
 
@@ -88,7 +88,7 @@ export const CabinetLayout: React.FC<CabinetLayoutProps> = ({
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
-              onClick={onOpenAccount}
+              onClick={() => onOpenAccount('login')}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-[#006194] px-5 py-2.5 text-base font-semibold text-[#ffffff] hover:bg-[#004b73] cursor-pointer"
             >
               <LogIn className="w-5 h-5" aria-hidden="true" />
@@ -96,7 +96,7 @@ export const CabinetLayout: React.FC<CabinetLayoutProps> = ({
             </button>
             <button
               type="button"
-              onClick={onOpenAccount}
+              onClick={() => onOpenAccount('register')}
               className="rounded-md border border-[#cbd5e1] px-5 py-2.5 text-base font-semibold text-[#0b1c30] hover:bg-[#eff4ff] cursor-pointer"
             >
               {copy.gate.create}

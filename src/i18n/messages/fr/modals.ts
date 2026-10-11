@@ -36,6 +36,10 @@ export const modals = {
   registerAction: 'Créer un compte',
   haveAccount: 'J’ai déjà un compte',
   needAccount: 'Créer un compte',
+  registerPrompt: 'Créer un compte',
+  registerLead: 'E-mail, mot de passe et consentement',
+  registerLeadBody:
+    'Indiquez une adresse e-mail et un mot de passe d’au moins 12 caractères. Le consentement aux données de santé est obligatoire. Un lien de confirmation est envoyé par e-mail.',
   confirmAction: 'Confirmer l’e-mail',
   checkEmailTitle: 'Consultez votre messagerie',
   checkEmailBody:

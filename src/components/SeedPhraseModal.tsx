@@ -14,6 +14,8 @@ interface SeedPhraseModalProps {
   notice: 'check-email' | 'reset-sent' | null;
   resetToken: string | null;
   confirmToken: string | null;
+  /** Which form to show when the dialog opens. */
+  startMode: 'login' | 'register';
   onConfirmEmail: () => void;
   onRegister: (email: string, password: string, researchReuse: boolean, participantProfile: boolean) => void;
   onEmailLogin: (email: string, password: string) => void;
@@ -35,6 +37,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   notice,
   resetToken,
   confirmToken,
+  startMode,
   onConfirmEmail,
   onRegister,
   onEmailLogin,
@@ -65,6 +68,18 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
     setSavedChecked(false);
     setCopied(false);
   }, [revealedMnemonic]);
+
+  const [seenOpen, setSeenOpen] = useState(false);
+  const [seenStart, setSeenStart] = useState(startMode);
+  if (isOpen && (!seenOpen || seenStart !== startMode)) {
+    setSeenOpen(true);
+    setSeenStart(startMode);
+    setMode(startMode);
+    setFormError(null);
+    setShowPhrase(false);
+  } else if (!isOpen && seenOpen) {
+    setSeenOpen(false);
+  }
 
   const showingReveal = Boolean(revealedMnemonic && revealedMnemonic.length === 12);
   const canContinue = savedChecked && phraseCaptured;
@@ -151,8 +166,8 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
         if (event.target === event.currentTarget) requestClose();
       }}
     >
-      <div className="bg-[#ffffff] rounded-xl border border-[#cbd5e1] shadow-2xl max-w-xl w-full overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between bg-[#eff4ff]">
+      <div className="bg-[#ffffff] rounded-xl border border-[#cbd5e1] shadow-2xl max-w-xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto flex flex-col">
+        <div className="sticky top-0 z-10 shrink-0 px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between bg-[#eff4ff]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded bg-[#cce5ff] flex items-center justify-center text-[#006194]">
               <KeyRound className="w-5 h-5 text-[#006194]" />
@@ -162,7 +177,11 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                 {copy.accountTitle}
               </h3>
               <p className="font-['JetBrains_Mono'] text-xs text-[#565e74]">
-                {publicId ? fill(copy.accountId, { id: publicId }) : copy.accountPrompt}
+                {publicId
+                  ? fill(copy.accountId, { id: publicId })
+                  : mode === 'register' && !resetToken && !confirmToken
+                    ? copy.registerPrompt
+                    : copy.accountPrompt}
               </p>
             </div>
           </div>
@@ -277,7 +296,9 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                         ? copy.resetTitle
                         : resetToken
                           ? copy.resetTitle
-                          : copy.noEmail}
+                          : mode === 'register'
+                            ? copy.registerLead
+                            : copy.noEmail}
                   </span>
                   {notice === 'check-email' || confirmToken
                     ? copy.checkEmailBody
@@ -285,7 +306,9 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                       ? copy.resetSent
                       : resetToken
                         ? copy.passwordHint
-                        : copy.noEmailBody}
+                        : mode === 'register'
+                          ? copy.registerLeadBody
+                          : copy.noEmailBody}
                 </div>
               </div>
 
@@ -493,7 +516,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
           )}
         </div>
 
-        <div className="px-6 py-3.5 border-t border-[#e2e8f0] bg-[#f8f9ff] flex justify-between">
+        <div className="shrink-0 px-6 py-3.5 border-t border-[#e2e8f0] bg-[#f8f9ff] flex justify-between">
           {isAuthenticated && !showingReveal ? (
             <button
               onClick={handleLogout}

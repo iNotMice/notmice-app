@@ -37,6 +37,10 @@ export const modals = {
   registerAction: 'Konto anlegen',
   haveAccount: 'Ich habe bereits ein Konto',
   needAccount: 'Konto anlegen',
+  registerPrompt: 'Konto anlegen',
+  registerLead: 'E-Mail, Passwort und Einwilligung',
+  registerLeadBody:
+    'Geben Sie eine E-Mail-Adresse und ein Passwort mit mindestens 12 Zeichen ein. Die Einwilligung zu Gesundheitsdaten ist erforderlich. Ein Bestätigungslink kommt per E-Mail.',
   confirmAction: 'E-Mail bestätigen',
   checkEmailTitle: 'Prüfen Sie Ihre E-Mail',
   checkEmailBody:

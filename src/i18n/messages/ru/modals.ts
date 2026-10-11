@@ -36,6 +36,10 @@ export const modals = {
   registerAction: 'Создать аккаунт',
   haveAccount: 'У меня уже есть аккаунт',
   needAccount: 'Создать аккаунт',
+  registerPrompt: 'Создание аккаунта',
+  registerLead: 'Почта, пароль и согласие',
+  registerLeadBody:
+    'Укажите почту и пароль не короче 12 символов. Согласие на обработку данных о здоровье обязательно. Ссылка для подтверждения придет на почту.',
   confirmAction: 'Подтвердить почту',
   checkEmailTitle: 'Проверьте почту',
   checkEmailBody:
