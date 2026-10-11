@@ -81,6 +81,35 @@ def _lab_view(user: LabUserRecord) -> LabAccountView:
     )
 
 
+# Served as a same-origin file, not inline: the production proxy adds its own
+# ``script-src 'self'`` policy to every response, and browsers enforce both
+# policies, so an inline script on the confirmation page would never run.
+_CONFIRMATION_SCRIPT = """history.replaceState(null, "", location.pathname);
+const button = document.getElementById("confirm");
+button.addEventListener("click", async () => {
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/v1/lab/confirm", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: button.dataset.token })
+    });
+    if (response.ok) {
+      location.assign("/lab?confirmed=1");
+      return;
+    }
+    document.getElementById("message").textContent =
+      "This confirmation link is invalid, expired, or already used.";
+    button.remove();
+  } catch {
+    button.disabled = false;
+    document.getElementById("message").textContent = "Server unavailable. Try confirmation again.";
+  }
+});
+"""
+
+
 def _confirmation_page(token: str) -> HTMLResponse:
     """Render a same-origin button page; mail scanners cannot consume the token."""
     escaped_token = escape(token, quote=True)
@@ -93,31 +122,7 @@ def _confirmation_page(token: str) -> HTMLResponse:
 <h1>Confirm laboratory email</h1>
 <p id="message">Select the button to confirm this address. The link is single-use.</p>
 <button id="confirm" type="button" data-token="{escaped_token}">Confirm email</button>
-<script>
-history.replaceState(null, "", location.pathname);
-const button = document.getElementById("confirm");
-button.addEventListener("click", async () => {{
-  button.disabled = true;
-  try {{
-    const response = await fetch(location.pathname, {{
-      method: "POST",
-      credentials: "same-origin",
-      headers: {{ "Content-Type": "application/json" }},
-      body: JSON.stringify({{ token: button.dataset.token }})
-    }});
-    if (response.ok) {{
-      location.assign("/lab?confirmed=1");
-      return;
-    }}
-    document.getElementById("message").textContent =
-      "This confirmation link is invalid, expired, or already used.";
-    button.remove();
-  }} catch {{
-    button.disabled = false;
-    document.getElementById("message").textContent = "Server unavailable. Try confirmation again.";
-  }}
-}});
-</script>
+<script src="/api/v1/lab/confirm.js" defer></script>
 </body>
 </html>"""
     return HTMLResponse(
@@ -126,7 +131,7 @@ button.addEventListener("click", async () => {{
             "Cache-Control": "no-store",
             "Referrer-Policy": "no-referrer",
             "Content-Security-Policy": (
-                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+                "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; "
                 "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
             ),
         },
@@ -228,6 +233,16 @@ async def lab_confirmation_page(
 ) -> HTMLResponse:
     """Present explicit confirmation without consuming tokens on email-link prefetch."""
     return _confirmation_page(token)
+
+
+@router.get("/confirm.js", include_in_schema=False)
+async def lab_confirmation_script() -> Response:
+    """Serve the confirmation button script so a strict ``script-src 'self'`` allows it."""
+    return Response(
+        content=_CONFIRMATION_SCRIPT,
+        media_type="text/javascript",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @router.post(
