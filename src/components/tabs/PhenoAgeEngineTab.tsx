@@ -92,29 +92,29 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
         </div>
 
         {/* Global actions */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex w-full min-w-0 items-stretch gap-1.5 sm:gap-3 md:w-auto">
           <button
             onClick={handleResetToBaseline}
-            className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-semibold text-[#3f4850] hover:bg-[#eff4ff] border border-[#cbd5e1] transition-colors cursor-pointer"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded border border-[#cbd5e1] px-2 py-1.5 text-center text-[11px] font-semibold leading-tight text-[#3f4850] transition-colors hover:bg-[#eff4ff] cursor-pointer sm:gap-1.5 sm:px-3 sm:py-2 sm:text-xs md:flex-none"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
             <span>{copy.reset}</span>
           </button>
 
           <button
             onClick={handleSave}
             disabled={!calculation.isValid}
-            className="flex items-center gap-2 px-4 py-2 rounded font-['Inter'] text-xs font-bold bg-[#006947] hover:bg-[#00855b] text-[#ffffff] shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded bg-[#006947] px-2 py-1.5 text-center font-['Inter'] text-[11px] font-bold leading-tight text-[#ffffff] shadow-sm transition-all hover:bg-[#00855b] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed sm:gap-1.5 sm:px-4 sm:py-2 sm:text-xs md:flex-none"
           >
-            <Save className="w-4 h-4" />
+            <Save className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
             <span>{savedNotification ? copy.saved : copy.save}</span>
           </button>
 
           <button
             onClick={onOpenProofModal}
-            className="flex items-center gap-2 px-4 py-2 rounded font-['Inter'] text-xs font-bold bg-[#006194] hover:bg-[#007bb9] text-[#ffffff] shadow-sm transition-all cursor-pointer"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded bg-[#006194] px-2 py-1.5 text-center font-['Inter'] text-[11px] font-bold leading-tight text-[#ffffff] shadow-sm transition-all hover:bg-[#007bb9] cursor-pointer sm:gap-1.5 sm:px-4 sm:py-2 sm:text-xs md:flex-none"
           >
-            <ShieldCheck className="w-4 h-4" />
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
             <span>{copy.indexDetails}</span>
           </button>
         </div>
