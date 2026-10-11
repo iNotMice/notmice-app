@@ -30,11 +30,17 @@ def _view(entry: ProtocolEntry) -> ProtocolEntryView:
     )
 
 
+# Fixed domain messages the screen turns into a specific hint. Anything else stays generic.
+_PUBLIC_VALIDATION_DETAILS = frozenset({"Forbidden field"})
+
+
 def _http_for(exc: ProtocolValidationError | ProtocolEntryNotFoundError) -> HTTPException:
     """Map a journal error to HTTP. A foreign id uses the same 404 as a missing one."""
     if isinstance(exc, ProtocolEntryNotFoundError):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found")
-    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid journal entry")
+    message = str(exc)
+    detail = message if message in _PUBLIC_VALIDATION_DETAILS else "Invalid journal entry"
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 @router.get("", response_model=ProtocolListResponse)

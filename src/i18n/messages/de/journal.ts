@@ -30,7 +30,8 @@ export const journal = {
   ongoing: 'Kein Enddatum',
   loading: 'Einträge werden geladen…',
   errorGeneric: 'Der Eintrag konnte nicht gespeichert werden.',
-  errorForbidden: 'Dieser Text kann nicht gespeichert werden.',
+  errorForbidden:
+    'Dieser Text kann nicht gespeichert werden. Entfernen Sie Namen, E-Mail-Adressen, Telefonnummern und andere persönliche Angaben.',
   errorEndBeforeStart: 'Das Enddatum liegt vor dem Beginn.',
   deleteConfirm: 'Diesen Eintrag löschen?',
   listTitle: 'Einträge',
