@@ -68,7 +68,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
     <div className="w-full max-w-[1440px] mx-auto px-4 lg:px-8 py-8 flex flex-col gap-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#e2e8f0] pb-6">
-        <div>
+        <div className="min-w-0 md:flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="bg-[#cce5ff] text-[#004b73] font-['JetBrains_Mono'] text-xs font-semibold px-2 py-0.5 rounded">
               {copy.stage}
@@ -92,30 +92,32 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
         </div>
 
         {/* Global actions */}
-        <div className="flex w-full min-w-0 items-stretch gap-1.5 sm:gap-3 md:w-auto">
+        <div className="flex w-full min-w-0 max-w-full flex-col gap-2 md:w-auto md:max-w-full md:shrink-0 md:flex-row md:items-center md:gap-3">
           <button
             onClick={handleResetToBaseline}
-            className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded border border-[#cbd5e1] px-2 py-1.5 text-center text-[11px] font-semibold leading-tight text-[#3f4850] transition-colors hover:bg-[#eff4ff] cursor-pointer sm:gap-1.5 sm:px-3 sm:py-2 sm:text-xs md:flex-none"
+            className="flex w-full min-w-0 items-center justify-center gap-2 rounded border border-[#cbd5e1] px-3 py-2.5 text-center text-sm font-semibold leading-tight text-[#3f4850] transition-colors hover:bg-[#eff4ff] cursor-pointer md:w-auto md:flex-none md:gap-1.5 md:px-3 md:py-2 md:text-xs"
           >
-            <RotateCcw className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-            <span>{copy.reset}</span>
+            <RotateCcw className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 whitespace-normal">{copy.reset}</span>
           </button>
 
           <button
             onClick={handleSave}
             disabled={!calculation.isValid}
-            className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded bg-[#006947] px-2 py-1.5 text-center font-['Inter'] text-[11px] font-bold leading-tight text-[#ffffff] shadow-sm transition-all hover:bg-[#00855b] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed sm:gap-1.5 sm:px-4 sm:py-2 sm:text-xs md:flex-none"
+            className="flex w-full min-w-0 items-center justify-center gap-2 rounded bg-[#006947] px-3 py-2.5 text-center font-['Inter'] text-sm font-bold leading-tight text-[#ffffff] shadow-sm transition-all hover:bg-[#00855b] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed md:w-auto md:flex-none md:gap-1.5 md:px-4 md:py-2 md:text-xs"
           >
-            <Save className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-            <span>{savedNotification ? copy.saved : copy.save}</span>
+            <Save className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 whitespace-normal">
+              {savedNotification ? copy.saved : copy.save}
+            </span>
           </button>
 
           <button
             onClick={onOpenProofModal}
-            className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded bg-[#006194] px-2 py-1.5 text-center font-['Inter'] text-[11px] font-bold leading-tight text-[#ffffff] shadow-sm transition-all hover:bg-[#007bb9] cursor-pointer sm:gap-1.5 sm:px-4 sm:py-2 sm:text-xs md:flex-none"
+            className="flex w-full min-w-0 items-center justify-center gap-2 rounded bg-[#006194] px-3 py-2.5 text-center font-['Inter'] text-sm font-bold leading-tight text-[#ffffff] shadow-sm transition-all hover:bg-[#007bb9] cursor-pointer md:w-auto md:flex-none md:gap-1.5 md:px-4 md:py-2 md:text-xs"
           >
-            <ShieldCheck className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-            <span>{copy.indexDetails}</span>
+            <ShieldCheck className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 whitespace-normal">{copy.indexDetails}</span>
           </button>
         </div>
       </div>
