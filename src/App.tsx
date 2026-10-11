@@ -36,11 +36,12 @@ import { ResearchNewsTab } from './components/tabs/ResearchNewsTab';
 import { UserInstructionsTab } from './components/tabs/UserInstructionsTab';
 import { LabPortalPage } from './components/LabPortalPage';
 import { ProofModal } from './components/ProofModal';
-import { SeedPhraseModal } from './components/SeedPhraseModal';
+import { SeedPhraseModal, type AuthNotice } from './components/SeedPhraseModal';
 import { TerminalModal } from './components/TerminalModal';
 import { DataDisclaimer } from './components/DataDisclaimer';
 import { Footer } from './components/Footer';
 import { SplashScreen } from './components/SplashScreen';
+import { localizeApiError } from './i18n/apiErrors';
 import { getActiveI18n } from './i18n/catalog';
 import { useI18n } from './i18n/I18nProvider';
 import {
@@ -86,10 +87,12 @@ function panelFromHistory(record: HistoricalTestRecord): LabPanelData {
   };
 }
 
+const TUTORIAL_PANEL_ID = 'panel-tutorial';
+
 /** The one fictional example on the site (Alexei, 45). Shown until a real panel loads. */
 function tutorialPanel(): LabPanelData {
   return {
-    id: 'panel-tutorial',
+    id: TUTORIAL_PANEL_ID,
     labName: 'Fictional example: Alexei',
     testDate: '—',
     sourceType: 'demo',
@@ -117,10 +120,11 @@ function MainApp() {
   const [biomarkers, setBiomarkers] = useState<Record<string, number>>({ ...ALEXEI_START.biomarkers });
   const [history, setHistory] = useState<HistoricalTestRecord[]>([]);
   const [account, setAccount] = useState<AccountState | null>(null);
+  const [accountLoading, setAccountLoading] = useState(true);
   const [revealedMnemonic, setRevealedMnemonic] = useState<string[] | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authNotice, setAuthNotice] = useState<'check-email' | 'reset-sent' | null>(null);
+  const [authNotice, setAuthNotice] = useState<AuthNotice | null>(null);
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [confirmToken, setConfirmToken] = useState<string | null>(null);
   const [phenoAgeScore, setPhenoAgeScore] = useState<PhenoAgeScore | null>(null);
@@ -178,6 +182,10 @@ function MainApp() {
 
       } catch {
         // A failed restore leaves the visitor signed out.
+      } finally {
+        if (!cancelled) {
+          setAccountLoading(false);
+        }
       }
     })();
     return () => {
@@ -204,7 +212,9 @@ function MainApp() {
           if (controller.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
             return;
           }
-          setPhenoAgeError(err instanceof Error ? err.message : getActiveI18n().messages.shell.phenoAgeFailed);
+          // Drop the previous score so the screen never pairs it with the new inputs.
+          setPhenoAgeScore(null);
+          setPhenoAgeError(localizeApiError(err, getActiveI18n().messages.shell.phenoAgeFailed));
           setPhenoAgeLoading(false);
         });
     }, 200);
@@ -389,7 +399,7 @@ function MainApp() {
       setAccount(null);
       setAuthNotice('check-email');
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotCreateAccount);
+      setAuthError(localizeApiError(err, getActiveI18n().messages.shell.couldNotCreateAccount));
     } finally {
       setAuthBusy(false);
     }
@@ -401,7 +411,7 @@ function MainApp() {
     try {
       await applySession(await loginWithEmail(email, password));
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+      setAuthError(localizeApiError(err, getActiveI18n().messages.shell.couldNotSignIn));
     } finally {
       setAuthBusy(false);
     }
@@ -414,7 +424,7 @@ function MainApp() {
       await requestPasswordReset(email);
       setAuthNotice('reset-sent');
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+      setAuthError(localizeApiError(err, getActiveI18n().messages.shell.couldNotSignIn));
     } finally {
       setAuthBusy(false);
     }
@@ -430,7 +440,9 @@ function MainApp() {
       await applySession(await confirmEmail(confirmToken));
       setConfirmToken(null);
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+      // A spent or expired link cannot succeed on a retry. Show the sign-in form instead.
+      setConfirmToken(null);
+      setAuthError(localizeApiError(err, getActiveI18n().messages.shell.couldNotSignIn));
     } finally {
       setAuthBusy(false);
     }
@@ -445,9 +457,9 @@ function MainApp() {
     try {
       await confirmPasswordReset(resetToken, password);
       setResetToken(null);
-      setAuthNotice(null);
+      setAuthNotice('password-reset');
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+      setAuthError(localizeApiError(err, getActiveI18n().messages.shell.couldNotSignIn));
     } finally {
       setAuthBusy(false);
     }
@@ -459,7 +471,7 @@ function MainApp() {
     try {
       await applySession(await loginWithMnemonic(mnemonic));
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : getActiveI18n().messages.shell.couldNotSignIn);
+      setAuthError(localizeApiError(err, getActiveI18n().messages.shell.couldNotSignIn));
     } finally {
       setAuthBusy(false);
     }
@@ -528,6 +540,8 @@ function MainApp() {
 
   const openAuth = (mode: 'login' | 'register') => {
     setAuthError(null);
+    // A "check your email" screen from an earlier step would hide the form.
+    setAuthNotice(null);
     setAuthStartMode(mode);
     setIsSeedPhraseModalOpen(true);
   };
@@ -558,7 +572,9 @@ function MainApp() {
         {activeTab === 'phenoage-engine' && currentPanel.sourceType === 'demo' && (
           <div className="w-full border-b border-[#f5c97a] bg-[#fff6e0] px-4 lg:px-6 py-2.5" role="note">
             <p className="max-w-[1440px] mx-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px] text-[#5c3a00]">
-              <span>{m.shell.exampleBanner}</span>
+              <span>
+                {currentPanel.id === TUTORIAL_PANEL_ID ? m.shell.exampleBanner : m.shell.sampleBanner}
+              </span>
               <button
                 type="button"
                 onClick={() => setActiveTab('upload-lab')}
@@ -612,6 +628,10 @@ function MainApp() {
             onUpdateBiomarkers={setBiomarkers}
             chronologicalAge={chronologicalAge}
             onUpdateChronologicalAge={setChronologicalAge}
+            onResetToPanel={() => {
+              setBiomarkers({ ...currentPanel.biomarkers });
+              setChronologicalAge(currentPanel.chronologicalAge);
+            }}
             onSaveToHistory={handleSaveToHistory}
             setActiveTab={setActiveTab}
             onOpenProofModal={() => setIsProofModalOpen(true)}
@@ -624,6 +644,7 @@ function MainApp() {
             activeTab={activeTab}
             navigate={setActiveTab}
             isAuthenticated={account !== null}
+            accountLoading={accountLoading}
             publicId={account?.publicId ?? null}
             onOpenAccount={(mode) => openAuth(mode)}
           >
@@ -764,6 +785,7 @@ function MainApp() {
           setRevealedMnemonic(null);
           setIsSeedPhraseModalOpen(false);
         }}
+        onClearError={() => setAuthError(null)}
       />
 
       {import.meta.env.DEV && (

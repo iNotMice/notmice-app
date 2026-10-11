@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogIn, UserRound } from 'lucide-react';
+import { LoaderCircle, LogIn, UserRound } from 'lucide-react';
 import { TabType } from '../../types';
 import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -13,6 +13,8 @@ interface CabinetLayoutProps {
   activeTab: TabType;
   navigate: (tab: TabType) => void;
   isAuthenticated: boolean;
+  /** True until the saved session has been checked; the gate waits for it. */
+  accountLoading: boolean;
   publicId: string | null;
   onOpenAccount: (mode: 'login' | 'register') => void;
   children: React.ReactNode;
@@ -23,6 +25,7 @@ export const CabinetLayout: React.FC<CabinetLayoutProps> = ({
   activeTab,
   navigate,
   isAuthenticated,
+  accountLoading,
   publicId,
   onOpenAccount,
   children,
@@ -73,7 +76,12 @@ export const CabinetLayout: React.FC<CabinetLayoutProps> = ({
         </ul>
       </nav>
 
-      {gated ? (
+      {gated && accountLoading ? (
+        <p className="inline-flex items-center gap-2 text-base text-[#3f4850]" role="status">
+          <LoaderCircle className="w-5 h-5 animate-spin text-[#006194]" aria-hidden="true" />
+          {copy.overview.loading}
+        </p>
+      ) : gated ? (
         <section className="rounded-xl border border-[#cbd5e1] bg-[#ffffff] p-6 flex flex-col gap-4 max-w-2xl">
           <h2 className="text-xl font-bold text-[#0b1c30]">{copy.gate.title}</h2>
           <p className="text-base text-[#3f4850]">{copy.gate.body}</p>
