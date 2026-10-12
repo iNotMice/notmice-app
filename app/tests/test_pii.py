@@ -9,7 +9,7 @@ def test_reject_pii_allows_biomarker_payload() -> None:
     """Lab names and LOINC fields are not treated as personal names."""
     reject_pii(
         {
-            "lab_name": "Quest Diagnostics",
+            "lab_name": "Harbor Diagnostics",
             "raw_name": "Serum Albumin",
             "loinc_code": "1751-7",
             "value": 46.2,
@@ -85,7 +85,7 @@ def test_reject_sensitive_output_blocks_email_in_a_value() -> None:
     reject_sensitive_output(
         {
             "raw_name": "Serum Albumin",
-            "lab_name": "Quest Diagnostics",
+            "lab_name": "Harbor Diagnostics",
             "value": 46.2,
             "unit": "g/L",
         }

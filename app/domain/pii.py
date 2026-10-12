@@ -54,7 +54,7 @@ _FREE_TEXT_KEYS: Final[frozenset[str]] = frozenset(
 )
 
 # Words that keep a lab or analyte label from being read as a person's name.
-# "Quest Diagnostics" and "Serum Albumin" stay valid because of these tokens.
+# "Harbor Diagnostics" and "Serum Albumin" stay valid because of these tokens.
 _LAB_LABEL_TOKENS: Final[frozenset[str]] = frozenset(
     {
         "serum",
@@ -154,7 +154,7 @@ def reject_pii(payload: object, *, _path: str = "$") -> None:
     Email addresses and phone numbers are rejected in every string. A personal name
     (two or three capitalized Cyrillic or Latin words) is rejected only in free-text
     fields such as ``raw_name``, ``lab_name``, and notes. Lab labels that contain a
-    clinical token, including ``Quest Diagnostics`` and ``Serum Albumin``, are kept.
+    clinical token, including ``Harbor Diagnostics`` and ``Serum Albumin``, are kept.
 
     Args:
         payload: Mapping, sequence, or scalar to inspect.

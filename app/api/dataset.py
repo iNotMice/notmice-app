@@ -16,6 +16,7 @@ from app.domain.dataset import (
     PublicBiomarkerRow,
     PublicDatasetPage,
     PublicTimeseries,
+    published_chronological_age,
 )
 from app.domain.pii import PIIValidationError, reject_sensitive_output
 from app.domain.schemas import (
@@ -44,7 +45,7 @@ def _marker_view(row: PublicBiomarkerRow) -> PublicBiomarkerView:
     return PublicBiomarkerView(
         public_id=row.public_id,
         collected_at=row.collected_at,
-        chronological_age=_number(row.chronological_age),
+        chronological_age=_number(published_chronological_age(row.chronological_age)),
         loinc_code=row.loinc_code,
         canonical_name=row.canonical_name,
         raw_name=row.raw_name,
@@ -73,7 +74,7 @@ def _timeseries_response(series: PublicTimeseries) -> TimeseriesResponse:
         points=[
             TimeseriesPointView(
                 collected_at=point.collected_at,
-                chronological_age=_number(point.chronological_age),
+                chronological_age=_number(published_chronological_age(point.chronological_age)),
                 markers=[
                     TimeseriesMarkerView(
                         loinc_code=marker.loinc_code,

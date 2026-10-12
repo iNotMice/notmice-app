@@ -469,9 +469,9 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
 
             {/* Presets List */}
             <div className="flex flex-col gap-3">
-              {/* Preset 1: Quest */}
+              {/* Preset 1 */}
               <button
-                onClick={() => loadPresetPanel('Quest sample', 'quest')}
+                onClick={() => loadPresetPanel('DEMO sample 1', 'quest')}
                 disabled={isProcessing}
                 className="text-left p-3.5 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#ffffff] transition-all bg-[#ffffff] group cursor-pointer flex flex-col gap-1"
               >
@@ -489,9 +489,9 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
                 </div>
               </button>
 
-              {/* Preset 2: LabCorp */}
+              {/* Preset 2 */}
               <button
-                onClick={() => loadPresetPanel('LabCorp sample', 'labcorp')}
+                onClick={() => loadPresetPanel('DEMO sample 2', 'labcorp')}
                 disabled={isProcessing}
                 className="text-left p-3.5 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#ffffff] transition-all bg-[#ffffff] group cursor-pointer flex flex-col gap-1"
               >
@@ -509,9 +509,9 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
                 </div>
               </button>
 
-              {/* Preset 3: NHS */}
+              {/* Preset 3 */}
               <button
-                onClick={() => loadPresetPanel('NHS sample', 'nhs')}
+                onClick={() => loadPresetPanel('DEMO sample 3', 'nhs')}
                 disabled={isProcessing}
                 className="text-left p-3.5 rounded-lg border border-[#e2e8f0] hover:border-[#006194] hover:bg-[#ffffff] transition-all bg-[#ffffff] group cursor-pointer flex flex-col gap-1"
               >

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 import pyarrow.parquet as pq
 from fastapi import FastAPI
@@ -12,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.deps import get_export_service, get_public_rate_limiter
 from app.core.rate_limit import SlidingWindowRateLimiter
+from app.domain.dataset import PublicBiomarkerRow
 from app.domain.export import DATASET_LICENSE_ID, EXPORT_COLUMNS
 from app.domain.pii import SENSITIVE_OUTPUT_KEYS
 from app.main import create_app
@@ -74,6 +76,38 @@ async def test_csv_and_parquet_share_the_public_columns_and_cc0_license() -> Non
     assert set(table.column("public_id").to_pylist()) == {_PUBLIC}
     assert _PRIVATE_GLUCOSE not in {str(value) for value in table.column("value").to_pylist()}
     assert set(table.column_names).isdisjoint(SENSITIVE_OUTPUT_KEYS)
+
+
+def test_public_export_publishes_age_in_whole_years() -> None:
+    """A tenth of a year is not published next to the collection date."""
+    low = PublicBiomarkerRow(
+        public_id=_PUBLIC,
+        collected_at=date(2024, 3, 2),
+        chronological_age=Decimal("42.4"),
+        loinc_code="1751-7",
+        canonical_name="Albumin",
+        raw_name="Serum Albumin",
+        value=Decimal("46.2"),
+        unit="g/L",
+        mapping_status="mapped",
+    )
+    high = PublicBiomarkerRow(
+        public_id=_PUBLIC,
+        collected_at=date(2024, 6, 2),
+        chronological_age=Decimal("42.6"),
+        loinc_code="1751-7",
+        canonical_name="Albumin",
+        raw_name="Serum Albumin",
+        value=Decimal("46.2"),
+        unit="g/L",
+        mapping_status="mapped",
+    )
+    parsed = _csv_rows(render_csv((low, high)))
+    assert [row["chronological_age"] for row in parsed] == ["42", "43"]
+    table = pq.read_table(io.BytesIO(render_parquet((low, high))))
+    assert table.column("chronological_age").to_pylist() == [42.0, 43.0]
+    text = render_datasheet((low,), generated_at=_GENERATED_AT)
+    assert "whole years" in text
 
 
 async def test_datasheet_describes_the_snapshot_under_cc0() -> None:

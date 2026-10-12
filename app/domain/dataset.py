@@ -4,7 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
+
+
+def published_chronological_age(value: Decimal | None) -> Decimal | None:
+    """Whole years for the public dataset.
+
+    A tenth of a year next to the collection date approximates a birth month.
+    The public read and the CC0 export publish the age rounded to a whole year.
+    """
+    if value is None:
+        return None
+    return value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 class DatasetError(Exception):

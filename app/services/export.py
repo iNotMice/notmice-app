@@ -13,7 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
 
-from app.domain.dataset import PublicBiomarkerRow
+from app.domain.dataset import PublicBiomarkerRow, published_chronological_age
 from app.domain.export import (
     DATASET_LICENSE_ID,
     DATASET_LICENSE_NAME,
@@ -67,7 +67,9 @@ def _csv_record(row: PublicBiomarkerRow) -> dict[str, str]:
     return {
         "public_id": row.public_id,
         "collected_at": collected,
-        "chronological_age": _optional_decimal_text(row.chronological_age),
+        "chronological_age": _optional_decimal_text(
+            published_chronological_age(row.chronological_age)
+        ),
         "loinc_code": row.loinc_code or "",
         "canonical_name": row.canonical_name or "",
         "raw_name": row.raw_name,
@@ -79,7 +81,8 @@ def _csv_record(row: PublicBiomarkerRow) -> dict[str, str]:
 
 def _parquet_record(row: PublicBiomarkerRow) -> dict[str, object]:
     """One Parquet record. Missing dates and ages stay null."""
-    age = None if row.chronological_age is None else float(row.chronological_age)
+    published_age = published_chronological_age(row.chronological_age)
+    age = None if published_age is None else float(published_age)
     return {
         "public_id": row.public_id,
         "collected_at": row.collected_at,
@@ -204,7 +207,8 @@ def render_datasheet(rows: Sequence[PublicBiomarkerRow], *, generated_at: dateti
         "| --- | --- |",
         "| public_id | Pseudonymous profile id. Not an internal database id. |",
         "| collected_at | Collection date (ISO 8601) when the lab report states it. |",
-        "| chronological_age | Age in years at collection. Date of birth is not in this export. |",
+        "| chronological_age | Age in whole years at collection. "
+        "The fractional year is not published. Date of birth is not in this export. |",
         "| loinc_code | LOINC code when the dictionary mapped the analyte. |",
         "| canonical_name | Dictionary name when the analyte is mapped. |",
         "| raw_name | Analyte name as confirmed from the report. |",

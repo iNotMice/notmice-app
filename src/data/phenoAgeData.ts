@@ -151,11 +151,11 @@ export const PRESET_LAB_PANELS: Record<string, {
   confidence: Record<string, number>;
 }> = {
   quest: {
-    name: 'Quest Diagnostics Comprehensive Longevity Panel',
-    source: 'Quest Diagnostics (Teterboro Lab)',
+    name: 'DEMO · Laboratory 1 panel (fictional data)',
+    source: 'DEMO · Laboratory 1 (fictional data)',
     date: '2025-08-14',
     age: 42,
-    fileName: 'Quest_Diagnostics_Panel_2025_08.pdf',
+    fileName: 'demo-laboratory-1.pdf',
     values: {
       albumin: 46.2,
       creatinine: 0.85,
@@ -180,11 +180,11 @@ export const PRESET_LAB_PANELS: Record<string, {
     },
   },
   labcorp: {
-    name: 'LabCorp Biomarker Comprehensive Profile',
-    source: 'Laboratory Corporation of America (RTP)',
+    name: 'DEMO · Laboratory 2 panel (fictional data)',
+    source: 'DEMO · Laboratory 2 (fictional data)',
     date: '2025-02-10',
     age: 42,
-    fileName: 'LabCorp_Requisition_B7719.pdf',
+    fileName: 'demo-laboratory-2.pdf',
     values: {
       albumin: 44.8,
       creatinine: 0.92,
@@ -209,11 +209,11 @@ export const PRESET_LAB_PANELS: Record<string, {
     },
   },
   nhs: {
-    name: 'NHS Pathology Core Clinical Biochemistry',
-    source: 'Imperial College Healthcare NHS Trust',
+    name: 'DEMO · Laboratory 3 panel (fictional data)',
+    source: 'DEMO · Laboratory 3 (fictional data)',
     date: '2024-09-03',
     age: 41,
-    fileName: 'NHS_Blood_Sciences_Report_0924.pdf',
+    fileName: 'demo-laboratory-3.pdf',
     values: {
       albumin: 43.5,
       creatinine: 0.98,
