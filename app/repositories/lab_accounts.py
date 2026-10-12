@@ -167,6 +167,12 @@ class LabAccountRepository:
             update(LabUser).where(LabUser.id == user_id).values(email_confirmed_at=confirmed_at)
         )
 
+    async def set_password_hash(self, user_id: UUID, password_hash: str) -> None:
+        """Replace a laboratory user's password hash."""
+        await self._session.execute(
+            update(LabUser).where(LabUser.id == user_id).values(password_hash=password_hash)
+        )
+
     async def open_session(
         self,
         *,

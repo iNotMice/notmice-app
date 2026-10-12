@@ -321,6 +321,7 @@ async def test_journal_text_stays_out_of_postgres_research_packages() -> None:
         "email": email,
         "password": "correct-horse-battery",
         "consents": [{"type": "health_data", "version": "2026-10-03", "accepted": True}],
+        "adult_confirmed": True,
     }
     application = create_app()
     transport = ASGITransport(app=application)

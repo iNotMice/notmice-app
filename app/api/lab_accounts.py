@@ -31,6 +31,8 @@ from app.domain.schemas import (
     LabDuaAcceptRequest,
     LabLoginRequest,
     LabRegisterRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
     lab_account_view,
 )
 from app.services.lab_accounts import LabAccountService, effective_dua_version
@@ -213,6 +215,7 @@ async def register_lab(
             country=payload.country,
             email=email,
             password=payload.password,
+            locale=payload.locale,
         )
     except LabPersonalEmailError as exc:
         raise HTTPException(
@@ -292,6 +295,55 @@ async def login_lab(
         raise _http_for(exc) from exc
     _set_lab_session_cookie(response, token)
     return _lab_view(user)
+
+
+@router.post(
+    "/password-reset",
+    response_model=AccountRegisterResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(enforce_account_rate_limit)],
+)
+async def request_lab_password_reset(
+    payload: PasswordResetRequest,
+    response: Response,
+    service: Annotated[LabAccountService, Depends(get_lab_account_service)],
+    identity_limiter: Annotated[
+        SlidingWindowRateLimiter, Depends(get_account_identity_rate_limiter)
+    ],
+) -> AccountRegisterResponse:
+    """Mail a reset link to a confirmed lab user. The body does not say whether one exists."""
+    try:
+        email = normalized_lab_email(payload.email)
+    except ValueError:
+        return AccountRegisterResponse()
+    identity = hashlib.sha256(email.encode("utf-8")).hexdigest()
+    await _charge_identity(identity_limiter, f"lab-reset:{identity}", response)
+    await service.request_password_reset(email, payload.locale)
+    return AccountRegisterResponse()
+
+
+@router.post(
+    "/password-reset/confirm",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(enforce_account_rate_limit)],
+)
+async def confirm_lab_password_reset(
+    payload: PasswordResetConfirmRequest,
+    response: Response,
+    service: Annotated[LabAccountService, Depends(get_lab_account_service)],
+) -> None:
+    """Set a new lab password with a one-time token and end every lab session."""
+    try:
+        await service.reset_password(payload.token, payload.password)
+    except LabAccountError as exc:
+        raise _http_for(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="New password must be 12-128 characters",
+        ) from exc
+    _clear_lab_session_cookie(response)
+    return None
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

@@ -152,6 +152,14 @@ class InMemoryLabAccountStore:
     async def revoke_session(self, token_sha256: str) -> None:
         self.sessions.pop(token_sha256, None)
 
+    async def set_password_hash(self, user_id: UUID, password_hash: str) -> None:
+        email = self.users[user_id].email
+        self.passwords[email] = replace(self.passwords[email], password_hash=password_hash)
+
+    async def revoke_sessions(self, user_id: UUID) -> None:
+        for digest in [key for key, row in self.sessions.items() if row[0] == user_id]:
+            del self.sessions[digest]
+
     async def accept_dua(
         self,
         organization_id: UUID,
@@ -210,9 +218,9 @@ def _service() -> tuple[LabAccountService, InMemoryLabAccountStore, CapturingMai
     return service, store, mailer
 
 
-def _token(mailer: CapturingMailer) -> str:
-    link = mailer.sent[-1].body.strip().splitlines()[-1]
-    return link.split("token=", maxsplit=1)[1]
+def _token(mailer: CapturingMailer, marker: str = "token=") -> str:
+    link = next(line for line in mailer.sent[-1].body.splitlines() if marker in line)
+    return link.split(marker, maxsplit=1)[1].strip()
 
 
 @pytest.mark.asyncio

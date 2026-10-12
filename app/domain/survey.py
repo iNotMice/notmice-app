@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Final, Literal
 
@@ -28,13 +28,22 @@ ALCOHOL: tuple[Alcohol, ...] = ("none", "light", "moderate", "heavy")
 ACTIVITY: tuple[Activity, ...] = ("sedentary", "light", "moderate", "high")
 
 
+ADULT_AGE: Final[int] = 18
+
+
+def latest_adult_birth_year(now: datetime | None = None) -> int:
+    """Latest birth year that can belong to someone aged 18 this calendar year."""
+    current = now if now is not None else datetime.now(UTC)
+    return current.year - ADULT_AGE
+
+
 class ParticipantProfileInput(BaseModel):
     """Survey answers use bounded values only; no free text or full date of birth."""
 
     model_config = ConfigDict(extra="forbid")
 
     sex_at_birth: SexAtBirth | None = None
-    year_of_birth: int | None = Field(default=None, ge=1900, le=2015)
+    year_of_birth: int | None = Field(default=None, ge=1900)
     country: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
     height_cm: int | None = Field(default=None, ge=100, le=250)
     weight_kg: Decimal | None = Field(default=None, ge=30, le=400, max_digits=5, decimal_places=2)
@@ -52,6 +61,14 @@ class ParticipantProfileInput(BaseModel):
         if set(values) - PROFILE_CONDITION_CODES:
             raise ValueError("condition vocabulary is not approved or code is unknown")
         return values
+
+    @field_validator("year_of_birth")
+    @classmethod
+    def participant_is_an_adult(cls, value: int | None) -> int | None:
+        """The platform is for people aged 18 and over; a later birth year is refused."""
+        if value is not None and value > latest_adult_birth_year():
+            raise ValueError("year_of_birth must be at least 18 years ago")
+        return value
 
     @field_validator("country")
     @classmethod

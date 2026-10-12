@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
 import structlog
@@ -27,11 +27,13 @@ from app.domain.lab_accounts import (
     normalized_lab_email,
     require_work_email,
 )
+from app.services.mail_templates import account_mail
 from app.services.mailer import Mailer, OutboundMail
 
 logger = structlog.get_logger(__name__)
 
 _CONFIRM_PURPOSE = "confirm_email"
+_RESET_PURPOSE = "reset_password"
 _TOKEN_TTL = timedelta(hours=24)
 _SESSION_TTL = timedelta(hours=12)
 _DUMMY_PASSWORD = "notmice-lab-login-timing-pad"
@@ -86,6 +88,10 @@ class LabAccountStore(Protocol):
     ) -> UUID | None: ...
 
     async def mark_email_confirmed(self, user_id: UUID, confirmed_at: datetime) -> None: ...
+
+    async def set_password_hash(self, user_id: UUID, password_hash: str) -> None: ...
+
+    async def revoke_sessions(self, user_id: UUID) -> None: ...
 
     async def open_session(
         self, *, user_id: UUID, token_sha256: str, expires_at: datetime
@@ -150,6 +156,7 @@ class LabAccountService:
         country: str,
         email: str,
         password: str,
+        locale: str | None = None,
     ) -> None:
         """Create a pending organization and send email confirmation."""
         normalized_name, normalized_type, normalized_country = lab_organization_values(
@@ -163,7 +170,7 @@ class LabAccountService:
         existing = await self._store.login_material(normalized_email)
         if existing is not None:
             if existing.email_confirmed_at is None:
-                await self._issue_confirmation(existing.user_id, normalized_email)
+                await self._issue_confirmation(existing.user_id, normalized_email, locale)
             return
         user = await self._store.create_organization_owner(
             name=normalized_name,
@@ -172,12 +179,12 @@ class LabAccountService:
             email=normalized_email,
             password_hash=self._passwords.hash_password(password),
         )
-        await self._issue_confirmation(user.id, normalized_email)
+        await self._issue_confirmation(user.id, normalized_email, locale)
         logger.info("lab_account_registered", organization_id=str(user.organization_id))
 
     async def confirm_email(self, presented: str) -> tuple[LabUserRecord, str]:
         """Consume a one-time link and start the new lab user's session."""
-        user_id = await self._consume_token(presented)
+        user_id = await self._consume_token(presented, _CONFIRM_PURPOSE)
         now = self._now()
         await self._store.mark_email_confirmed(user_id, now)
         user = await self._store.user_by_id(user_id)
@@ -198,6 +205,33 @@ class LabAccountService:
         if user is None:
             raise LabInvalidCredentialsError
         return user, await self._open_session(user.id)
+
+    async def request_password_reset(self, email: str, locale: str | None = None) -> None:
+        """Mail a reset link when the address belongs to a confirmed lab user.
+
+        Unknown and unconfirmed addresses send nothing; the caller answers the same way.
+        """
+        normalized_email = normalized_lab_email(email)
+        material = await self._store.login_material(normalized_email)
+        if material is None or material.email_confirmed_at is None:
+            return
+        presented = await self._save_token(material.user_id, _RESET_PURPOSE)
+        await self._send(
+            "lab_reset", locale, normalized_email, f"{self._app_url}/lab?reset={presented}"
+        )
+
+    async def reset_password(self, presented: str, password: str) -> None:
+        """Set a new password with a one-time token and end every lab session.
+
+        Raises:
+            ValueError: The password is outside 12-128 characters.
+            LabAuthTokenError: The token is unknown, used, or expired.
+        """
+        self._require_password(password)
+        user_id = await self._consume_token(presented, _RESET_PURPOSE)
+        await self._store.set_password_hash(user_id, self._passwords.hash_password(password))
+        await self._store.revoke_sessions(user_id)
+        logger.info("lab_password_reset")
 
     async def authenticate(self, presented: str | None) -> LabUserRecord:
         """Resolve the separate lab cookie to a live session."""
@@ -252,37 +286,45 @@ class LabAccountService:
             raise LabAccountNotFoundError
         return refreshed
 
-    async def _issue_confirmation(self, user_id: UUID, email: str) -> None:
+    async def _issue_confirmation(self, user_id: UUID, email: str, locale: str | None) -> None:
+        presented = await self._save_token(user_id, _CONFIRM_PURPOSE)
+        link = f"{self._app_url}/api/v1/lab/confirm?token={presented}"
+        await self._send("lab_confirm", locale, email, link)
+
+    async def _save_token(self, user_id: UUID, purpose: str) -> str:
+        """Store a token digest and return the raw token for the link."""
         presented, digest = new_auth_token()
         now = self._now()
         await self._store.save_auth_token(
             user_id=user_id,
-            purpose=_CONFIRM_PURPOSE,
+            purpose=purpose,
             token_sha256=digest,
             expires_at=now + self._token_ttl,
             now=now,
         )
+        return presented
+
+    async def _send(
+        self,
+        kind: Literal["lab_confirm", "lab_reset"],
+        locale: str | None,
+        email: str,
+        link: str,
+    ) -> None:
+        """Mail one link. A delivery failure stays off the HTTP result."""
+        subject, body = account_mail(kind, locale, link)
         try:
-            await self._mailer.send(
-                OutboundMail(
-                    to=email,
-                    subject="Confirm your NotMice laboratory account",
-                    body=(
-                        "Open this link once. It expires after 24 hours.\n"
-                        f"{self._app_url}/api/v1/lab/confirm?token={presented}\n"
-                    ),
-                )
-            )
+            await self._mailer.send(OutboundMail(to=email, subject=subject, body=body))
         except Exception:
             logger.exception("lab_auth_mail_failed")
 
-    async def _consume_token(self, presented: str) -> UUID:
+    async def _consume_token(self, presented: str, purpose: str) -> UUID:
         digest = auth_token_digest(presented.strip())
         if digest is None:
             raise LabAuthTokenError
         user_id = await self._store.consume_auth_token(
             token_sha256=digest,
-            purpose=_CONFIRM_PURPOSE,
+            purpose=purpose,
             now=self._now(),
         )
         if user_id is None:
