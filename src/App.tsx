@@ -48,6 +48,7 @@ import { TerminalModal } from './components/TerminalModal';
 import { DataDisclaimer } from './components/DataDisclaimer';
 import { Footer } from './components/Footer';
 import { SplashScreen } from './components/SplashScreen';
+import { SESSION_EXPIRED_EVENT } from './api/session';
 import { localizeApiError } from './i18n/apiErrors';
 import { getActiveI18n } from './i18n/catalog';
 import { useI18n } from './i18n/I18nProvider';
@@ -135,6 +136,8 @@ function MainApp() {
   const [history, setHistory] = useState<HistoricalTestRecord[]>([]);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
+  const signedIn = useRef(false);
+  signedIn.current = account !== null;
   const [revealedMnemonic, setRevealedMnemonic] = useState<string[] | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -538,6 +541,24 @@ function MainApp() {
     if (confirm) {
       setConfirmToken(confirm);
     }
+  }, []);
+
+  useEffect(() => {
+    // The server ended the session (12 hours, sign-out elsewhere, new password)
+    // while this tab still showed "signed in": sign the screen out and ask again.
+    const onSessionExpired = () => {
+      if (!signedIn.current) {
+        return;
+      }
+      setAccount(null);
+      setRevealedMnemonic(null);
+      setAuthNotice(null);
+      setAuthError(getActiveI18n().messages.shell.apiErrors.notSignedIn);
+      setAuthStartMode('login');
+      setIsSeedPhraseModalOpen(true);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
   const confirmAttempted = useRef(false);

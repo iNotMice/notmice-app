@@ -1,6 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import {installSessionWatch} from './api/session.ts';
 import {I18nProvider} from './i18n/I18nProvider.tsx';
 // Fonts are bundled and served from our own origin: no request to a font CDN.
 import '@fontsource/inter/400.css';
@@ -13,6 +14,8 @@ import '@fontsource/jetbrains-mono/500.css';
 import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/jetbrains-mono/700.css';
 import './index.css';
+
+installSessionWatch();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
