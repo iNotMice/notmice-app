@@ -25,7 +25,7 @@ async def test_lab_report_reading_stops_at_the_first_quota_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """One call, then a quota error; the remaining quota is not spent on retries."""
-    provider = GeminiExtractionProvider(api_key="test-key", model="gemini-2.5-flash")
+    provider = GeminiExtractionProvider(api_key="test-key", model="gemini-3.8-flash")
     calls: list[int] = []
 
     async def refuse(*_args: Any, **_kwargs: Any) -> Any:
