@@ -88,4 +88,6 @@ export const modals = {
   useLine: 'Use: research index only',
   loincNote: 'The nine PhenoAge markers use the versioned LOINC dictionary shipped with the API.',
   closeInspector: 'Close Inspector',
+  adultConsent: 'I am 18 or older.',
+  adultRequired: 'NotMice is for adults only. Confirm that you are 18 or older.',
 };

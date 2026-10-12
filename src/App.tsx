@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TabType, LabPanelData, HistoricalTestRecord, AccountState, PhenoAgeCalculation } from './types';
+import {
+  TabType,
+  LabPanelData,
+  HistoricalTestRecord,
+  AccountState,
+  MissingIndexInputs,
+  PhenoAgeCalculation,
+} from './types';
 import { INITIAL_BIOMARKERS, PHENOAGE_BIOMARKERS } from './data/phenoAgeData';
 import { ALEXEI_START } from './data/alexeiExample';
 import { deleteOwnLabResult, deleteOwnLabResults, fetchOwnLabResults } from './api/uploads';
@@ -70,20 +77,27 @@ function markSplashSeen(): void {
   }
 }
 
+const NO_MISSING_INPUTS: MissingIndexInputs = { age: false, markers: [] };
+
 function panelFromHistory(record: HistoricalTestRecord): LabPanelData {
+  const markers = PHENOAGE_BIOMARKERS.map((marker) => marker.id).filter(
+    (id) => record.biomarkers[id] === undefined,
+  );
   return {
     id: record.id,
     labName: record.labSource,
     testDate: record.date,
     sourceType: record.sessionOnly ? 'manual' : 'pdf',
     fileName: record.labSource,
-    chronologicalAge: record.chronologicalAge ?? 42,
+    // A placeholder only: the index stays hidden until the person types their age.
+    chronologicalAge: record.chronologicalAge ?? ALEXEI_START.chronologicalAge,
     gender: 'male',
     biomarkers: { ...INITIAL_BIOMARKERS, ...record.biomarkers },
     confidenceScores: {},
     verified: true,
     hash: record.hash,
     focusMarkerIds: record.markerIds,
+    missingInputs: { age: record.chronologicalAge === null, markers },
   };
 }
 
@@ -139,6 +153,17 @@ function MainApp() {
   const [showSplash, setShowSplash] = useState(() => !splashAlreadySeen());
 
   const [currentPanel, setCurrentPanel] = useState<LabPanelData>(tutorialPanel);
+  // Panel id for which the person has typed an age that the saved test lacked.
+  const [ageEnteredFor, setAgeEnteredFor] = useState<string | null>(null);
+  const panelMissing = currentPanel.missingInputs ?? NO_MISSING_INPUTS;
+  const missingInputs = useMemo<MissingIndexInputs>(
+    () => ({
+      age: panelMissing.age && ageEnteredFor !== currentPanel.id,
+      markers: panelMissing.markers,
+    }),
+    [ageEnteredFor, currentPanel.id, panelMissing.age, panelMissing.markers],
+  );
+  const indexInputsMissing = missingInputs.age || missingInputs.markers.length > 0;
 
   /** Switch tab, keep the address bar in step, and start the new page at the top. */
   const navigate = useCallback((tab: TabType, page?: SpecialistPage) => {
@@ -196,6 +221,13 @@ function MainApp() {
   const publicIdLabel = account?.publicId ?? m.nav.guest;
 
   useEffect(() => {
+    if (indexInputsMissing) {
+      // Do not ask the server for an index built on example values.
+      setPhenoAgeScore(null);
+      setPhenoAgeError(null);
+      setPhenoAgeLoading(false);
+      return;
+    }
     const controller = new AbortController();
     setPhenoAgeLoading(true);
     const timer = window.setTimeout(() => {
@@ -222,18 +254,19 @@ function MainApp() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [chronologicalAge, biomarkers]);
+  }, [chronologicalAge, biomarkers, indexInputsMissing]);
 
   const phenoAgeCalculation = useMemo<PhenoAgeCalculation>(() => {
     const biomarkerScores = displayBiomarkerScores(biomarkers);
-    if (!phenoAgeScore || phenoAgeLoading) {
+    const activeCount = PHENOAGE_BIOMARKERS.length - missingInputs.markers.length;
+    if (!phenoAgeScore || phenoAgeLoading || indexInputsMissing) {
       return {
         chronologicalAge,
         phenoAge: 0,
         ageDelta: 0,
         biomarkerScores,
         isValid: false,
-        activeCount: Object.keys(biomarkers).length,
+        activeCount,
         disclaimer: m.shell.disclaimer,
       };
     }
@@ -243,10 +276,18 @@ function MainApp() {
       ageDelta: phenoAgeScore.ageDelta,
       biomarkerScores,
       isValid: true,
-      activeCount: Object.keys(biomarkers).length,
+      activeCount,
       disclaimer: m.shell.disclaimer,
     };
-  }, [biomarkers, chronologicalAge, m.shell.disclaimer, phenoAgeLoading, phenoAgeScore]);
+  }, [
+    biomarkers,
+    chronologicalAge,
+    indexInputsMissing,
+    m.shell.disclaimer,
+    missingInputs.markers.length,
+    phenoAgeLoading,
+    phenoAgeScore,
+  ]);
 
   const handleLoadPanel = (panel: LabPanelData) => {
     setCurrentPanel(panel);
@@ -391,11 +432,12 @@ function MainApp() {
     password: string,
     researchReuse: boolean,
     participantProfile: boolean,
+    adultConfirmed: boolean,
   ) => {
     setAuthBusy(true);
     setAuthError(null);
     try {
-      await registerAccount({ email, password, researchReuse, participantProfile });
+      await registerAccount({ email, password, researchReuse, participantProfile, adultConfirmed });
       setAccount(null);
       setAuthNotice('check-email');
     } catch (err) {
@@ -627,10 +669,15 @@ function MainApp() {
             biomarkers={biomarkers}
             onUpdateBiomarkers={setBiomarkers}
             chronologicalAge={chronologicalAge}
-            onUpdateChronologicalAge={setChronologicalAge}
+            missingInputs={missingInputs}
+            onUpdateChronologicalAge={(age) => {
+              setChronologicalAge(age);
+              setAgeEnteredFor(currentPanel.id);
+            }}
             onResetToPanel={() => {
               setBiomarkers({ ...currentPanel.biomarkers });
               setChronologicalAge(currentPanel.chronologicalAge);
+              setAgeEnteredFor(null);
             }}
             onSaveToHistory={handleSaveToHistory}
             setActiveTab={setActiveTab}
@@ -763,8 +810,8 @@ function MainApp() {
         onConfirmEmail={() => {
           void handleConfirmEmail();
         }}
-        onRegister={(email, password, researchReuse, participantProfile) => {
-          void handleRegister(email, password, researchReuse, participantProfile);
+        onRegister={(email, password, researchReuse, participantProfile, adultConfirmed) => {
+          void handleRegister(email, password, researchReuse, participantProfile, adultConfirmed);
         }}
         onEmailLogin={(email, password) => {
           void handleEmailLogin(email, password);

@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Building2, CheckCircle2, FlaskConical, LoaderCircle, ShieldCheck } from 'lucide-react';
 import {
   acceptLabDua,
+  confirmLabPasswordReset,
   fetchLabAccount,
   loginLab,
   logoutLab,
   registerLab,
+  requestLabPasswordReset,
   type LabAccount,
   type LabOrganizationType,
 } from '../api/labAccounts';
@@ -15,7 +17,8 @@ import { localizeApiError } from '../i18n/apiErrors';
 import type { AppMessages } from '../i18n/messages/en';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-type FormMode = 'register' | 'login';
+/** `reset` asks for a link; `newPassword` is the form behind the emailed link. */
+type FormMode = 'register' | 'login' | 'reset' | 'newPassword';
 
 const organizationTypes: LabOrganizationType[] = [
   'laboratory',
@@ -46,6 +49,8 @@ export function LabPortalPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordAgain, setPasswordAgain] = useState('');
+  const [resetToken, setResetToken] = useState<string | null>(null);
   const [organizationName, setOrganizationName] = useState('');
   const [organizationType, setOrganizationType] = useState<LabOrganizationType>('laboratory');
   const [country, setCountry] = useState('');
@@ -76,6 +81,13 @@ export function LabPortalPage() {
       setNotice(copy.emailConfirmed);
       window.history.replaceState({}, '', window.location.pathname);
     }
+    const reset = params.get('reset');
+    if (reset) {
+      // Drop the token from the address bar before anything else loads.
+      window.history.replaceState({}, '', window.location.pathname);
+      setResetToken(reset);
+      setMode('newPassword');
+    }
   }, [copy.emailConfirmed]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -84,6 +96,24 @@ export function LabPortalPage() {
     setError(null);
     setNotice(null);
     try {
+      if (mode === 'reset') {
+        await requestLabPasswordReset(email);
+        setNotice(copy.reset.resetSent);
+        return;
+      }
+      if (mode === 'newPassword') {
+        if (password !== passwordAgain) {
+          setError(copy.reset.passwordsDiffer);
+          return;
+        }
+        await confirmLabPasswordReset(resetToken ?? '', password);
+        setResetToken(null);
+        setPassword('');
+        setPasswordAgain('');
+        setMode('login');
+        setNotice(copy.reset.resetDone);
+        return;
+      }
       if (mode === 'register') {
         await registerLab({
           organizationName,
@@ -104,6 +134,12 @@ export function LabPortalPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const switchMode = (next: FormMode) => {
+    setMode(next);
+    setError(null);
+    setNotice(null);
   };
 
   const signOut = async () => {
@@ -197,11 +233,7 @@ export function LabPortalPage() {
                     type="button"
                     role="tab"
                     aria-selected={mode === nextMode}
-                    onClick={() => {
-                      setMode(nextMode);
-                      setError(null);
-                      setNotice(null);
-                    }}
+                    onClick={() => switchMode(nextMode)}
                     className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold transition ${
                       mode === nextMode ? 'bg-white text-[#0b1c30] shadow-sm' : 'text-[#65768a]'
                     }`}
@@ -215,6 +247,11 @@ export function LabPortalPage() {
               {error && <p className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800" role="alert">{error}</p>}
 
               <form onSubmit={(event) => void submit(event)} className="space-y-4">
+                {(mode === 'reset' || mode === 'newPassword') && (
+                  <p className="text-sm leading-6 text-[#526579]">
+                    {mode === 'reset' ? copy.reset.resetLead : copy.reset.newPasswordLead}
+                  </p>
+                )}
                 {mode === 'register' && (
                   <>
                     <label className="block text-sm font-medium text-[#31465b]">
@@ -261,35 +298,54 @@ export function LabPortalPage() {
                   </>
                 )}
 
-                <label className="block text-sm font-medium text-[#31465b]">
-                  {copy.email}
-                  <input
-                    required
-                    type="email"
-                    maxLength={254}
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className={inputClass}
-                  />
-                  {mode === 'register' && (
-                    <span className="mt-1 block text-xs font-normal text-[#526579]">{copy.workEmailHint}</span>
-                  )}
-                </label>
-                <label className="block text-sm font-medium text-[#31465b]">
-                  {copy.password}
-                  <input
-                    required
-                    type="password"
-                    minLength={mode === 'register' ? 12 : 1}
-                    maxLength={128}
-                    autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className={inputClass}
-                  />
-                  {mode === 'register' && <span className="mt-1 block text-xs font-normal text-[#748498]">{copy.passwordHint}</span>}
-                </label>
+                {mode !== 'newPassword' && (
+                  <label className="block text-sm font-medium text-[#31465b]">
+                    {copy.email}
+                    <input
+                      required
+                      type="email"
+                      maxLength={254}
+                      autoComplete="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className={inputClass}
+                    />
+                    {mode === 'register' && (
+                      <span className="mt-1 block text-xs font-normal text-[#526579]">{copy.workEmailHint}</span>
+                    )}
+                  </label>
+                )}
+                {mode !== 'reset' && (
+                  <label className="block text-sm font-medium text-[#31465b]">
+                    {mode === 'newPassword' ? copy.reset.newPassword : copy.password}
+                    <input
+                      required
+                      type="password"
+                      minLength={mode === 'login' ? 1 : 12}
+                      maxLength={128}
+                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className={inputClass}
+                    />
+                    {mode !== 'login' && <span className="mt-1 block text-xs font-normal text-[#748498]">{copy.passwordHint}</span>}
+                  </label>
+                )}
+                {mode === 'newPassword' && (
+                  <label className="block text-sm font-medium text-[#31465b]">
+                    {copy.reset.repeatPassword}
+                    <input
+                      required
+                      type="password"
+                      minLength={12}
+                      maxLength={128}
+                      autoComplete="new-password"
+                      value={passwordAgain}
+                      onChange={(event) => setPasswordAgain(event.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                )}
 
                 <button
                   type="submit"
@@ -297,9 +353,36 @@ export function LabPortalPage() {
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#006194] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#004e78] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                  {mode === 'register' ? copy.createAccount : copy.signIn}
+                  {mode === 'register'
+                    ? copy.createAccount
+                    : mode === 'reset'
+                      ? copy.reset.resetSend
+                      : mode === 'newPassword'
+                        ? copy.reset.setPassword
+                        : copy.signIn}
                 </button>
               </form>
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => switchMode('reset')}
+                  className="mt-4 text-sm font-semibold text-[#006194] hover:underline"
+                >
+                  {copy.reset.forgotPassword}
+                </button>
+              )}
+              {(mode === 'reset' || mode === 'newPassword') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetToken(null);
+                    switchMode('login');
+                  }}
+                  className="mt-4 text-sm font-semibold text-[#006194] hover:underline"
+                >
+                  {copy.reset.backToSignIn}
+                </button>
+              )}
             </div>
           )}
         </section>

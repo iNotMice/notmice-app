@@ -129,4 +129,17 @@ export const laboratory = {
       vitamin_d_deficiency: 'Vitamin D deficiency',
     },
   },
+  reset: {
+    forgotPassword: 'Forgot password?',
+    resetLead: 'Enter the work email of the laboratory account. If it is confirmed, a reset link will arrive by email.',
+    resetSend: 'Send reset link',
+    resetSent: 'If the address belongs to a confirmed laboratory account, a reset link has been sent. Check your inbox and spam folder.',
+    newPasswordLead: 'Set a new password for the laboratory account.',
+    newPassword: 'New password',
+    repeatPassword: 'Repeat the new password',
+    setPassword: 'Save password',
+    passwordsDiffer: 'The two passwords do not match.',
+    resetDone: 'Password changed. Sign in with the new password.',
+    backToSignIn: 'Back to sign in',
+  },
 };

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { TabType, PhenoAgeCalculation } from '../../types';
+import { TabType, MissingIndexInputs, PhenoAgeCalculation } from '../../types';
 import { PHENOAGE_BIOMARKERS } from '../../data/phenoAgeData';
 import { isBiomarkerId } from '../../i18n/biomarkerIds';
 import { fill } from '../../i18n/fill';
 import { useI18n } from '../../i18n/I18nProvider';
+import { markerLabel } from '../../i18n/markerLabels';
 import { LifestyleLongevityAdvisor } from '../LifestyleLongevityAdvisor';
-import { ShieldCheck, Save, RotateCcw } from 'lucide-react';
+import { ShieldCheck, Save, RotateCcw, TriangleAlert } from 'lucide-react';
 
 /** Age range the input accepts; outside it the last valid age stays in the calculation. */
 const MIN_AGE = 18;
@@ -17,6 +18,8 @@ interface PhenoAgeEngineTabProps {
   biomarkers: Record<string, number>;
   onUpdateBiomarkers: (biomarkers: Record<string, number>) => void;
   chronologicalAge: number;
+  /** Inputs the open test lacks; while any are missing no index is shown. */
+  missingInputs: MissingIndexInputs;
   onUpdateChronologicalAge: (age: number) => void;
   /** Put back the values and age of the panel that is open, undoing slider moves. */
   onResetToPanel: () => void;
@@ -31,6 +34,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
   biomarkers,
   onUpdateBiomarkers,
   chronologicalAge,
+  missingInputs,
   onUpdateChronologicalAge,
   onResetToPanel,
   onSaveToHistory,
@@ -42,12 +46,15 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
   const [savedNotification, setSavedNotification] = useState(false);
   // The typed age stays as text so the field can be cleared and retyped; only an
   // age inside the index's range reaches the calculation.
-  const [ageDraft, setAgeDraft] = useState(String(chronologicalAge));
-  const [ageSource, setAgeSource] = useState(chronologicalAge);
-  if (ageSource !== chronologicalAge) {
-    setAgeSource(chronologicalAge);
-    setAgeDraft(String(chronologicalAge));
+  const shownAge = missingInputs.age ? '' : String(chronologicalAge);
+  const [ageDraft, setAgeDraft] = useState(shownAge);
+  const [ageSource, setAgeSource] = useState(shownAge);
+  if (ageSource !== shownAge) {
+    setAgeSource(shownAge);
+    setAgeDraft(shownAge);
   }
+  const missingMarkerNames = missingInputs.markers.map((id) => markerLabel(id, m)).join(', ');
+  const inputsMissing = missingInputs.age || missingInputs.markers.length > 0;
   const ageValue = Number.parseFloat(ageDraft);
   const ageInRange = Number.isFinite(ageValue) && ageValue >= MIN_AGE && ageValue <= MAX_AGE;
 
@@ -129,6 +136,22 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
         </div>
       </div>
 
+      {inputsMissing && (
+        <div
+          className="flex items-start gap-3 rounded-xl border border-[#f5c97a] bg-[#fff6e0] p-4 text-[15px] leading-6 text-[#5c3a00]"
+          role="status"
+        >
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold">{copy.missingTitle}</p>
+            {missingInputs.age && <p>{copy.missingAge}</p>}
+            {missingInputs.markers.length > 0 && (
+              <p>{fill(copy.missingMarkers, { markers: missingMarkerNames })}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Chronological Age Card */}
         <div className="bg-[#ffffff] p-5 rounded-xl border border-[#cbd5e1] shadow-xs flex flex-col justify-between">
@@ -139,7 +162,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
             </div>
             <div className="flex items-baseline gap-2 mt-2">
               <span className="font-['Inter'] text-3xl font-bold text-[#0b1c30]">
-                {chronologicalAge.toFixed(1)}
+                {missingInputs.age ? '—' : chronologicalAge.toFixed(1)}
               </span>
               <span className="text-xs text-[#565e74]">{m.shell.years}</span>
             </div>
@@ -160,7 +183,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
                   onUpdateChronologicalAge(next);
                 }
               }}
-              onBlur={() => setAgeDraft(String(chronologicalAge))}
+              onBlur={() => setAgeDraft(shownAge)}
               className={`w-16 px-2 py-1 bg-[#eff4ff] border rounded font-['JetBrains_Mono'] text-xs font-bold text-[#0b1c30] text-right ${
                 ageInRange ? 'border-[#cbd5e1]' : 'border-[#ba1a1a]'
               }`}
@@ -177,7 +200,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
             </div>
             <div className="flex items-baseline gap-2 mt-2">
               <span className="font-['Inter'] text-4xl font-bold text-[#006194]">
-                {calculation.isValid ? calculation.phenoAge.toFixed(1) : '…'}
+                {calculation.isValid ? calculation.phenoAge.toFixed(1) : inputsMissing ? '—' : '…'}
               </span>
               <span className="text-xs text-[#565e74]">{m.shell.years}</span>
             </div>
@@ -203,7 +226,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
                 </span>
               </div>
               <span className="font-['JetBrains_Mono'] text-xs bg-[#eff4ff] text-[#006194] px-2.5 py-1 rounded font-bold">
-                {copy.active}
+                {fill(copy.activeCount, { count: String(calculation.activeCount) })}
               </span>
             </div>
 

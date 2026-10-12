@@ -51,7 +51,7 @@ export const sovereignty = {
     clearConfirm: 'Supprimer toutes les réponses du questionnaire ? Les autres données du compte sont conservées.',
     cleared: 'Réponses supprimées.',
     needConsent: 'Cochez « Questionnaire (facultatif) » dans « Vos consentements » ci-dessus : le formulaire s’ouvrira ici.',
-    outOfRange: 'Vérifiez les valeurs : année de naissance 1900–2015, taille 100–250 cm, poids 30–400 kg.',
+    outOfRange: 'Vérifiez les valeurs : année de naissance 1900–{maxYear}, taille 100–250 cm, poids 30–400 kg.',
     cm: 'cm',
     kg: 'kg',
     previewIntro:

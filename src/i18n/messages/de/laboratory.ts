@@ -131,4 +131,17 @@ export const laboratory = {
       vitamin_d_deficiency: 'Vitamin-D-Mangel',
     },
   },
+  reset: {
+    forgotPassword: 'Passwort vergessen?',
+    resetLead: 'Geben Sie die dienstliche E-Mail des Laborkontos ein. Ist sie bestätigt, erhalten Sie einen Link zum Zurücksetzen.',
+    resetSend: 'Link senden',
+    resetSent: 'Wenn die Adresse zu einem bestätigten Laborkonto gehört, wurde ein Link zum Zurücksetzen gesendet. Prüfen Sie Posteingang und Spam-Ordner.',
+    newPasswordLead: 'Legen Sie ein neues Passwort für das Laborkonto fest.',
+    newPassword: 'Neues Passwort',
+    repeatPassword: 'Neues Passwort wiederholen',
+    setPassword: 'Passwort speichern',
+    passwordsDiffer: 'Die Passwörter stimmen nicht überein.',
+    resetDone: 'Passwort geändert. Melden Sie sich mit dem neuen Passwort an.',
+    backToSignIn: 'Zurück zur Anmeldung',
+  },
 };

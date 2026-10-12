@@ -23,4 +23,8 @@ export const phenoage = {
   contributionLead:
     'Each bar compares the marker you set with the worked example on this screen. It is not an interval printed by a laboratory.',
   yearsSigned: '{sign}{value}',
+  missingTitle: 'The index for this test is not calculated',
+  missingAge: 'The test has no age at the date of sampling. Enter your age at that date in the Age field.',
+  missingMarkers: 'The test does not contain: {markers}. The index needs all nine markers, so it is not shown for this test.',
+  activeCount: '{count} of 9 counted',
 };

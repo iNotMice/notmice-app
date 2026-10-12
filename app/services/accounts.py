@@ -45,6 +45,7 @@ from app.domain.accounts import (
 )
 from app.domain.consents import ConsentChoice, current_version, grants_to_store
 from app.domain.pii import reject_pii
+from app.services.mail_templates import account_mail
 from app.services.mailer import Mailer, OutboundMail
 
 logger = structlog.get_logger(__name__)
@@ -289,6 +290,7 @@ class AccountService:
         email: str,
         password: str,
         consents: tuple[ConsentChoice, ...],
+        locale: str | None = None,
     ) -> None:
         """Create an email account or resend confirmation. The HTTP result is always the same.
 
@@ -299,6 +301,7 @@ class AccountService:
             email: Address, normalized by the caller.
             password: At least 12 characters.
             consents: Checkbox choices. Optional consents that are off are omitted.
+            locale: Interface language for the confirmation message.
 
         Raises:
             ConsentRequiredError: The health-data consent is missing or declined.
@@ -318,11 +321,11 @@ class AccountService:
                 consents=granted,
                 granted_at=now,
             )
-            await self._issue_token(user.id, _PURPOSE_CONFIRM, email, now)
+            await self._issue_token(user.id, _PURPOSE_CONFIRM, email, now, locale)
             logger.info("account_registered", public_id=user.public_id)
             return
         if existing.email_confirmed_at is None:
-            await self._issue_token(existing.user_id, _PURPOSE_CONFIRM, email, now)
+            await self._issue_token(existing.user_id, _PURPOSE_CONFIRM, email, now, locale)
         logger.info("account_register_unchanged")
 
     async def login_email(self, email: str, password: str) -> AuthenticatedSession:
@@ -370,16 +373,17 @@ class AccountService:
         logger.info("email_confirmed", public_id=user.public_id)
         return opened
 
-    async def request_password_reset(self, email: str) -> None:
+    async def request_password_reset(self, email: str, locale: str | None = None) -> None:
         """Send a reset link when the address belongs to a confirmed account.
 
         Args:
             email: Normalized address. Missing and unconfirmed addresses send nothing.
+            locale: Interface language for the message.
         """
         existing = await self._users.find_email(email)
         if existing is None or existing.email_confirmed_at is None:
             return
-        await self._issue_token(existing.user_id, _PURPOSE_RESET, email, self._now())
+        await self._issue_token(existing.user_id, _PURPOSE_RESET, email, self._now(), locale)
 
     async def reset_password(self, presented: str, password: str) -> None:
         """Set a new password with a one-time token.
@@ -734,7 +738,14 @@ class AccountService:
         )
         return AuthenticatedSession(user=user, session_token=presented)
 
-    async def _issue_token(self, user_id: UUID, purpose: str, email: str, now: datetime) -> None:
+    async def _issue_token(
+        self,
+        user_id: UUID,
+        purpose: str,
+        email: str,
+        now: datetime,
+        locale: str | None = None,
+    ) -> None:
         """Store a digest and mail the raw token. Mail failures stay off the HTTP result."""
         presented, digest = new_auth_token()
         await self._users.save_auth_token(
@@ -748,12 +759,9 @@ class AccountService:
             return
         query = "confirm" if purpose == _PURPOSE_CONFIRM else "reset"
         link = f"{self._app_url}/?{query}={presented}"
-        subject = (
-            "Confirm your NotMice account"
-            if purpose == _PURPOSE_CONFIRM
-            else "Reset your NotMice password"
+        subject, body = account_mail(
+            "confirm" if purpose == _PURPOSE_CONFIRM else "reset", locale, link
         )
-        body = f"Open this link once. It expires after 24 hours and 30 minutes.\n{link}\n"
         try:
             await self._mailer.send(OutboundMail(to=email, subject=subject, body=body))
         except Exception:

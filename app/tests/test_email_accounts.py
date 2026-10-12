@@ -47,7 +47,12 @@ def _register_body(email: str, *, research: bool = False) -> dict[str, object]:
     ]
     if research:
         consents.append({"type": "research_reuse", "version": "2026-10-03", "accepted": True})
-    return {"email": email, "password": _PASSWORD, "consents": consents}
+    return {
+        "email": email,
+        "password": _PASSWORD,
+        "consents": consents,
+        "adult_confirmed": True,
+    }
 
 
 def test_participant_table_has_no_email_or_password() -> None:
@@ -195,6 +200,7 @@ async def test_short_password_is_rejected() -> None:
                 "email": "person@example.com",
                 "password": "short-pass",
                 "consents": [{"type": "health_data", "version": "2026-10-03", "accepted": True}],
+                "adult_confirmed": True,
             },
         )
     assert response.status_code == 422

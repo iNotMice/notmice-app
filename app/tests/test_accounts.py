@@ -620,6 +620,7 @@ async def test_account_create_is_rate_limited() -> None:
         body = {
             "password": "correct-horse-battery",
             "consents": [{"type": "health_data", "version": "2026-10-03", "accepted": True}],
+            "adult_confirmed": True,
         }
         first = await client.post("/api/v1/accounts", json={"email": "one@example.com", **body})
         second = await client.post("/api/v1/accounts", json={"email": "two@example.com", **body})
@@ -712,6 +713,7 @@ async def test_accounts_against_postgres() -> None:
             {"type": "health_data", "version": "2026-10-03", "accepted": True},
             {"type": "research_reuse", "version": "2026-10-03", "accepted": True},
         ],
+        "adult_confirmed": True,
     }
     application = create_app()
     transport = ASGITransport(app=application)

@@ -51,7 +51,7 @@ export const sovereignty = {
     clearConfirm: 'Delete all questionnaire answers? Other account data stays.',
     cleared: 'Answers deleted.',
     needConsent: 'Tick “Questionnaire (optional)” in “Your consents” above, and the form opens here.',
-    outOfRange: 'Check the numbers: year of birth 1900–2015, height 100–250 cm, weight 30–400 kg.',
+    outOfRange: 'Check the numbers: year of birth 1900–{maxYear}, height 100–250 cm, weight 30–400 kg.',
     cm: 'cm',
     kg: 'kg',
     previewIntro:

@@ -20,7 +20,13 @@ interface SeedPhraseModalProps {
   /** Which form to show when the dialog opens. */
   startMode: 'login' | 'register';
   onConfirmEmail: () => void;
-  onRegister: (email: string, password: string, researchReuse: boolean, participantProfile: boolean) => void;
+  onRegister: (
+    email: string,
+    password: string,
+    researchReuse: boolean,
+    participantProfile: boolean,
+    adultConfirmed: boolean,
+  ) => void;
   onEmailLogin: (email: string, password: string) => void;
   onRequestReset: (email: string) => void;
   onResetPassword: (password: string) => void;
@@ -64,6 +70,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordAgain, setPasswordAgain] = useState('');
+  const [adultChecked, setAdultChecked] = useState(false);
   const [healthChecked, setHealthChecked] = useState(false);
   const [researchChecked, setResearchChecked] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
@@ -168,11 +175,15 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
         setFormError(copy.passwordsDiffer);
         return;
       }
+      if (!adultChecked) {
+        setFormError(copy.adultRequired);
+        return;
+      }
       if (!healthChecked) {
         setFormError(copy.consentRequired);
         return;
       }
-      onRegister(email.trim(), password, researchChecked, profileChecked);
+      onRegister(email.trim(), password, researchChecked, profileChecked, adultChecked);
       return;
     }
     if (mode === 'reset') {
@@ -433,6 +444,15 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                           required
                           className="mt-1 w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-3 py-2 text-sm text-[#0b1c30] focus:outline-none focus:border-[#006194]"
                         />
+                      </label>
+                      <label className="flex items-start gap-2.5 text-xs text-[#3f4850] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={adultChecked}
+                          onChange={(event) => setAdultChecked(event.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>{copy.adultConsent}</span>
                       </label>
                       <label className="flex items-start gap-2.5 text-xs text-[#3f4850] cursor-pointer">
                         <input

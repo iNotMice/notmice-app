@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.lab_accounts import LabOrganizationRecord
+from app.domain.locales import MailLocale
 from app.domain.protocol import ProtocolKindName
 from app.domain.survey import Activity, Alcohol, SexAtBirth, Smoking
 
@@ -32,13 +33,19 @@ class ConsentInput(BaseModel):
 
 
 class AccountRegisterRequest(BaseModel):
-    """Email registration. The password is at least 12 characters."""
+    """Email registration. The password is at least 12 characters.
+
+    ``adult_confirmed`` must be true: the platform is for people aged 18 and over.
+    ``locale`` only chooses the language of the confirmation message.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=12, max_length=128)
     consents: list[ConsentInput] = Field(min_length=1, max_length=4)
+    adult_confirmed: Literal[True]
+    locale: MailLocale | None = None
 
 
 class AccountRegisterResponse(BaseModel):
@@ -72,6 +79,7 @@ class PasswordResetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     email: str = Field(min_length=3, max_length=254)
+    locale: MailLocale | None = None
 
 
 class PasswordResetConfirmRequest(BaseModel):
@@ -180,6 +188,7 @@ class LabRegisterRequest(BaseModel):
     country: str = Field(pattern=r"^[A-Z]{2}$")
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=12, max_length=128)
+    locale: MailLocale | None = None
 
 
 class LabLoginRequest(BaseModel):

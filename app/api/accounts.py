@@ -267,6 +267,7 @@ async def register_account(
             email=email,
             password=payload.password,
             consents=_choices(payload.consents),
+            locale=payload.locale,
         )
     except AccountError as exc:
         raise _http_for(exc) from exc
@@ -351,7 +352,7 @@ async def request_password_reset(
     """Send a reset link when the address is confirmed. The body does not say which."""
     email = _parse_email(payload.email)
     await _charge_identity(identity_limiter, _identity_key("reset", email), response)
-    await account_service.request_password_reset(email)
+    await account_service.request_password_reset(email, payload.locale)
     return AccountRegisterResponse()
 
 
