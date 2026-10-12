@@ -28,10 +28,12 @@ from app.services.news_translation import (
     LocalizedFeed,
     NewsLanguage,
     NewsTranslationError,
+    NewsTranslationQuotaError,
     NewsTranslationService,
     TranslatedText,
     TranslationBatch,
 )
+from app.services.provider_errors import is_quota_error
 
 _ESEARCH = '{"esearchresult":{"idlist":["12345678"]}}'
 _EFETCH = """<?xml version="1.0"?>
@@ -492,6 +494,42 @@ async def test_failed_translation_falls_back_and_cools_down() -> None:
     clock.value += 301
     await service.localize([_card("a")], "ru")
     assert len(translator.calls) == 2
+
+
+class _QuotaTranslator(_FakeTranslator):
+    """Answers like Gemini when the project quota is used up."""
+
+    async def translate(
+        self, cards: Sequence[NewsCard], language: NewsLanguage
+    ) -> TranslationBatch:
+        self.calls.append(([card.id for card in cards], language))
+        raise NewsTranslationQuotaError("translation quota exhausted")
+
+
+async def test_quota_answer_pauses_every_language() -> None:
+    """After a 429 no language calls the provider until the pause ends."""
+    clock = _Clock()
+    translator = _QuotaTranslator()
+    service = NewsTranslationService(
+        translator, daily_token_budget=10_000, clock=clock, quota_pause_seconds=3600
+    )
+    await service.localize([_card("a")], "ru")
+    await service.wait_idle()
+    clock.value += 301
+    await service.localize([_card("a")], "de")
+    await service.localize([_card("a")], "ru")
+    await service.wait_idle()
+    assert len(translator.calls) == 1
+    clock.value += 3600
+    await service.localize([_card("a")], "de")
+    await service.wait_idle()
+    assert len(translator.calls) == 2
+
+
+def test_quota_errors_are_recognized() -> None:
+    """Gemini's 429 text is a quota error; other provider errors are not."""
+    assert is_quota_error(RuntimeError("429 RESOURCE_EXHAUSTED. {'error': {'code': 429}}"))
+    assert not is_quota_error(RuntimeError("400 INVALID_ARGUMENT model not found"))
 
 
 async def test_unrequested_ids_are_ignored() -> None:

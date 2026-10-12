@@ -27,6 +27,7 @@ const KNOWN_DETAILS: Record<string, ApiErrorKey> = {
   'Extract session expired': 'sessionExpired',
   'Upload not found': 'sessionExpired',
   'Vision provider is not configured': 'recognitionUnavailable',
+  'Recognition is temporarily unavailable': 'recognitionUnavailable',
   'Local redaction engine is not available': 'recognitionUnavailable',
   'Extraction timed out': 'recognitionTimeout',
   'Extraction failed': 'recognitionFailed',

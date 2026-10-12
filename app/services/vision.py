@@ -20,9 +20,11 @@ from app.domain.uploads import (
     RawLabExtraction,
     VisionExtractionError,
     VisionNotConfiguredError,
+    VisionQuotaError,
     VisionTimeoutError,
 )
 from app.services.gemini_budget import GEMINI_MAX_ATTEMPTS
+from app.services.provider_errors import is_quota_error
 
 logger = structlog.get_logger(__name__)
 
@@ -256,6 +258,10 @@ class GeminiExtractionProvider:
                     raise
                 except Exception as exc:
                     last_error = exc
+                    if is_quota_error(exc):
+                        # Retrying a quota answer only spends what is left.
+                        logger.warning("gemini_extract_quota", error=str(exc)[:300])
+                        raise VisionQuotaError("Gemini quota exhausted") from exc
                     logger.warning("gemini_extract_retry", error=str(exc))
                     raise VisionExtractionError(
                         "Gemini extraction failed",

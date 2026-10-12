@@ -54,6 +54,10 @@ class VisionTimeoutError(UploadError):
     """The Vision provider did not answer before the configured deadline."""
 
 
+class VisionQuotaError(UploadError):
+    """The Vision provider refused the call for quota or rate limits (HTTP 429)."""
+
+
 class VisionExtractionError(UploadError):
     """The Vision provider failed after retries."""
 
