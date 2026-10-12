@@ -1,4 +1,5 @@
 /** Account API client. Maps snake_case payloads to camelCase for the UI. */
+import { getActiveI18n } from '../i18n/catalog';
 
 export interface Account {
   publicId: string;
@@ -114,6 +115,8 @@ export interface RegisterInput {
   password: string;
   researchReuse: boolean;
   participantProfile: boolean;
+  /** The person confirmed they are 18 or older; the API refuses sign-up without it. */
+  adultConfirmed: boolean;
 }
 
 export async function registerAccount(input: RegisterInput): Promise<void> {
@@ -137,6 +140,9 @@ export async function registerAccount(input: RegisterInput): Promise<void> {
       email: input.email,
       password: input.password,
       consents,
+      adult_confirmed: input.adultConfirmed,
+      // Only chooses the language of the confirmation email.
+      locale: getActiveI18n().locale,
     }),
   });
 }
@@ -163,7 +169,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
   await requestJson<{ status: string }>('/api/v1/accounts/password-reset', {
     method: 'POST',
     headers: jsonHeaders(),
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, locale: getActiveI18n().locale }),
   });
 }
 

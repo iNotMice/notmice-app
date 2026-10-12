@@ -89,4 +89,6 @@ export const modals = {
   useLine: 'Verwendung: nur Forschungsindex',
   loincNote: 'Die neun PhenoAge-Marker verwenden das versionierte LOINC-Wörterbuch der API.',
   closeInspector: 'Prüfer schließen',
+  adultConsent: 'Ich bin mindestens 18 Jahre alt.',
+  adultRequired: 'NotMice ist nur für Erwachsene. Bestätigen Sie, dass Sie mindestens 18 Jahre alt sind.',
 };

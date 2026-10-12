@@ -53,6 +53,18 @@ export interface LabPanelData {
   parserVersion?: string;
   extractedMarkers?: ExtractedMarker[];
   tokenUsage?: TokenUsageNotice;
+  /**
+   * Index inputs the saved test does not contain. The screen fills the gaps with
+   * example values for the sliders, so no index is shown until they are supplied.
+   */
+  missingInputs?: MissingIndexInputs;
+}
+
+export interface MissingIndexInputs {
+  /** No age at the sampling date was stored with the test. */
+  age: boolean;
+  /** Canonical ids of index markers the test does not contain. */
+  markers: string[];
 }
 
 export interface ExtractedMarker {

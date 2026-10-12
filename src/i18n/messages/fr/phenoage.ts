@@ -23,4 +23,8 @@ export const phenoage = {
   contributionLead:
     'Chaque barre compare la valeur choisie à celle de l’exemple de cet écran. Ce n’est pas un intervalle imprimé par un laboratoire.',
   yearsSigned: '{sign}{value}',
+  missingTitle: 'L’indice n’est pas calculé pour cette analyse',
+  missingAge: 'L’analyse n’indique pas l’âge à la date du prélèvement. Saisissez votre âge à cette date dans le champ Âge.',
+  missingMarkers: 'L’analyse ne contient pas : {markers}. L’indice exige les neuf marqueurs ; il n’est donc pas affiché pour cette analyse.',
+  activeCount: '{count} sur 9 pris en compte',
 };

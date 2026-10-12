@@ -51,7 +51,7 @@ export const sovereignty = {
     clearConfirm: 'Alle Antworten des Fragebogens löschen? Die übrigen Kontodaten bleiben.',
     cleared: 'Antworten gelöscht.',
     needConsent: 'Setzen Sie oben unter „Ihre Einwilligungen“ das Häkchen bei „Fragebogen (freiwillig)“, dann öffnet sich das Formular hier.',
-    outOfRange: 'Bitte Werte prüfen: Geburtsjahr 1900–2015, Größe 100–250 cm, Gewicht 30–400 kg.',
+    outOfRange: 'Bitte Werte prüfen: Geburtsjahr 1900–{maxYear}, Größe 100–250 cm, Gewicht 30–400 kg.',
     cm: 'cm',
     kg: 'kg',
     previewIntro:

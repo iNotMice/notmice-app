@@ -1,3 +1,8 @@
+/** Latest birth year of someone aged 18 this calendar year; the survey is for adults only. */
+export function latestAdultBirthYear(now: Date = new Date()): number {
+  return now.getFullYear() - 18;
+}
+
 export interface SurveyCatalog {
   enabled: boolean;
   health_data_consent_version: string;

@@ -4,10 +4,12 @@ import {
   ProfileRequestError,
   deleteProfile,
   fetchProfile,
+  latestAdultBirthYear,
   saveProfile,
   type ParticipantProfile,
 } from '../api/survey';
 import type { AppMessages } from '../i18n/messages/en';
+import { fill } from '../i18n/fill';
 import { useI18n } from '../i18n/I18nProvider';
 import { CONSENT_DOCUMENT_URL } from '../config/site';
 
@@ -113,6 +115,8 @@ export const ParticipantProfileForm: React.FC<ParticipantProfileFormProps> = ({ 
     return trimmed === '' ? null : Number(trimmed);
   };
 
+  const outOfRange = fill(copy.outOfRange, { maxYear: String(latestAdultBirthYear()) });
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage(null);
@@ -120,11 +124,11 @@ export const ParticipantProfileForm: React.FC<ParticipantProfileFormProps> = ({ 
     const height = number(draft.height_cm);
     const weight = number(draft.weight_kg);
     if (
-      (year !== null && (!Number.isInteger(year) || year < 1900 || year > 2015)) ||
+      (year !== null && (!Number.isInteger(year) || year < 1900 || year > latestAdultBirthYear())) ||
       (height !== null && (!Number.isInteger(height) || height < 100 || height > 250)) ||
       (weight !== null && (Number.isNaN(weight) || weight < 30 || weight > 400))
     ) {
-      setMessage({ ok: false, text: copy.outOfRange });
+      setMessage({ ok: false, text: outOfRange });
       return;
     }
     setBusy(true);
@@ -145,7 +149,7 @@ export const ParticipantProfileForm: React.FC<ParticipantProfileFormProps> = ({ 
       setMessage({ ok: true, text: copy.saved });
     } catch (err) {
       const status = err instanceof ProfileRequestError ? err.status : 0;
-      setMessage({ ok: false, text: status === 403 ? copy.needConsent : status === 422 ? copy.outOfRange : copy.saveFailed });
+      setMessage({ ok: false, text: status === 403 ? copy.needConsent : status === 422 ? outOfRange : copy.saveFailed });
     } finally {
       setBusy(false);
     }
@@ -211,7 +215,7 @@ export const ParticipantProfileForm: React.FC<ParticipantProfileFormProps> = ({ 
       <p className="text-sm leading-6 text-[#3f4850]">{copy.formIntro}</p>
       <div className="grid gap-4 sm:grid-cols-2">
         {select('sex_at_birth', copy.sexAtBirth, catalog.sex_at_birth)}
-        {numeric('year_of_birth', copy.yearOfBirth, 1900, 2015)}
+        {numeric('year_of_birth', copy.yearOfBirth, 1900, latestAdultBirthYear())}
         <label className="block text-sm font-medium text-[#31465b]">
           {copy.country}
           <select value={draft.country} onChange={set('country')} className={field}>

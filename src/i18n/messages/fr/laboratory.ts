@@ -129,4 +129,17 @@ export const laboratory = {
       vitamin_d_deficiency: 'Carence en vitamine D',
     },
   },
+  reset: {
+    forgotPassword: 'Mot de passe oublié ?',
+    resetLead: 'Saisissez l’e-mail professionnel du compte laboratoire. S’il est confirmé, un lien de réinitialisation vous sera envoyé.',
+    resetSend: 'Envoyer le lien',
+    resetSent: 'Si l’adresse appartient à un compte laboratoire confirmé, un lien de réinitialisation a été envoyé. Vérifiez votre boîte de réception et vos courriers indésirables.',
+    newPasswordLead: 'Définissez un nouveau mot de passe pour le compte laboratoire.',
+    newPassword: 'Nouveau mot de passe',
+    repeatPassword: 'Répétez le nouveau mot de passe',
+    setPassword: 'Enregistrer le mot de passe',
+    passwordsDiffer: 'Les deux mots de passe ne correspondent pas.',
+    resetDone: 'Mot de passe modifié. Connectez-vous avec le nouveau mot de passe.',
+    backToSignIn: 'Retour à la connexion',
+  },
 };

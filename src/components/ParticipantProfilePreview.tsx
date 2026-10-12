@@ -1,4 +1,4 @@
-import type { SurveyCatalog } from '../api/survey';
+import { latestAdultBirthYear, type SurveyCatalog } from '../api/survey';
 import type { AppMessages } from '../i18n/messages/en';
 
 type ProfileSurveyCopy = AppMessages['sovereignty']['profileSurvey'];
@@ -71,7 +71,7 @@ export function ParticipantProfilePreview({
       <p className="text-sm leading-6 text-[#607286]">{copy.previewIntro}</p>
       <fieldset disabled className="mt-4 grid gap-4 sm:grid-cols-2">
         <SelectField label={copy.sexAtBirth} options={catalog.sex_at_birth} copy={copy} />
-        <NumberField label={copy.yearOfBirth} min={1900} max={2015} />
+        <NumberField label={copy.yearOfBirth} min={1900} max={latestAdultBirthYear()} />
         <SelectField label={copy.country} options={catalog.countries} copy={copy} />
         <NumberField label={copy.height} min={100} max={250} suffix="cm" />
         <NumberField label={copy.weight} min={30} max={400} suffix="kg" />

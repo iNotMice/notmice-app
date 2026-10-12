@@ -1,3 +1,5 @@
+import { getActiveI18n } from '../i18n/catalog';
+
 export type LabVerificationStatus = 'pending' | 'verified' | 'rejected';
 export type LabOrganizationType =
   | 'laboratory'
@@ -80,7 +82,24 @@ export async function registerLab(input: LabRegistrationInput): Promise<void> {
       country: input.country,
       email: input.email,
       password: input.password,
+      locale: getActiveI18n().locale,
     }),
+  });
+}
+
+/** Ask for a reset link. The answer is the same whether or not the address exists. */
+export async function requestLabPasswordReset(email: string): Promise<void> {
+  await request<{ status: string }>('/api/v1/lab/password-reset', {
+    method: 'POST',
+    body: JSON.stringify({ email, locale: getActiveI18n().locale }),
+  });
+}
+
+/** Set a new password with the one-time token from the reset link. */
+export async function confirmLabPasswordReset(token: string, password: string): Promise<void> {
+  await request<void>('/api/v1/lab/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
   });
 }
 

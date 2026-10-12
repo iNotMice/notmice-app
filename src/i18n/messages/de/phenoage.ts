@@ -23,4 +23,8 @@ export const phenoage = {
   contributionLead:
     'Jeder Balken vergleicht den eingestellten Marker mit dem Rechenbeispiel auf diesem Bildschirm. Das ist kein Intervall, das ein Labor gedruckt hat.',
   yearsSigned: '{sign}{value}',
+  missingTitle: 'Der Index wird für diesen Befund nicht berechnet',
+  missingAge: 'Im Befund fehlt das Alter am Tag der Probenahme. Tragen Sie Ihr Alter an diesem Tag im Feld Alter ein.',
+  missingMarkers: 'Im Befund fehlt: {markers}. Der Index braucht alle neun Marker und wird für diesen Befund nicht angezeigt.',
+  activeCount: '{count} von 9 berücksichtigt',
 };
