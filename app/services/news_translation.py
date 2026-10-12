@@ -20,9 +20,10 @@ from typing import Any, Literal, Protocol, cast
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.domain.news import NewsCard
+from app.services.provider_errors import is_quota_error
 from app.services.vision import gemini_response_schema, usage_token_count
 
 logger = structlog.get_logger(__name__)
@@ -48,6 +49,15 @@ class NewsTranslationError(Exception):
     def __init__(self, message: str, tokens_used: int | None = None) -> None:
         super().__init__(message)
         self.tokens_used = tokens_used
+
+
+class NewsTranslationQuotaError(NewsTranslationError):
+    """The provider refused the call for quota or rate limits (HTTP 429)."""
+
+
+def _retryable(exc: BaseException) -> bool:
+    """Retry a bad answer once, but never hammer a provider that is out of quota."""
+    return isinstance(exc, NewsTranslationError) and not isinstance(exc, NewsTranslationQuotaError)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +137,7 @@ class GeminiNewsTranslator:
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(_MAX_ATTEMPTS),
             wait=wait_exponential(multiplier=0.5, min=0.5, max=2),
-            retry=retry_if_exception_type(NewsTranslationError),
+            retry=retry_if_exception(_retryable),
             reraise=True,
         ):
             with attempt:
@@ -175,6 +185,8 @@ class GeminiNewsTranslator:
                 error_type=type(exc).__name__,
                 detail=str(exc)[:300],
             )
+            if is_quota_error(exc):
+                raise NewsTranslationQuotaError("translation quota exhausted") from exc
             raise NewsTranslationError("translation call failed") from exc
         tokens = usage_token_count(getattr(response, "usage_metadata", None))
         return TranslationBatch(items=_parse(response, cards, tokens), tokens=tokens)
@@ -239,6 +251,7 @@ class NewsTranslationService:
         wait_seconds: float = 3,
         max_parallel_calls: int = 4,
         retry_cooldown_seconds: float = 300,
+        quota_pause_seconds: float = 3600,
         max_entries: int = 3000,
         today: Callable[[], date] | None = None,
         clock: Callable[[], float] | None = None,
@@ -247,6 +260,10 @@ class NewsTranslationService:
         self._daily_token_budget = max(daily_token_budget, 0)
         self._wait_seconds = max(wait_seconds, 0)
         self._retry_cooldown_seconds = retry_cooldown_seconds
+        # The same Gemini key reads uploaded lab reports. After a quota answer every
+        # language waits, so news translation does not eat the quota uploads need.
+        self._quota_pause_seconds = quota_pause_seconds
+        self._quota_paused_until = 0.0
         self._max_entries = max_entries
         self._today = today if today is not None else lambda: datetime.now(UTC).date()
         self._clock = clock if clock is not None else time.monotonic
@@ -308,6 +325,8 @@ class NewsTranslationService:
             return
         if self._clock() < self._cooldown_until.get(language, 0):
             return
+        if self._quota_paused():
+            return
         if not self._has_budget():
             return
         self._jobs[language] = asyncio.create_task(self._run(list(cards), language))
@@ -333,11 +352,21 @@ class NewsTranslationService:
     async def _translate_batch(self, cards: Sequence[NewsCard], language: NewsLanguage) -> bool:
         """Translate one batch and cache it at once. False when the batch failed."""
         translator = self._translator
-        if translator is None or not self._has_budget():
+        if translator is None or self._quota_paused() or not self._has_budget():
             return False
         try:
             async with self._calls:
+                if self._quota_paused():
+                    return False
                 batch = await translator.translate(cards, language)
+        except NewsTranslationQuotaError:
+            self._quota_paused_until = self._clock() + self._quota_pause_seconds
+            logger.warning(
+                "news_translation_quota_paused",
+                language=language,
+                pause_seconds=self._quota_pause_seconds,
+            )
+            return False
         except NewsTranslationError as exc:
             self._charge(exc.tokens_used)
             logger.warning(
@@ -353,6 +382,9 @@ class NewsTranslationService:
             "news_translated", language=language, cards=len(batch.items), tokens=batch.tokens
         )
         return True
+
+    def _quota_paused(self) -> bool:
+        return self._clock() < self._quota_paused_until
 
     def _key(self, card: NewsCard, language: str) -> tuple[str, str, str]:
         return (card.id, language, _fingerprint(card))

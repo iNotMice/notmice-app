@@ -43,6 +43,7 @@ from app.domain.uploads import (
     UploadError,
     VisionExtractionError,
     VisionNotConfiguredError,
+    VisionQuotaError,
     VisionTimeoutError,
     usable_chronological_age,
 )
@@ -114,6 +115,11 @@ def _http_for(exc: UploadError) -> HTTPException:
         return HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Vision provider is not configured",
+        )
+    if isinstance(exc, VisionQuotaError):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Recognition is temporarily unavailable",
         )
     if isinstance(exc, VisionTimeoutError):
         return HTTPException(
