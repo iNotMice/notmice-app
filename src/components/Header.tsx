@@ -31,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const desktopNavRef = useRef<HTMLElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pointer type of the press that is about to click a menu trigger.
+  const menuPointer = useRef<string | null>(null);
 
   const cancelMenuClose = () => {
     if (closeTimer.current !== null) {
@@ -237,7 +239,20 @@ export const Header: React.FC<HeaderProps> = ({
                     type="button"
                     aria-expanded={isOpen}
                     aria-haspopup="menu"
-                    onClick={() => setOpenMenu(isOpen ? null : group.id)}
+                    onPointerDown={(event) => {
+                      menuPointer.current = event.pointerType;
+                    }}
+                    onClick={() => {
+                      // A mouse has already opened the menu on hover, so its click must
+                      // not close it. Touch and keyboard still toggle.
+                      const byMouse = menuPointer.current === 'mouse';
+                      menuPointer.current = null;
+                      if (byMouse) {
+                        openMenuNow(group.id);
+                        return;
+                      }
+                      setOpenMenu(isOpen ? null : group.id);
+                    }}
                     className={`${linkClass(isActive)} inline-flex items-center gap-1`}
                   >
                     {group.label}

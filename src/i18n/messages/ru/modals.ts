@@ -51,6 +51,8 @@ export const modals = {
   resetSent: 'Если адрес подтвержден, ссылка для сброса уже отправлена.',
   newPassword: 'Новый пароль',
   confirmPassword: 'Повторите пароль',
+  resetDoneTitle: 'Пароль изменен',
+  resetDoneBody: 'Войдите с почтой и новым паролем.',
   resetAction: 'Сохранить пароль',
   phraseStill: 'Войти по фразе восстановления',
   passwordTooShort: 'Нужно не меньше 12 символов.',

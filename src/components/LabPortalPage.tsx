@@ -11,6 +11,7 @@ import {
 } from '../api/labAccounts';
 import { CohortExplorer } from './CohortExplorer';
 import { useI18n } from '../i18n/I18nProvider';
+import { localizeApiError } from '../i18n/apiErrors';
 import type { AppMessages } from '../i18n/messages/en';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -60,7 +61,7 @@ export function LabPortalPage() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : copy.loadFailed);
+          setError(localizeApiError(err, copy.loadFailed));
           setLoading(false);
         }
       });
@@ -98,8 +99,8 @@ export function LabPortalPage() {
         setPassword('');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : copy.requestFailed;
-      setError(message === 'Work email required' ? copy.workEmailRequired : message);
+      const workEmail = err instanceof Error && err.message === 'Work email required';
+      setError(workEmail ? copy.workEmailRequired : localizeApiError(err, copy.requestFailed));
     } finally {
       setBusy(false);
     }
@@ -114,7 +115,7 @@ export function LabPortalPage() {
       setMode('login');
       setNotice(copy.signedOut);
     } catch (err) {
-      setError(err instanceof Error ? err.message : copy.requestFailed);
+      setError(localizeApiError(err, copy.requestFailed));
     } finally {
       setBusy(false);
     }
@@ -127,7 +128,7 @@ export function LabPortalPage() {
       setAccount(await acceptLabDua());
       setNotice(copy.duaAccepted);
     } catch (err) {
-      setError(err instanceof Error ? err.message : copy.requestFailed);
+      setError(localizeApiError(err, copy.requestFailed));
     } finally {
       setBusy(false);
     }

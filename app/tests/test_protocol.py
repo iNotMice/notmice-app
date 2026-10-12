@@ -213,6 +213,17 @@ async def test_owner_can_list_replace_and_delete_only_their_rows() -> None:
     assert store.rows[owner.id][0].title == "Magnesium citrate"
 
 
+async def test_rejected_personal_text_names_the_reason_without_echoing_it() -> None:
+    """The screen needs "Forbidden field" to explain the refusal; the text is not echoed."""
+    store = InMemoryProtocolStore()
+    transport = ASGITransport(app=_application(store, _user()))
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        personal = await client.post("/api/v1/protocol", json=_body(note="Asked Maria Ivanova"))
+    assert personal.status_code == 400
+    assert personal.json()["detail"] == "Forbidden field"
+    assert "Maria" not in personal.text
+
+
 async def test_journal_requires_a_session() -> None:
     """A missing cookie is not a journal."""
     application = create_app()

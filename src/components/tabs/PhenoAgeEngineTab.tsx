@@ -7,6 +7,10 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { LifestyleLongevityAdvisor } from '../LifestyleLongevityAdvisor';
 import { ShieldCheck, Save, RotateCcw } from 'lucide-react';
 
+/** Age range the input accepts; outside it the last valid age stays in the calculation. */
+const MIN_AGE = 18;
+const MAX_AGE = 95;
+
 interface PhenoAgeEngineTabProps {
   calculation: PhenoAgeCalculation;
   scoreError: string | null;
@@ -14,6 +18,8 @@ interface PhenoAgeEngineTabProps {
   onUpdateBiomarkers: (biomarkers: Record<string, number>) => void;
   chronologicalAge: number;
   onUpdateChronologicalAge: (age: number) => void;
+  /** Put back the values and age of the panel that is open, undoing slider moves. */
+  onResetToPanel: () => void;
   onSaveToHistory: () => void;
   setActiveTab: (tab: TabType) => void;
   onOpenProofModal: () => void;
@@ -26,6 +32,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
   onUpdateBiomarkers,
   chronologicalAge,
   onUpdateChronologicalAge,
+  onResetToPanel,
   onSaveToHistory,
   setActiveTab,
   onOpenProofModal,
@@ -33,6 +40,16 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
   const { m } = useI18n();
   const copy = m.phenoage;
   const [savedNotification, setSavedNotification] = useState(false);
+  // The typed age stays as text so the field can be cleared and retyped; only an
+  // age inside the index's range reaches the calculation.
+  const [ageDraft, setAgeDraft] = useState(String(chronologicalAge));
+  const [ageSource, setAgeSource] = useState(chronologicalAge);
+  if (ageSource !== chronologicalAge) {
+    setAgeSource(chronologicalAge);
+    setAgeDraft(String(chronologicalAge));
+  }
+  const ageValue = Number.parseFloat(ageDraft);
+  const ageInRange = Number.isFinite(ageValue) && ageValue >= MIN_AGE && ageValue <= MAX_AGE;
 
   const handleSliderChange = (id: string, val: number) => {
     onUpdateBiomarkers({
@@ -51,17 +68,7 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
   };
 
   const handleResetToBaseline = () => {
-    onUpdateBiomarkers({
-      albumin: 46.2,
-      creatinine: 0.85,
-      glucose: 84.0,
-      crp: 0.80,
-      lymphocyte: 33.2,
-      mcv: 88.0,
-      rdw: 12.0,
-      alp: 58.0,
-      wbc: 5.2,
-    });
+    onResetToPanel();
   };
 
   return (
@@ -141,12 +148,22 @@ export const PhenoAgeEngineTab: React.FC<PhenoAgeEngineTabProps> = ({
             <span className="text-xs text-[#565e74]">{copy.adjustAge}</span>
             <input
               type="number"
-              min="18"
-              max="95"
+              min={MIN_AGE}
+              max={MAX_AGE}
               step="0.5"
-              value={chronologicalAge}
-              onChange={(e) => onUpdateChronologicalAge(parseFloat(e.target.value) || 40)}
-              className="w-16 px-2 py-1 bg-[#eff4ff] border border-[#cbd5e1] rounded font-['JetBrains_Mono'] text-xs font-bold text-[#0b1c30] text-right"
+              value={ageDraft}
+              aria-invalid={!ageInRange}
+              onChange={(e) => {
+                setAgeDraft(e.target.value);
+                const next = Number.parseFloat(e.target.value);
+                if (Number.isFinite(next) && next >= MIN_AGE && next <= MAX_AGE) {
+                  onUpdateChronologicalAge(next);
+                }
+              }}
+              onBlur={() => setAgeDraft(String(chronologicalAge))}
+              className={`w-16 px-2 py-1 bg-[#eff4ff] border rounded font-['JetBrains_Mono'] text-xs font-bold text-[#0b1c30] text-right ${
+                ageInRange ? 'border-[#cbd5e1]' : 'border-[#ba1a1a]'
+              }`}
             />
           </div>
         </div>

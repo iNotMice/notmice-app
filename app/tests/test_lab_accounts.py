@@ -326,6 +326,15 @@ async def test_lab_me_route_uses_only_lab_session_cookie() -> None:
         assert token in link_page.text
         assert "no-store" in link_page.headers["cache-control"]
         assert "frame-ancestors 'none'" in link_page.headers["content-security-policy"]
+        # The proxy adds ``script-src 'self'``; an inline script would be blocked there.
+        assert "script-src 'self'" in link_page.headers["content-security-policy"]
+        assert '<script src="/api/v1/lab/confirm.js"' in link_page.text
+        assert "<script>" not in link_page.text
+        script = await client.get("/api/v1/lab/confirm.js")
+        assert script.status_code == 200
+        assert script.headers["content-type"].startswith("text/javascript")
+        assert "/api/v1/lab/confirm" in script.text
+        assert token not in script.text
         confirmed = await client.post("/api/v1/lab/confirm", json={"token": token})
         assert confirmed.status_code == 200
         assert LAB_SESSION_COOKIE_NAME in confirmed.cookies

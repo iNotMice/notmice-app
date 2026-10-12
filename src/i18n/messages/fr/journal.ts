@@ -30,7 +30,8 @@ export const journal = {
   ongoing: 'Sans date de fin',
   loading: 'Chargement des entrées…',
   errorGeneric: 'Impossible d’enregistrer l’entrée.',
-  errorForbidden: 'Ce texte ne peut pas être enregistré.',
+  errorForbidden:
+    'Ce texte ne peut pas être enregistré. Retirez les noms, adresses e-mail, numéros de téléphone et autres données personnelles.',
   errorEndBeforeStart: 'La date de fin précède la date de début.',
   deleteConfirm: 'Supprimer cette entrée ?',
   listTitle: 'Entrées',

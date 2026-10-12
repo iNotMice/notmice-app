@@ -14,6 +14,7 @@ import { LabImageCrop, RedactionConfirm } from '../LabImagePrep';
 import { TokenUsageBanner } from '../TokenUsageBanner';
 import { fill } from '../../i18n/fill';
 import { getActiveI18n } from '../../i18n/catalog';
+import { localizeApiError } from '../../i18n/apiErrors';
 import { useI18n } from '../../i18n/I18nProvider';
 import {
   UploadCloud,
@@ -87,7 +88,7 @@ export const UploadLabTab: React.FC<UploadLabTabProps> = ({
       setUploadError(null);
       return;
     }
-    setUploadError(err instanceof Error ? err.message : getActiveI18n().messages.shell.extractionFailed);
+    setUploadError(localizeApiError(err, getActiveI18n().messages.shell.extractionFailed));
   };
 
   const loadPresetPanel = (

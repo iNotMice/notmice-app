@@ -51,6 +51,8 @@ export const modals = {
   resetSent: 'Si l’adresse est confirmée, un lien de réinitialisation vient d’être envoyé.',
   newPassword: 'Nouveau mot de passe',
   confirmPassword: 'Confirmer le mot de passe',
+  resetDoneTitle: 'Mot de passe modifié',
+  resetDoneBody: 'Connectez-vous avec votre e-mail et le nouveau mot de passe.',
   resetAction: 'Enregistrer le mot de passe',
   phraseStill: 'Se connecter avec une phrase de récupération',
   passwordTooShort: 'Au moins 12 caractères.',

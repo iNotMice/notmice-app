@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, KeyRound, Copy, Check, Download, LogOut, ShieldAlert, LoaderCircle } from 'lucide-react';
 import { fill } from '../i18n/fill';
 import { useI18n } from '../i18n/I18nProvider';
+
+/** Info shown instead of, or above, the email form after an auth step. */
+export type AuthNotice = 'check-email' | 'reset-sent' | 'password-reset';
 
 interface SeedPhraseModalProps {
   isOpen: boolean;
@@ -11,7 +14,7 @@ interface SeedPhraseModalProps {
   isAuthenticated: boolean;
   isBusy: boolean;
   error: string | null;
-  notice: 'check-email' | 'reset-sent' | null;
+  notice: AuthNotice | null;
   resetToken: string | null;
   confirmToken: string | null;
   /** Which form to show when the dialog opens. */
@@ -24,6 +27,8 @@ interface SeedPhraseModalProps {
   onLogin: (mnemonic: string) => void;
   onLogout: () => void;
   onConfirmPhraseSaved: () => void;
+  /** Clears a server error when the visitor switches between sign-in, sign-up and reset. */
+  onClearError: () => void;
 }
 
 export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
@@ -46,6 +51,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   onLogin,
   onLogout,
   onConfirmPhraseSaved,
+  onClearError,
 }) => {
   const { m } = useI18n();
   const copy = m.modals;
@@ -62,6 +68,20 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
   const [researchChecked, setResearchChecked] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const formErrorRef = useRef<HTMLParagraphElement>(null);
+
+  // On a phone the submit button sits below the fold, so bring a new error into view.
+  useEffect(() => {
+    const target = formErrorRef.current ?? errorRef.current;
+    target?.scrollIntoView({ block: 'nearest' });
+  }, [error, formError]);
+
+  const switchMode = (next: 'login' | 'register' | 'reset') => {
+    setFormError(null);
+    onClearError();
+    setMode(next);
+  };
 
   useEffect(() => {
     setPhraseCaptured(false);
@@ -134,6 +154,15 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
       setFormError(copy.passwordTooShort);
       return;
     }
+    // A reset link opens the dialog in sign-in mode; the token decides what to submit.
+    if (resetToken) {
+      if (password !== passwordAgain) {
+        setFormError(copy.passwordsDiffer);
+        return;
+      }
+      onResetPassword(password);
+      return;
+    }
     if (mode === 'register') {
       if (password !== passwordAgain) {
         setFormError(copy.passwordsDiffer);
@@ -144,10 +173,6 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
         return;
       }
       onRegister(email.trim(), password, researchChecked, profileChecked);
-      return;
-    }
-    if (mode === 'reset' && resetToken) {
-      onResetPassword(password);
       return;
     }
     if (mode === 'reset') {
@@ -198,7 +223,11 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
 
         <div className="p-6 space-y-4">
           {error && (
-            <div className="bg-[#fff1f2] border border-[#fecdd3] p-3 rounded text-xs text-[#ba1a1a]">
+            <div
+              ref={errorRef}
+              role="alert"
+              className="scroll-mt-20 bg-[#fff1f2] border border-[#fecdd3] p-3 rounded text-xs text-[#ba1a1a]"
+            >
               {error}
             </div>
           )}
@@ -290,7 +319,9 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                 <ShieldAlert className="w-5 h-5 text-[#006194] shrink-0 mt-0.5" />
                 <div>
                   <span className="font-semibold text-[#0b1c30] block">
-                    {notice === 'check-email' || confirmToken
+                    {notice === 'password-reset'
+                      ? copy.resetDoneTitle
+                      : notice === 'check-email' || confirmToken
                       ? copy.checkEmailTitle
                       : notice === 'reset-sent'
                         ? copy.resetTitle
@@ -300,7 +331,9 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                             ? copy.registerLead
                             : copy.noEmail}
                   </span>
-                  {notice === 'check-email' || confirmToken
+                  {notice === 'password-reset'
+                    ? copy.resetDoneBody
+                    : notice === 'check-email' || confirmToken
                     ? copy.checkEmailBody
                     : notice === 'reset-sent'
                       ? copy.resetSent
@@ -313,7 +346,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
               </div>
 
               {formError && (
-                <p className="text-xs text-[#ba1a1a]" role="alert">
+                <p ref={formErrorRef} className="scroll-mt-20 text-xs text-[#ba1a1a]" role="alert">
                   {formError}
                 </p>
               )}
@@ -329,7 +362,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                 </button>
               )}
 
-              {notice === null && !confirmToken && (
+              {(notice === null || notice === 'password-reset') && !confirmToken && (
                 <form
                   className="space-y-3"
                   onSubmit={(event) => {
@@ -367,6 +400,22 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                         className="mt-1 w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-3 py-2 text-sm text-[#0b1c30] focus:outline-none focus:border-[#006194]"
                       />
                       <span className="mt-1 block text-xs text-[#565e74]">{copy.passwordHint}</span>
+                    </label>
+                  )}
+                  {resetToken && (
+                    <label className="block">
+                      <span className="font-['Inter'] text-xs font-semibold text-[#0b1c30] uppercase tracking-wider">
+                        {copy.confirmPassword}
+                      </span>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        value={passwordAgain}
+                        onChange={(event) => setPasswordAgain(event.target.value)}
+                        minLength={12}
+                        required
+                        className="mt-1 w-full rounded-lg border border-[#e2e8f0] bg-[#f8f9ff] px-3 py-2 text-sm text-[#0b1c30] focus:outline-none focus:border-[#006194]"
+                      />
                     </label>
                   )}
                   {mode === 'register' && !resetToken && (
@@ -442,26 +491,20 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                 </form>
               )}
 
-              {notice === null && !resetToken && (
+              {(notice === null || notice === 'password-reset') && !resetToken && (
                 <div className="flex flex-wrap gap-3 text-xs">
                   {mode === 'login' && (
                     <>
                       <button
                         type="button"
-                        onClick={() => {
-                          setFormError(null);
-                          setMode('register');
-                        }}
+                        onClick={() => switchMode('register')}
                         className="text-[#006194] font-semibold cursor-pointer"
                       >
                         {copy.needAccount}
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setFormError(null);
-                          setMode('reset');
-                        }}
+                        onClick={() => switchMode('reset')}
                         className="text-[#006194] font-semibold cursor-pointer"
                       >
                         {copy.forgotPassword}
@@ -471,10 +514,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                   {mode !== 'login' && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setFormError(null);
-                        setMode('login');
-                      }}
+                      onClick={() => switchMode('login')}
                       className="text-[#006194] font-semibold cursor-pointer"
                     >
                       {copy.haveAccount}
@@ -490,7 +530,7 @@ export const SeedPhraseModal: React.FC<SeedPhraseModalProps> = ({
                 </div>
               )}
 
-              {showPhrase && notice === null && !resetToken && (
+              {showPhrase && (notice === null || notice === 'password-reset') && !resetToken && (
                 <div className="pt-1">
                   <label className="font-['Inter'] text-xs font-semibold text-[#0b1c30] uppercase tracking-wider block mb-2">
                     {copy.restore}

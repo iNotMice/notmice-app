@@ -52,6 +52,8 @@ export const modals = {
   resetSent: 'Wenn die Adresse bestätigt ist, ist ein Link zum Zurücksetzen unterwegs.',
   newPassword: 'Neues Passwort',
   confirmPassword: 'Passwort bestätigen',
+  resetDoneTitle: 'Passwort geändert',
+  resetDoneBody: 'Melden Sie sich mit Ihrer E-Mail und dem neuen Passwort an.',
   resetAction: 'Passwort setzen',
   phraseStill: 'Mit Wiederherstellungsphrase anmelden',
   passwordTooShort: 'Mindestens 12 Zeichen verwenden.',

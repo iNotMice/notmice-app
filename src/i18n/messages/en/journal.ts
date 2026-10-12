@@ -30,7 +30,8 @@ export const journal = {
   ongoing: 'No end date',
   loading: 'Loading entries…',
   errorGeneric: 'Could not save the entry.',
-  errorForbidden: 'That text cannot be stored.',
+  errorForbidden:
+    'That text cannot be stored. Remove names, email addresses, phone numbers and other personal details.',
   errorEndBeforeStart: 'The end date is before the start date.',
   deleteConfirm: 'Delete this entry?',
   listTitle: 'Entries',

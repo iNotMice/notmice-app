@@ -10,6 +10,7 @@ import {
 } from '../api/labCohorts';
 import { LOINC_TO_MARKER } from '../data/loincIndex';
 import { getActiveI18n } from '../i18n/catalog';
+import { localizeApiError } from '../i18n/apiErrors';
 import { markerLabel } from '../i18n/markerLabels';
 import type { AppMessages } from '../i18n/messages/en';
 
@@ -199,7 +200,7 @@ export function CohortExplorer({
     try {
       setFacets(await fetchCohortFacets());
     } catch (err) {
-      setError(err instanceof Error ? err.message : copy.loadFacetsFailed);
+      setError(localizeApiError(err, copy.loadFacetsFailed));
     } finally {
       setLoadingFacets(false);
     }
@@ -243,7 +244,7 @@ export function CohortExplorer({
       const nextResult = await queryCohort(query);
       setResult(nextResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : copy.queryFailed);
+      setError(localizeApiError(err, copy.queryFailed));
     } finally {
       setSearching(false);
     }

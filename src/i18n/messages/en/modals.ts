@@ -51,6 +51,8 @@ export const modals = {
   resetSent: 'If the address is confirmed, a reset link is on its way.',
   newPassword: 'New password',
   confirmPassword: 'Confirm password',
+  resetDoneTitle: 'Password changed',
+  resetDoneBody: 'Sign in with your email and the new password.',
   resetAction: 'Set password',
   phraseStill: 'Sign in with a recovery phrase',
   passwordTooShort: 'Use at least 12 characters.',

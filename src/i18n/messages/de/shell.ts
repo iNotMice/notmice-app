@@ -11,6 +11,8 @@ export const shell = {
   levineWeights: 'Koeffizienten nach Levine 2018',
   exampleBanner:
     'Sie sehen ein fiktives Beispiel: Alexei, 45. Laden Sie Ihren eigenen Befund hoch, um Ihre Werte zu sehen.',
+  sampleBanner:
+    'Sie sehen ein fiktives Muster. Laden Sie Ihren eigenen Befund hoch, um Ihre Werte zu sehen.',
   exampleBannerAction: 'Befund hochladen',
   footerBrand: '{brand}',
   footerNonDiagnostic:
@@ -35,4 +37,35 @@ export const shell = {
   unknownLaboratory: 'Unbekanntes Labor',
   years: 'Jahre',
   yrs: 'J.',
+  apiErrors: {
+    invalidCredentials: 'E-Mail oder Passwort falsch, oder die Adresse ist noch nicht bestätigt.',
+    linkExpired:
+      'Dieser Link ist abgelaufen oder wurde bereits verwendet. Melden Sie sich mit E-Mail und Passwort an oder fordern Sie einen neuen Link an.',
+    rateLimited: 'Zu viele Versuche. Bitte warten Sie 15 Minuten.',
+    invalidEmail: 'Bitte prüfen Sie die E-Mail-Adresse.',
+    consentMissing: 'Die Einwilligung zur Verarbeitung von Gesundheitsdaten ist erforderlich.',
+    consentOutdated:
+      'Der Einwilligungstext wurde aktualisiert. Laden Sie die Seite neu und bestätigen Sie erneut.',
+    invalidPhrase: 'Die Wiederherstellungsphrase ist nicht korrekt.',
+    notSignedIn: 'Ihre Sitzung ist beendet. Bitte melden Sie sich erneut an.',
+    healthConsentRequired:
+      'Um Befunde hochzuladen, aktivieren Sie die Einwilligung für Gesundheitsdaten unter Konto → Daten und Einwilligungen.',
+    labConfirmRequired: 'Bitte bestätigen Sie zuerst die E-Mail-Adresse des Labors.',
+    dataAccessClosed: 'Der Datenzugang ist für diese Organisation noch nicht freigegeben.',
+    unsupportedFile:
+      'Dieses Dateiformat wird nicht unterstützt. Verwenden Sie PDF, PNG, JPG oder TIFF.',
+    fileTooLarge: 'Die Datei ist größer als 15 MB.',
+    emptyFile: 'Die Datei ist leer.',
+    unreadableImage:
+      'Das Bild konnte nicht gelesen werden. Verwenden Sie ein schärferes Foto oder ein PDF.',
+    noMarkers: 'In dieser Datei wurden keine Zahlenwerte gefunden.',
+    sessionExpired: 'Die Sitzung zum Hochladen ist abgelaufen. Laden Sie die Datei erneut hoch.',
+    recognitionUnavailable:
+      'Das Auslesen von Befunden ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.',
+    recognitionTimeout:
+      'Das Auslesen hat zu lange gedauert. Versuchen Sie es erneut oder schneiden Sie das Foto auf die Ergebnistabelle zu.',
+    recognitionFailed:
+      'Der Befund konnte nicht gelesen werden. Versuchen Sie es erneut oder laden Sie eine deutlichere Datei hoch.',
+    serverUnavailable: 'Der Server antwortet nicht. Bitte in einigen Minuten erneut versuchen.',
+  },
 };
